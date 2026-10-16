@@ -1,0 +1,16 @@
+{
+	"manifestVersion": 1,
+	"id": "invalid",
+	"name": "Broken on purpose",
+	"board": { "image": "../../board.webp", "inset": { "top": 0, "right": 0, "bottom": 0 } },
+	"pieces": {
+		"image": "pieces.webp",
+		"columns": 6,
+		"rows": 2,
+		"order": ["k", "q"],
+		"rowFor": { "w": 0, "b": 1 }
+	},
+	"moveIndicator": { "image": "indicator-move.webp" },
+	"font": { "family": "Nope", "files": [] },
+	"theme": {}
+}

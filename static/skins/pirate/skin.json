@@ -13,7 +13,8 @@
     "order": ["k", "q", "b", "n", "r", "p"],
     "rowFor": { "w": 0, "b": 1 },
     "scale": 0.95,
-    "anchorY": 0.02
+    "anchorY": 0.02,
+    "anchorYFor": { "p": 0.10 }
   },
   "moveIndicator": {
     "image": "indicator-move.webp",

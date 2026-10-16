@@ -66,7 +66,7 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
 - Flipping changes only how the board is rendered. Game state is unaffected. A drag in progress is cancelled.
 - **Coordinates** (files a–h, ranks 1–8) are drawn in the **skin font** using theme colours:
   - **`board.inset` > 0:** labels sit **in the frame**. Files are centred under each column in the bottom frame strip, and ranks are centred beside each row in the left frame strip. Font size is a fraction of the inset (default 0.55 × inset height; overridable through `coordinates.fontScale`).
-  - **`board.inset` = 0:** labels sit in a **gutter outside** the board image, along the bottom and left edges. The gutter width equals `coordinates.gutter` × square size (default 0.35). The board shrinks to make room, so the board plus its gutter always fits the available width.
+  - **`board.inset` = 0:** labels sit in a **gutter outside** the board image, along the bottom and left edges. The gutter width equals `coordinates.gutter` × square size (default 0.35). The board shrinks to make room, so the board plus its gutter always fits the available width. Label size is 0.75 × the gutter width. When coordinates are hidden there is no gutter and the board fills the box.
   - Labels follow orientation: from Black's side, files read h→a and ranks read 1→8 top to bottom.
   - Colour comes from `theme.coordText`, with an optional `theme.coordShadow` (text-shadow) for legibility on textured frames.
 - **Setting:** "Show coordinates" (on by default).
@@ -197,28 +197,30 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 
 ```jsonc
 {
-	"id": "pirate",
+	"manifestVersion": 1, // required; bumped on incompatible format changes
+	"id": "pirate", // must match the folder name
 	"name": "Pirate",
 
 	"board": {
-		"image": "board.png",
+		"image": "board.webp",
 		// Playing-area offset as a fraction of the image size.
 		// 0 on all sides = no frame; coordinates then render outside the board.
 		"inset": { "top": 0.06, "right": 0.06, "bottom": 0.06, "left": 0.06 }
 	},
 
 	"pieces": {
-		"image": "pieces.png",
+		"image": "pieces.webp",
 		"columns": 6,
 		"rows": 2,
 		"order": ["k", "q", "b", "n", "r", "p"], // column order in the sheet
 		"rowFor": { "w": 0, "b": 1 }, // sheet row per side
 		"scale": 0.95, // sprite size relative to a square
-		"anchorY": 0.02 // lift from the square bottom
+		"anchorY": 0.02, // lift from the square bottom
+		"anchorYFor": { "p": 0.1 } // optional per-type override (short pawns sit too low on the shared baseline)
 	},
 
 	"moveIndicator": {
-		"image": "move-indicator.webp",
+		"image": "indicator-move.webp",
 		"scale": 0.8, // relative to a square
 		"opacity": 0.75,
 		"captureScale": 1.1 // fallback capture rendering
@@ -226,16 +228,16 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 
 	// Optional. If absent, moveIndicator @ captureScale is used.
 	"captureIndicator": {
-		"image": "capture-indicator.webp",
+		"image": "indicator-capture.webp",
 		"scale": 0.9,
 		"opacity": 0.6
 	},
 
 	"font": {
 		"family": "Pirata One",
-		"files": [{ "src": "fonts/PirataOne-Regular.woff2", "weight": 400, "style": "normal" }],
+		"files": [{ "src": "font/PirataOne-Regular.woff2", "weight": 400, "style": "normal" }],
 		"fallback": "Georgia, serif",
-		"license": "fonts/OFL.txt"
+		"license": "font/OFL.txt"
 	},
 
 	"coordinates": {
@@ -256,6 +258,8 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 		"highlightCheck": "rgba(200,30,30,0.55)",
 		"coordText": "#f3e2b8",
 		"coordShadow": "0 1px 2px rgba(0,0,0,0.8)",
+		"pieceShadow": "drop-shadow(0 0 1px rgba(0,0,0,0.9)) drop-shadow(0 0 1px rgba(0,0,0,0.9)) drop-shadow(0.25cqw 0.8cqw 1cqw rgba(0,0,0,0.55))", // CSS filter: outline + diffuse shadow (cqw = 1% of board width)
+		"pieceShadowBlack": "drop-shadow(0 0 1px rgba(255,255,255,0.8)) …", // optional per-side override (also pieceShadowWhite)
 		"dragShadow": "0 8px 16px rgba(0,0,0,0.5)",
 		"scrim": "rgba(0,0,0,0.55)" // drawer / dialog backdrop
 	},
@@ -274,6 +278,13 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 	}
 }
 ```
+
+Validation rules (`src/lib/skins/schema.ts`):
+
+- Every problem is reported with its JSON path (e.g. `pieces.order: expected each of …`), so a broken manifest can be fixed in one pass.
+- Asset paths must be relative paths inside the skin folder with an extension: no leading `/`, no scheme, no `..`.
+- `board.inset` sides are fractions in [0, 0.45]. `pieces.order` must list each of `k q b n r p` exactly once. `pieces.rowFor` rows must exist in the sheet.
+- Optional fields get defaults: `pieces.scale` 1, `pieces.anchorY` 0, `pieces.anchorYFor` each type at `anchorY`, indicator `scale` 1, `moveIndicator.opacity` 0.75, `moveIndicator.captureScale` 1.1, `captureIndicator.opacity` 0.6, font file `weight` 400 and `style` normal, `font.fallback` serif, `coordinates.fontScale` 0.55, `coordinates.gutter` 0.35, `theme.coordShadow` none, `theme.pieceShadow` a firm dark outline plus a soft drop shadow, `theme.pieceShadowWhite`/`pieceShadowBlack` the value of `pieceShadow`, `labels` empty. Every other `theme` key is required.
 
 ### 5.2 Fonts: bundled with the skin (decision)
 
@@ -317,9 +328,10 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 
 - **Board:** the board image is the background of a square container. An 8×8 grid is positioned inside it using `inset` (as percentages). Highlights, indicators and pieces all align to that grid, so the layout is resolution-independent.
 - **Pieces:** a `<div>` per piece uses the sprite sheet as `background-image`, with `background-size: 600% 200%` and `background-position` computed from (column, row). No slicing step is needed.
+- **Piece contrast:** every sprite gets `filter: var(--piece-shadow-white|black)` (`theme.pieceShadowWhite`/`pieceShadowBlack`, defaulting to `theme.pieceShadow`). `drop-shadow()` follows the sprite's alpha, so stacking a 0-offset 1 px shadow (outline) with a soft offset one (depth) gives an antialiased edge. Stacked filters compound, so two 1 px outlines read firmer than one. Dark pieces on dark squares need a **light** rim instead (Marble's `pieceShadowBlack`), which is why the shadow can differ per side.
 - **Flip:** the square→grid mapping is mirrored. The board image itself is not rotated, because the board looks the same either way round and rotating the image would put the frame's shading upside-down.
 - **Theme:** `theme` keys are written to CSS custom properties (`--bg`, `--accent`, `--coord-text`, …) on `:root`. Components use only these variables.
-- **Font:** loaded through `FontFace` from the manifest and exposed as `--font-skin`. All UI text uses `var(--font-skin), var(--font-fallback)`.
+- **Font:** loaded through `FontFace` from the manifest and exposed as `--skin-font` (the quoted family) plus `--font-fallback`. All UI text uses `var(--skin-font), var(--font-fallback)`, through Tailwind's `font-skin`. The runtime variable is not called `--font-skin`, because that name is Tailwind's theme variable for the `font-skin` utility and would reference itself.
 - **Layers** (bottom to top):
   1. board image
   2. square highlights
@@ -330,7 +342,8 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 
 ### 5.5 Skin registry & loading
 
-- `src/lib/skins/index.ts` lists the available skin ids.
+- `src/lib/skins/index.ts` lists the available skin ids. A skin's folder URL comes from `asset('skins/<id>/skin.json')`, which is typed against the files in `static/`, so registering an id without a manifest fails `npm run check`.
+- `loader.ts` fetches, validates and preloads (steps 1–3). The store in `skin.svelte.ts` applies and swaps (steps 4–5), and a newer load supersedes one still in flight.
 - Loading a skin means:
   1. fetch `skin.json`
   2. validate it (a hand-written type guard is enough; zod is optional)
@@ -338,7 +351,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
   4. apply the CSS variables
   5. swap the skin
 - If a manifest is invalid, the app logs the specific errors and stays on the current skin.
-- **Skins in v1:** Pirate. A second "Classic" skin will be created by the user later with the same tooling as the Pirate set. The skin-system tests use a small **fixture skin** (tiny generated images, inset 0) so the frameless and coordinate-gutter paths are covered before Classic exists.
+- **Skins in v1:** Marble (`default`, the default skin) and Pirate. The skin-system component tests use a small **fixture skin** in `tests/fixtures/skins/test/` (tiny generated images, inset 0, no capture indicator, no labels) so the frameless, coordinate-gutter and default-filling paths are covered independently of the real art. `tests/fixtures/skins/invalid/` covers the "stay on the current skin" path.
 
 ### 5.6 Skin assets: source art vs served files
 
@@ -347,10 +360,10 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 - **Conversion is a manual, one-off step, not part of the build.** When source art changes, run:
 
   ```
-  python scripts/convert-skin.py [<id> ...]
+  .venv/bin/python scripts/convert-skin.py [<id> ...]
   ```
 
-  It needs `pillow`, `fonttools` and `brotli`. It writes:
+  Run it with the project venv: `python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements.txt` once, then `.venv/bin/python scripts/convert-skin.py <id>`. `.venv/` is gitignored. It writes:
   - `board.webp`
   - `pieces.webp`
   - `indicator-move.webp`
@@ -362,8 +375,9 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 - **Piece-sheet normalisation** (part of the conversion):
   - It finds sprites by transparent gaps: first the gap between the 2 rows, then the gaps between the 6 sprites in each row.
   - It crops each sprite to its alpha bounding box.
-  - It repacks them into a clean 6 × 2 grid of 320 px square cells. Each sprite is centred horizontally and sits on a common baseline, and all sprites share **one** scale factor, so relative piece heights are preserved.
+  - It repacks them into a clean 6 × 2 grid of 320 px square cells. Each sprite sits on a common baseline and is centred horizontally **on its base** (the median centre of its bottom 15%), not its bounding box, so pieces holding a sword or flag out to one side still stand in the middle of the square. All sprites share **one** scale factor, so relative piece heights are preserved.
   - The script stops with an error if it doesn't find exactly 12 sprites.
+- **Board grid fitting** (framed boards, i.e. inset > 0): the app places pieces on an even 8 × 8 grid inside the inset, but hand-drawn boards drift. The converter finds each inner square edge as the darkest line within 18% of a square of its even-grid position, prints the offsets, and resamples the image piecewise-linearly so the edges land on the even grid. Pirate's lines were off by up to 4 px (≈3% of a square), which together with bounding-box centring made pieces on files a–d look visibly left of centre.
 - **Sprite authoring rule:** sprites only have to appear in the manifest's `order`, in two rows, separated by transparent space. They do not have to sit exactly on a grid. Neither original sheet was grid-aligned:
   - Pirate's spyglass, pointing hand and flag reached 6–23 px into the next cell.
   - Marble used a ≈288 px pitch, and its white bases crossed the row boundary.
@@ -388,7 +402,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
   	--color-muted: var(--text-muted);
   	--color-accent: var(--accent);
   	--color-danger: var(--danger);
-  	--font-skin: var(--font-skin), var(--font-fallback);
+  	--font-skin: var(--skin-font, serif), var(--font-fallback, serif);
   }
   ```
 
@@ -502,6 +516,8 @@ src/
       game.svelte.ts        # Game class: wraps chess.js; $state fen/history/selection
       pieces.ts             # stable piece-id reconciliation for animation
       types.ts
+    board/
+      geometry.ts           # square↔grid per orientation, sprite offsets, coordinate labels
     engine/
       engine.ts             # Promise-based UCI client (init, setOptions, bestMove, stop)
       uci.ts                # UCI line parsing
@@ -510,7 +526,8 @@ src/
     skins/
       index.ts              # registry
       schema.ts             # Skin type + validation
-      skin.svelte.ts        # active skin store, preload, CSS vars, FontFace
+      loader.ts             # fetch, validate, preload images + FontFace, CSS vars
+      skin.svelte.ts        # active skin store: apply + swap
     components/
       Board.svelte          # grid, layers, orientation, pointer handling
       Piece.svelte          # sprite + transform/transition
@@ -529,10 +546,11 @@ src/
     persistence.ts
 static/
   skins/
-    pirate/{skin.json, board.webp, pieces.webp, indicator-move.webp, indicator-capture.webp, font/…}
+    default/ pirate/        # skin.json, board.webp, pieces.webp, indicator-*.webp, font/…
   stockfish/                # copied from node_modules at build
 tests/
   fixtures/skins/test/      # fixture skin (inset 0)
+  fixtures/skins/invalid/   # deliberately broken manifest
 ```
 
 ### 7.3 State model
@@ -677,3 +695,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 18  | Pirate capture indicator    | Crossed sabers (`-2`). Skull and flag kept as alternatives                                                                                                                                                           |
 | 19  | Default skin                | "Marble": white marble and black granite, no frame, Marcellus font                                                                                                                                                   |
 | 20  | Skin source vs served       | Source art in `scratchpad/skins/<id>/assets/` (local, not committed). Served assets and the only manifest in `static/skins/<id>/`. Conversion is a manual one-off run of `scripts/convert-skin.py`, not a build step |
+| 21  | Manifest validation         | `manifestVersion: 1`, asset paths confined to the skin folder, optional fields filled with defaults, all errors reported with their paths (§5.1)                                                                     |

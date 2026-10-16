@@ -1,0 +1,37 @@
+{
+	"manifestVersion": 1,
+	"id": "test",
+	"name": "Test fixture",
+	"board": {
+		"image": "board.webp",
+		"inset": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+	},
+	"pieces": {
+		"image": "pieces.webp",
+		"columns": 6,
+		"rows": 2,
+		"order": ["k", "q", "b", "n", "r", "p"],
+		"rowFor": { "w": 0, "b": 1 }
+	},
+	"moveIndicator": { "image": "indicator-move.webp" },
+	"font": {
+		"family": "Fixture Serif",
+		"files": [{ "src": "font/Marcellus-Regular.woff2" }],
+		"license": "font/OFL.txt"
+	},
+	"theme": {
+		"bg": "#101010",
+		"surface": "#202020",
+		"surfaceRaised": "#303030",
+		"text": "#eeeeee",
+		"textMuted": "#999999",
+		"accent": "#3366ff",
+		"danger": "#cc0000",
+		"highlightSelected": "rgba(51, 102, 255, 0.4)",
+		"highlightLastMove": "rgba(51, 102, 255, 0.25)",
+		"highlightCheck": "rgba(204, 0, 0, 0.5)",
+		"coordText": "#ff00ff",
+		"dragShadow": "none",
+		"scrim": "rgba(0, 0, 0, 0.5)"
+	}
+}
