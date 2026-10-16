@@ -99,7 +99,8 @@
 
 <!-- One square-sized box per piece, placed with `translate` (§4.5); slides animate `transform`,
      which applies after it, so a returning piece scales about its own centre. Captured pieces fade
-     out (on their own square, so en passant works) and are marked as leaving meanwhile. -->
+     out on their own square (so en passant works); Svelte makes them `inert` meanwhile, and an
+     undo during the fade brings the same element back. -->
 <div
 	bind:this={el}
 	class="piece"
@@ -109,7 +110,6 @@
 	style:translate="{cell.col * 100}% {cell.row * 100}%"
 	in:fade={{ duration: motion.capture }}
 	out:fade={{ duration: motion.capture }}
-	onoutrostart={(e) => (e.currentTarget.dataset.leaving = '')}
 >
 	{#key piece.type}
 		<div class="layer" transition:fade={{ duration: motion.capture, delay: crossfadeDelay }}>

@@ -4,6 +4,11 @@ import { prefersReducedMotion } from 'svelte/motion';
 
 export const MOVE_MS = 200;
 export const CAPTURE_MS = 200;
+/**
+ * Hot-seat auto-flip waits this long after a move, so the move is seen landing before the
+ * board turns. It is a pause rather than motion, so reduced motion keeps it.
+ */
+export const AUTO_FLIP_DELAY_MS = MOVE_MS + 400;
 
 export const motion = {
 	/** Slides: moves, castling rooks, flips, a piece returning from an illegal drop. */

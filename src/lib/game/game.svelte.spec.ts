@@ -1,3 +1,4 @@
+import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import { Game } from './game.svelte.ts';
 
@@ -38,5 +39,100 @@ describe('Game', () => {
 		}
 		expect(game.checkSquare).toBe('e1');
 		expect(game.isGameOver).toBe(true);
+	});
+
+	it('keeps the move history and derives captures and material from it', () => {
+		const game = new Game();
+		for (const san of ['e4', 'd5', 'exd5', 'Qxd5']) game.move(sanMove(game, san));
+		expect(game.moves.map((m) => m.san)).toEqual(['e4', 'd5', 'exd5', 'Qxd5']);
+		expect(game.lastMove?.san).toBe('Qxd5');
+		expect(game.captured).toEqual({ w: ['p'], b: ['p'] });
+		expect(game.material).toBe(0);
+	});
+});
+
+/** Translate SAN into the from/to input the board sends. */
+function sanMove(game: Game, san: string) {
+	const move = new Chess(game.fen).move(san);
+	return { from: move.from, to: move.to, promotion: move.promotion as 'q' | undefined };
+}
+
+function play(fen: string | undefined, ...sans: string[]) {
+	const game = new Game(fen);
+	for (const san of sans) expect(game.move(sanMove(game, san))?.san).toBe(san);
+	return game;
+}
+
+const ids = (game: Game) =>
+	Object.fromEntries(game.pieces.map((p) => [p.id, `${p.color}${p.type}@${p.square}`]));
+
+describe('Game.undo', () => {
+	// Undo replays the game, so every piece gets its original id back: the mover slides home
+	// and a captured piece fades back in where it stood (§4.5).
+	const cases: [string, string | undefined, string[]][] = [
+		['a quiet move', undefined, ['e4', 'Nf6']],
+		['a capture', undefined, ['e4', 'd5', 'exd5']],
+		['kingside castling', 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1', ['O-O']],
+		['queenside castling', 'r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1', ['O-O-O']],
+		['en passant', undefined, ['e4', 'a6', 'e5', 'd5', 'exd6']],
+		['a promotion', '1n2k3/P7/8/8/8/8/8/4K3 w - - 0 1', ['axb8=Q+']]
+	];
+
+	for (const [name, fen, sans] of cases) {
+		it(`takes back ${name}, restoring the pieces and their ids`, () => {
+			const game = play(fen, ...sans.slice(0, -1));
+			const before = { fen: game.fen, pieces: ids(game), moves: game.moves.length };
+			game.move(sanMove(game, sans.at(-1)!));
+			expect(game.undo()?.san).toBe(sans.at(-1));
+			expect(game.fen).toBe(before.fen);
+			expect(ids(game)).toEqual(before.pieces);
+			expect(game.moves).toHaveLength(before.moves);
+		});
+	}
+
+	it('does nothing at the start', () => {
+		const game = new Game();
+		expect(game.canUndo).toBe(false);
+		expect(game.undo()).toBeNull();
+	});
+
+	it('can take back a checkmate', () => {
+		const game = play(undefined, 'f3', 'e5', 'g4', 'Qh4#');
+		expect(game.result).toEqual({ winner: 'b', reason: 'checkmate' });
+		game.undo();
+		expect(game.result).toBeNull();
+		expect(game.lastMove?.san).toBe('g4');
+	});
+});
+
+describe('Game.result', () => {
+	it('is null while the game is on', () => {
+		expect(new Game().result).toBeNull();
+	});
+
+	it('detects each kind of draw', () => {
+		expect(play('k7/8/1K6/8/8/8/8/2Q5 w - - 0 1', 'Qc7').result).toEqual({
+			winner: 'draw',
+			reason: 'stalemate'
+		});
+		expect(play('4k3/8/8/8/8/8/8/3NK3 w - - 0 1').result?.reason).toBe('insufficient-material');
+		expect(play(undefined, 'Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3', 'Nf6', 'Ng1', 'Ng8').result).toEqual({
+			winner: 'draw',
+			reason: 'repetition'
+		});
+		expect(play('4k3/8/8/8/8/8/8/R3K3 w - - 99 80', 'Ra2').result).toEqual({
+			winner: 'draw',
+			reason: 'fifty-move'
+		});
+	});
+
+	it('ends the game when the side to move resigns, and refuses further moves and undo', () => {
+		const game = play(undefined, 'e4');
+		game.resign();
+		expect(game.result).toEqual({ winner: 'w', reason: 'resignation' });
+		expect(game.isGameOver).toBe(true);
+		expect(game.move({ from: 'e7', to: 'e5' })).toBeNull();
+		expect(game.canUndo).toBe(false);
+		expect(game.undo()).toBeNull();
 	});
 });

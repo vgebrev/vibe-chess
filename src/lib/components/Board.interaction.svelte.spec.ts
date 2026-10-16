@@ -1,4 +1,5 @@
 import type { Color } from 'chess.js';
+import { tick } from 'svelte';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
@@ -40,7 +41,7 @@ function setup({ fen, ...props }: Partial<Options> = {}) {
 		cell,
 		click: (square: string) => userEvent.click(cell(square)),
 		piece: (square: string) =>
-			q(`[data-piece][data-square="${square}"]:not([data-leaving])`)?.dataset.piece ?? null,
+			q(`[data-piece][data-square="${square}"]:not([inert])`)?.dataset.piece ?? null,
 		indicators: () =>
 			[...root.querySelectorAll<HTMLElement>('[data-indicator]')]
 				.map((el) => `${el.dataset.indicator}:${el.dataset.square}`)
@@ -260,7 +261,7 @@ describe('keyboard', () => {
 
 describe('animation', () => {
 	const pieceEl = (b: ReturnType<typeof setup>, square: string) =>
-		b.root.querySelector<HTMLElement>(`[data-piece][data-square="${square}"]:not([data-leaving])`)!;
+		b.root.querySelector<HTMLElement>(`[data-piece][data-square="${square}"]:not([inert])`)!;
 	const slides = (el: Element) => el.getAnimations().filter((a) => a.id === 'slide');
 	const settle = () => Promise.all(document.getAnimations().map((a) => a.finished));
 
@@ -325,7 +326,7 @@ describe('animation', () => {
 		const b = setup({ fen: 'rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3' });
 		await b.click('e5');
 		await b.click('f6');
-		const leaving = b.root.querySelector('[data-leaving]')!;
+		const leaving = b.root.querySelector('[inert]')!;
 		expect(leaving.getAttribute('data-square')).toBe('f5');
 		await expect.poll(() => leaving.isConnected).toBe(false);
 	});
@@ -345,7 +346,7 @@ describe('animation', () => {
 		await settle();
 		const screen = render(Board, { skin: fixture, game: new Game(), orientation: 'white' });
 		await screen.rerender({ game: new Game() });
-		expect(screen.container.querySelectorAll('[data-leaving]')).toHaveLength(0);
+		expect(screen.container.querySelectorAll('[inert]')).toHaveLength(0);
 		expect(document.getAnimations()).toHaveLength(0);
 	});
 
@@ -370,5 +371,63 @@ describe('animation', () => {
 		const [oldLayer, newLayer] = b.root.querySelectorAll<HTMLElement>('[data-piece="wq"] .layer');
 		expect(Number(getComputedStyle(oldLayer).opacity)).toBe(1);
 		expect(Number(getComputedStyle(newLayer).opacity)).toBe(0);
+	});
+});
+
+describe('undo', () => {
+	async function capture() {
+		const b = setup();
+		for (const [from, to] of [
+			['e2', 'e4'],
+			['d7', 'd5'],
+			['e4', 'd5']
+		]) {
+			await b.click(from);
+			await b.click(to);
+		}
+		return b;
+	}
+	const at = (b: ReturnType<typeof setup>, square: string) =>
+		b.root.querySelectorAll(`[data-piece][data-square="${square}"]`);
+
+	it('slides the mover back and fades the captured piece back in', async () => {
+		const b = await capture();
+		await expect.poll(() => b.root.querySelector('[inert]')).toBeNull();
+		b.game.undo();
+		await tick();
+		expect(b.piece('e4')).toBe('wp');
+		expect(b.piece('d5')).toBe('bp');
+		expect(
+			at(b, 'e4')[0]
+				.getAnimations()
+				.some((a) => a.id === 'slide')
+		).toBe(true);
+		expect(at(b, 'd5')[0].getAnimations()).not.toHaveLength(0);
+		expect(b.highlights('last-move')).toEqual(['d5', 'd7']);
+	});
+
+	it('brings back a piece that is still fading out', async () => {
+		const b = await capture();
+		expect(b.root.querySelector('[inert]')).not.toBeNull();
+		b.game.undo();
+		await expect.poll(() => b.piece('d5')).toBe('bp');
+		expect(at(b, 'd5')).toHaveLength(1);
+	});
+	it('clears the selection and cancels a pending promotion', async () => {
+		const b = setup({ fen: '4k3/P7/8/8/8/8/8/4K2R b K - 0 1' });
+		await b.click('e8');
+		await b.click('d8');
+		await b.click('a7');
+		await b.click('a8');
+		expect(b.picker()).not.toBeNull();
+		b.game.undo();
+		await tick();
+		expect(b.picker()).toBeNull();
+		expect(b.piece('a7')).toBe('wp');
+		expect(b.game.turn).toBe('b');
+
+		await b.click('e1');
+		await b.click('d8');
+		expect(b.highlights('selected')).toEqual([]);
 	});
 });

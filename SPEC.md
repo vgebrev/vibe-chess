@@ -24,7 +24,7 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
 | Mode                       | Description                                                                                                                                           |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **vs Computer** (default)  | The player picks White, Black or Random, and a difficulty. Stockfish plays the other side. The board is oriented to the player's colour at the start. |
-| **Two players (hot-seat)** | Both sides move on one device. An optional **auto-flip** setting turns the board to the side to move after each move.                                 |
+| **Two players (hot-seat)** | Both sides move on one device. An optional **auto-flip** setting turns the board to the side to move after each move, once the move has landed.       |
 
 ## 4. Functional requirements
 
@@ -96,7 +96,7 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
 - `prefers-reduced-motion: reduce` sets all durations to 0.
 - **Implementation (M4):**
   - Slides are FLIP animations with the Web Animations API, not CSS transitions. Before the DOM update, `Piece` notes where it is drawn. After the update, it animates `transform` from there to the new cell. `transform` applies after `translate`, so the returning piece's scale is about its own centre; if both were in one transform list, the scale would also stretch the piece's offset from the board corner. This starts interrupted slides from where the piece actually is, lets a dropped piece snap without a transition race, and lets a returned piece start from the drop point (scaling down from `dragScale`). A sliding piece is raised above the others.
-  - Captures fade with a Svelte `out:` transition on the piece. A leaving piece carries `data-leaving` until it is removed. Pieces that reappear (undo) fade in with `in:`.
+  - Captures fade with a Svelte `out:` transition on the piece. Svelte makes a leaving piece `inert` from the moment its outro starts, which tests use to tell it apart. Pieces that reappear (undo) fade in with `in:`; an undo during the fade reverses it on the same element.
   - Promotion crossfades the old and new sprite. When the pawn also slides (an engine or opponent move), the crossfade waits until it lands.
   - While the promotion picker is open, the pawn is drawn on the promotion square: snapped there after a drag, slid there after a click. Cancelling slides it back.
   - A new game re-creates the piece layer (`{#key game}`), so nothing animates.
@@ -181,6 +181,15 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
 - Move list: SAN in numbered pairs, current move highlighted, auto-scrolled to the end
 - Status line: whose turn it is, check, game result, engine thinking
 - Settings: skin, show legal moves, show coordinates, auto-flip (hot-seat only), difficulty
+- **Implementation (M5):**
+  - `Game` keeps the played moves (`moves`, chess.js verbose records) and derives `lastMove`, `result`, `captured` and `material` from them.
+  - **Undo** takes back one ply (the vs-Computer pair comes with M6) and rebuilds the render pieces by replaying the game from its start FEN. Ids come from starting squares, so every piece gets its id back: the mover slides home and a captured piece fades back in on its own square. An undo also clears the selection, a drag and a pending promotion. A checkmate or draw can be taken back; a **resignation is final**, so Undo is disabled after one.
+  - **Resign:** in hot-seat mode the side to move resigns.
+  - `result` is `{ winner, reason }`; reasons are checked in the order resignation, checkmate, stalemate, insufficient material, threefold repetition, 50-move rule. Moves are refused once the game is over.
+  - **Auto-flip** waits `AUTO_FLIP_DELAY_MS` (the 200 ms slide plus a 400 ms beat, in `board/motion.ts`) after a move or undo before turning the board, so the move is seen landing; board input is locked meanwhile. It is a pause rather than motion, so reduced motion keeps it.
+  - The status line also shows the last move with its number ("12. Nf3", "12… Nf6"). When the game is over, a "New game" button sits next to the result.
+  - Keyboard: `Ctrl/Cmd+Z` undoes (§6.5).
+  - The interim page (until M7) has toggles (including auto-flip) above the board. Below `lg`, the strips, board, status line, controls and move list stack in one column. From `lg`, the status line, controls (2×2) and move list sit in a 20 rem side panel to the right of the board (§6.2), brought forward from M7; the header, drawers and settings remain M7 work.
 
 ### 4.8 Side labels & status text
 
@@ -189,8 +198,8 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
   - `"{side} to move"`
   - `"{side} is in check"`
   - `"Checkmate — {side} wins"`
-  - `"Stalemate — draw"`
-  - …and so on.
+  - `"{side} resigns — {side} wins"`
+  - `"Stalemate — draw"`, `"Threefold repetition — draw"`, `"50-move rule — draw"`, `"Insufficient material — draw"`
 
   Skins provide names, not sentences. That keeps grammar sane and leaves room for i18n later.
 
@@ -205,7 +214,7 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
 
 ### 4.10 Captured pieces & material balance
 
-- Each player strip (§6.1) shows the pieces **that side has captured**, drawn as small sprites from the active skin. They are grouped by type in the order queen, rook, bishop, knight, pawn, and pieces of the same type overlap so a full set fits on a 360 px phone.
+- Each player strip (§6.1) shows the pieces **that side has captured**, drawn as small sprites from the active skin. They are grouped by type in the order queen, rook, bishop, knight, pawn. Sprites are 30 px; pieces of the same type overlap (each shows 12 px) and squeeze down to 6 px only when the strip runs out of room, so a full set fits on a 360 px phone. The last piece of each group is always whole.
 - Next to the captures, the side that is **ahead on material** shows `+N`. Nothing is shown when material is level.
   - Values: pawn 1, knight 3, bishop 3, rook 5, queen 9.
   - `N` is computed from the material **on the board**, not from the captures, so promotions count correctly. A promoted queen adds 9 and removes the pawn's 1.
@@ -543,10 +552,12 @@ src/
     game/
       game.svelte.ts        # Game class: wraps chess.js; $state fen/history/selection
       pieces.ts             # stable piece-id reconciliation for animation
+      material.ts           # captured pieces + material balance (§4.10)
+      notation.ts           # move list rows, numbered SAN
       types.ts
     board/
       geometry.ts           # square↔grid per orientation, sprite offsets, coordinate labels
-      motion.ts             # animation durations, zeroed for reduced motion
+      motion.ts             # animation durations (zeroed for reduced motion), auto-flip pause
     engine/
       engine.ts             # Promise-based UCI client (init, setOptions, bestMove, stop)
       uci.ts                # UCI line parsing
@@ -659,6 +670,8 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
   - bad paths
 - Label fallbacks
 - Captured pieces and material balance: captures (including en passant), a promotion (+8 for a queen), a captured promoted piece, and undo
+- Game results: each end reason, resignation (final, no undo), taking back a checkmate
+- Move list numbering, including games that start with Black to move
 - Persistence round-trip (replay restores undo history)
 
 **E2E (Playwright, run at both 390×844 and 1280×800)**
@@ -729,3 +742,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 21  | Manifest validation         | `manifestVersion: 1`, asset paths confined to the skin folder, optional fields filled with defaults, all errors reported with their paths (§5.1)                                                                     |
 | 22  | Captured pieces & material  | Shown in the player strips: each side's captures as small skin sprites, plus `+N` for the side ahead, computed from material on the board (§4.10)                                                                    |
 | 23  | Animation technique         | FLIP slides with the Web Animations API in `Piece` (not CSS transitions), Svelte fades for captures, durations in `board/motion.ts` zeroed by `prefers-reduced-motion` (§4.5)                                        |
+| 24  | Undo and game end           | Undo rebuilds pieces by replaying from the start FEN, so ids and animations come for free. Checkmates and draws can be taken back; a resignation is final. Hot-seat auto-flip waits for the move to land (§4.7)      |

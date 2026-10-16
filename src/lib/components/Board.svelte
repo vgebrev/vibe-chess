@@ -108,10 +108,12 @@
 		void game;
 		drag = null;
 	});
+	// So does any change of position from outside (undo, a new game).
 	$effect(() => {
-		void game;
+		void game.fen;
 		selected = null;
 		promotion = null;
+		drag = null;
 	});
 
 	/** Try to move the selected piece; true if `to` was a legal target (including a pending promotion). */

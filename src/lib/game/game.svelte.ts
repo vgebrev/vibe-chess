@@ -1,6 +1,7 @@
 // Game: owns the chess.js instance and exposes reactive state to components, which never
 // touch chess.js directly (§7.3).
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
+import { capturedBy, materialBalance } from './material.ts';
 import { applyMove, piecesFromFen, type BoardPiece } from './pieces.ts';
 
 /** A legal destination for the selected piece (§4.3). */
@@ -20,18 +21,36 @@ export interface MoveInput {
 	promotion?: PromotionPiece;
 }
 
+export type EndReason =
+	'checkmate' | 'resignation' | 'stalemate' | 'repetition' | 'fifty-move' | 'insufficient-material';
+
+export interface Result {
+	winner: Color | 'draw';
+	reason: EndReason;
+}
+
+const other = (color: Color): Color => (color === 'w' ? 'b' : 'w');
+
 export class Game {
 	#chess: Chess;
 	// chess.js isn't reactive: every change bumps this, and getters that read chess.js
 	// read it first so they re-run.
 	#version = $state(0);
+	#resigned = $state<Color | null>(null);
 
+	readonly startFen: string;
 	pieces = $state.raw<BoardPiece[]>([]);
-	lastMove = $state.raw<Move | null>(null);
+	/** Moves played so far, oldest first. */
+	moves = $state.raw<Move[]>([]);
 
 	constructor(fen?: string) {
 		this.#chess = new Chess(fen);
+		this.startFen = this.#chess.fen();
 		this.pieces = piecesFromFen(fen);
+	}
+
+	get lastMove(): Move | null {
+		return this.moves.at(-1) ?? null;
 	}
 
 	get fen(): string {
@@ -44,9 +63,36 @@ export class Game {
 		return this.#chess.turn();
 	}
 
-	get isGameOver(): boolean {
+	/** How the game ended, or null while it is in progress. */
+	get result(): Result | null {
 		void this.#version;
-		return this.#chess.isGameOver();
+		const chess = this.#chess;
+		if (this.#resigned) return { winner: other(this.#resigned), reason: 'resignation' };
+		if (chess.isCheckmate()) return { winner: other(chess.turn()), reason: 'checkmate' };
+		if (chess.isStalemate()) return { winner: 'draw', reason: 'stalemate' };
+		if (chess.isInsufficientMaterial()) return { winner: 'draw', reason: 'insufficient-material' };
+		if (chess.isThreefoldRepetition()) return { winner: 'draw', reason: 'repetition' };
+		if (chess.isDrawByFiftyMoves()) return { winner: 'draw', reason: 'fifty-move' };
+		return null;
+	}
+
+	get isGameOver(): boolean {
+		return this.result !== null;
+	}
+
+	/** A resignation is final; a game that ended on the board can still be taken back. */
+	get canUndo(): boolean {
+		return this.moves.length > 0 && !this.#resigned;
+	}
+
+	/** The pieces each side has captured (§4.10). */
+	get captured(): Record<Color, PieceSymbol[]> {
+		return capturedBy(this.moves);
+	}
+
+	/** White's material lead on the board; negative when Black is ahead (§4.10). */
+	get material(): number {
+		return materialBalance(this.pieces);
 	}
 
 	/** The square of the king in check, if the side to move is in check. */
@@ -77,8 +123,9 @@ export class Game {
 		return targets;
 	}
 
-	/** Play a move. Returns null, changing nothing, if it is illegal. */
+	/** Play a move. Returns null, changing nothing, if it is illegal or the game is over. */
 	move(input: MoveInput): Move | null {
+		if (this.isGameOver) return null;
 		let move: Move;
 		try {
 			move = this.#chess.move(input);
@@ -86,8 +133,32 @@ export class Game {
 			return null;
 		}
 		this.pieces = applyMove(this.pieces, move);
-		this.lastMove = move;
+		this.moves = [...this.moves, move];
 		this.#version++;
 		return move;
+	}
+
+	/**
+	 * Take back the last move. The pieces are rebuilt by replaying the game from the start,
+	 * which gives every piece its original id back, so the mover slides home and a captured
+	 * piece reappears where it was (§4.5).
+	 */
+	undo(): Move | null {
+		if (!this.canUndo) return null;
+		const move = this.#chess.undo();
+		if (!move) return null;
+		this.moves = this.moves.slice(0, -1);
+		this.pieces = this.moves.reduce(
+			(pieces, m) => applyMove(pieces, m),
+			piecesFromFen(this.startFen)
+		);
+		this.#version++;
+		return move;
+	}
+
+	/** The side to move resigns (hot-seat), or the given side. */
+	resign(color: Color = this.turn) {
+		if (this.isGameOver) return;
+		this.#resigned = color;
 	}
 }

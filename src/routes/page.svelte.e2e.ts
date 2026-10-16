@@ -74,7 +74,7 @@ test('switching to the Pirate skin draws coordinates in the frame', async ({ pag
 
 const cell = (page: Page, square: string) => page.locator(`[data-cell="${square}"]`);
 const pieceOn = (page: Page, square: string) =>
-	page.locator(`[data-piece][data-square="${square}"]`);
+	page.locator(`[data-piece][data-square="${square}"]:not([inert])`);
 
 test('moves by click and by drag', async ({ page }) => {
 	await cell(page, 'e2').click();
@@ -112,8 +112,75 @@ test("scholar's mate ends the game", async ({ page }) => {
 	}
 	await expect(page.locator('[data-status]')).toHaveText('Checkmate — White wins');
 	await expect(page.locator('[data-highlight="check"]')).toHaveAttribute('data-square', 'e8');
+	await expect(page.locator('[data-moves] [aria-current]')).toHaveText('Qxf7#');
 	await cell(page, 'e8').click();
 	await expect(page.locator('[data-indicator]')).toHaveCount(0);
+
+	// The result offers a new game inline.
+	await page.locator('[data-status] + button', { hasText: 'New game' }).click();
+	await expect(page.locator('[data-status]')).toHaveText('White to move');
+	await expect(pieceOn(page, 'd1')).toHaveAttribute('data-piece', 'wq');
+});
+
+const play = async (page: Page, ...moves: [string, string][]) => {
+	for (const [from, to] of moves) {
+		await cell(page, from).click();
+		await cell(page, to).click();
+	}
+};
+
+test('undo takes back moves, by button and by Ctrl+Z', async ({ page }) => {
+	const undo = page.getByRole('button', { name: 'Undo' });
+	await expect(undo).toBeDisabled();
+	await play(page, ['e2', 'e4'], ['d7', 'd5'], ['e4', 'd5']);
+	await expect(pieceOn(page, 'd5')).toHaveAttribute('data-piece', 'wp');
+
+	await undo.click();
+	await expect(pieceOn(page, 'e4')).toHaveAttribute('data-piece', 'wp');
+	await expect(pieceOn(page, 'd5')).toHaveAttribute('data-piece', 'bp');
+	await expect(page.locator('[data-status]')).toHaveText('White to move');
+
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(page.locator('[data-status]')).toHaveText('Black to move');
+	await expect(page.locator('[data-last-move]')).toHaveText(/1\. e4/);
+});
+
+test('shows captures and material in the player strips, which follow the board', async ({
+	page
+}) => {
+	await play(page, ['e2', 'e4'], ['d7', 'd5'], ['e4', 'd5'], ['g8', 'f6'], ['f1', 'b5']);
+	await play(page, ['c7', 'c6'], ['d5', 'c6'], ['d8', 'd2']);
+	// Bottom strip is White's while White is at the bottom.
+	const strips = page.locator('[data-strip]');
+	await expect(strips.last()).toHaveAttribute('data-strip', 'w');
+	await expect(page.getByRole('img', { name: 'White captured: 2 pawns' })).toBeVisible();
+	await expect(page.getByRole('img', { name: 'Black captured: pawn' })).toBeVisible();
+	await expect(page.locator('[data-strip="w"] [data-advantage]')).toHaveText('+1');
+	await expect(page.locator('[data-status]')).toHaveText('White is in check');
+
+	await page.keyboard.press('f');
+	await expect(strips.last()).toHaveAttribute('data-strip', 'b');
+});
+
+test('resigning takes a second tap and ends the game', async ({ page }) => {
+	await play(page, ['e2', 'e4']);
+	await page.getByRole('button', { name: 'Resign' }).click();
+	await expect(page.locator('[data-status]')).toHaveText('Black to move');
+	await page.getByRole('button', { name: 'Yes, resign' }).click();
+	await expect(page.locator('[data-status]')).toHaveText('Black resigns — White wins');
+	await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+	await expect(page.getByRole('button', { name: 'Resign' })).toBeDisabled();
+});
+
+test('auto-flip turns the board to the side to move', async ({ page }) => {
+	await page.getByLabel('Auto-flip').check();
+	await play(page, ['e2', 'e4']);
+	await expect(page.locator('[data-orientation="black"]')).toBeVisible();
+	await settle(page);
+	await play(page, ['e7', 'e5']);
+	await expect(page.locator('[data-orientation="white"]')).toBeVisible();
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect(page.locator('[data-orientation="black"]')).toBeVisible();
 });
 
 test.describe('with reduced motion', () => {
