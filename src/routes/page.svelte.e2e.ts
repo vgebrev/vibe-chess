@@ -6,6 +6,10 @@ const centre = async (locator: Locator) => {
 	return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
 
+/** Wait for piece slides and fades to finish. */
+const settle = (page: Page) =>
+	page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+
 test.beforeEach(async ({ page }) => {
 	await page.goto('/');
 	await expect(page).toHaveTitle('Chess');
@@ -37,6 +41,7 @@ for (const how of ['button', 'F key'] as const) {
 		else await page.keyboard.press('f');
 
 		await expect(page.locator('[data-orientation="black"]')).toBeVisible();
+		await settle(page);
 		expect(await centre(page.locator('[data-square="h8"]'))).toEqual(a1);
 		expect(await centre(page.locator('[data-file="h"]'))).toEqual(fileA);
 		const ranks = await page
@@ -109,4 +114,19 @@ test("scholar's mate ends the game", async ({ page }) => {
 	await expect(page.locator('[data-highlight="check"]')).toHaveAttribute('data-square', 'e8');
 	await cell(page, 'e8').click();
 	await expect(page.locator('[data-indicator]')).toHaveCount(0);
+});
+
+test.describe('with reduced motion', () => {
+	test.use({ reducedMotion: 'reduce' });
+
+	test('moves and flips without animating', async ({ page }) => {
+		await page.locator('[data-cell="e2"]').click();
+		await page.locator('[data-cell="e4"]').click();
+		await page.keyboard.press('f');
+		await expect(page.locator('[data-piece][data-square="e4"]')).toHaveAttribute(
+			'data-piece',
+			'wp'
+		);
+		expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+	});
 });

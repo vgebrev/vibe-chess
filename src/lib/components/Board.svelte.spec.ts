@@ -23,6 +23,9 @@ const centre = (el: Element | null) => {
 	return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 };
 
+/** Wait for running animations (slides, fades) to finish. */
+const settle = () => Promise.all(document.getAnimations().map((a) => a.finished));
+
 function setup(
 	props: Partial<{
 		skin: LoadedSkin;
@@ -66,6 +69,7 @@ describe('Board', () => {
 		expect(a1.y).toBeGreaterThan(h8.y);
 
 		await rerender({ orientation: 'black' });
+		await settle();
 		expect(centre(piece('h8'))).toEqual(a1);
 		expect(centre(piece('a1'))).toEqual(h8);
 	});

@@ -39,7 +39,8 @@ function setup({ fen, ...props }: Partial<Options> = {}) {
 		root,
 		cell,
 		click: (square: string) => userEvent.click(cell(square)),
-		piece: (square: string) => q(`[data-piece][data-square="${square}"]`)?.dataset.piece ?? null,
+		piece: (square: string) =>
+			q(`[data-piece][data-square="${square}"]:not([data-leaving])`)?.dataset.piece ?? null,
 		indicators: () =>
 			[...root.querySelectorAll<HTMLElement>('[data-indicator]')]
 				.map((el) => `${el.dataset.indicator}:${el.dataset.square}`)
@@ -254,5 +255,120 @@ describe('keyboard', () => {
 		const b = setup();
 		expect(b.cell('e1').getAttribute('aria-label')).toBe('e1, White king');
 		expect(b.cell('e4').getAttribute('aria-label')).toBe('e4');
+	});
+});
+
+describe('animation', () => {
+	const pieceEl = (b: ReturnType<typeof setup>, square: string) =>
+		b.root.querySelector<HTMLElement>(`[data-piece][data-square="${square}"]:not([data-leaving])`)!;
+	const slides = (el: Element) => el.getAnimations().filter((a) => a.id === 'slide');
+	const settle = () => Promise.all(document.getAnimations().map((a) => a.finished));
+
+	it('slides a clicked move from its old square', async () => {
+		const b = setup();
+		await b.click('g1');
+		await b.click('f3');
+		const el = pieceEl(b, 'f3');
+		expect(slides(el)).toHaveLength(1);
+		expect(el.style.zIndex).toBe('1');
+		await settle();
+		expect(el.style.zIndex).toBe('');
+	});
+
+	it('snaps a dropped piece but slides one returned from an illegal drop', async () => {
+		const b = setup();
+		await userEvent.dragAndDrop(b.cell('g1'), b.cell('f3'));
+		expect(slides(pieceEl(b, 'f3'))).toHaveLength(0);
+
+		await b.click('e7');
+		await b.click('e5');
+		await settle();
+		await userEvent.dragAndDrop(b.cell('f3'), b.cell('f5'));
+		expect(slides(pieceEl(b, 'f3'))).toHaveLength(1);
+	});
+
+	it('starts the slide back from where the piece was dropped', async () => {
+		document.documentElement.style.setProperty('--drag-scale', '1.15');
+		const b = setup();
+		const centre = (el: Element) => {
+			const r = el.getBoundingClientRect();
+			return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+		};
+		// Below-right and above-left of the start square.
+		for (const [from, to] of [
+			['b1', 'd1'],
+			['g1', 'e3']
+		]) {
+			await userEvent.dragAndDrop(b.cell(from), b.cell(to));
+			const el = pieceEl(b, from);
+			const [slide] = slides(el);
+			slide.pause();
+			slide.currentTime = 0;
+			const start = centre(el);
+			const drop = centre(b.cell(to));
+			expect(start.x).toBeCloseTo(drop.x, 0);
+			expect(start.y).toBeCloseTo(drop.y, 0);
+			slide.finish();
+			await userEvent.keyboard('{Escape}');
+		}
+	});
+
+	it('slides both king and rook when castling', async () => {
+		const b = setup({ fen: 'r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1' });
+		await b.click('e1');
+		await b.click('g1');
+		expect(slides(pieceEl(b, 'g1'))).toHaveLength(1);
+		expect(slides(pieceEl(b, 'f1'))).toHaveLength(1);
+	});
+
+	it('fades out a captured piece on its own square, then removes it', async () => {
+		const b = setup({ fen: 'rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3' });
+		await b.click('e5');
+		await b.click('f6');
+		const leaving = b.root.querySelector('[data-leaving]')!;
+		expect(leaving.getAttribute('data-square')).toBe('f5');
+		await expect.poll(() => leaving.isConnected).toBe(false);
+	});
+
+	it('slides every piece when the board flips', async () => {
+		const game = new Game();
+		const screen = render(Board, { skin: fixture, game, orientation: 'white' });
+		await screen.rerender({ orientation: 'black' });
+		const pieces = [...screen.container.querySelectorAll('[data-piece]')];
+		expect(pieces.every((el) => slides(el).length === 1)).toBe(true);
+	});
+
+	it('places the pieces of a new game without animation', async () => {
+		const b = setup();
+		await b.click('e2');
+		await b.click('e4');
+		await settle();
+		const screen = render(Board, { skin: fixture, game: new Game(), orientation: 'white' });
+		await screen.rerender({ game: new Game() });
+		expect(screen.container.querySelectorAll('[data-leaving]')).toHaveLength(0);
+		expect(document.getAnimations()).toHaveLength(0);
+	});
+
+	it('shows the pawn on the promotion square while choosing, then crossfades it', async () => {
+		const b = setup({ fen: '1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1' });
+		await b.click('a7');
+		await b.click('a8');
+		expect(pieceEl(b, 'a8').dataset.piece).toBe('wp');
+		await settle();
+		await userEvent.click(b.root.querySelector('[data-promote="q"]')!);
+		const el = pieceEl(b, 'a8');
+		expect(el.dataset.piece).toBe('wq');
+		// The old and new sprites overlap while they crossfade.
+		expect(el.querySelectorAll('.sprite')).toHaveLength(2);
+		await expect.poll(() => el.querySelectorAll('.sprite').length).toBe(1);
+	});
+
+	it('crossfades a promotion that also slides only once the pawn has landed', async () => {
+		const b = setup({ fen: '1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1' });
+		b.game.move({ from: 'a7', to: 'a8', promotion: 'q' });
+		await new Promise((r) => setTimeout(r, 100));
+		const [oldLayer, newLayer] = b.root.querySelectorAll<HTMLElement>('[data-piece="wq"] .layer');
+		expect(Number(getComputedStyle(oldLayer).opacity)).toBe(1);
+		expect(Number(getComputedStyle(newLayer).opacity)).toBe(0);
 	});
 });

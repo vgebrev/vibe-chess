@@ -251,9 +251,18 @@
 		>
 			<Highlights {highlights} {orientation} />
 
-			{#each game.pieces as piece (piece.id)}
-				<Piece {piece} {orientation} {sheet} hidden={drag?.active && drag.id === piece.id} />
-			{/each}
+			<!-- A new game replaces every piece without animation (§4.5). -->
+			{#key game}
+				{#each game.pieces as piece (piece.id)}
+					<Piece
+						{piece}
+						square={promotion && piece.square === promotion.from ? promotion.to : piece.square}
+						{orientation}
+						{sheet}
+						lifted={drag?.active && drag.id === piece.id ? { x: drag.x, y: drag.y } : null}
+					/>
+				{/each}
+			{/key}
 
 			{#if showLegalMoves}
 				<Indicators {targets} {orientation} {skin} {hover} />

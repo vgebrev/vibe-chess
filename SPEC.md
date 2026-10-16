@@ -81,7 +81,7 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
 
 ### 4.5 Piece animation
 
-- Each piece is rendered absolutely positioned within the board grid, using `transform: translate(x%, y%)`. A change of square becomes a CSS transition (`--anim-move-ms`, default 200 ms, ease-out).
+- Each piece is rendered absolutely positioned within the board grid, using the CSS `translate` property (`translate: x% y%`). A change of square slides (200 ms, ease-out); fades take 200 ms. The durations live in `board/motion.ts`.
 - **Stable piece identity:** each piece gets an id when the game starts (e.g. `wn-b1`). After each move the board diff is reconciled against chess.js's move record, so the moving piece keeps its id:
   - **Normal move or capture:** the mover keeps its id. The captured piece fades out (`--anim-capture-ms`) and is then removed.
   - **Castling:** the king and rook both slide.
@@ -94,6 +94,12 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
   - **Drag-drop** does not: the piece is already at the destination. An **illegal drop** slides back.
   - **New game / resume from storage** places pieces with no animation.
 - `prefers-reduced-motion: reduce` sets all durations to 0.
+- **Implementation (M4):**
+  - Slides are FLIP animations with the Web Animations API, not CSS transitions. Before the DOM update, `Piece` notes where it is drawn. After the update, it animates `transform` from there to the new cell. `transform` applies after `translate`, so the returning piece's scale is about its own centre; if both were in one transform list, the scale would also stretch the piece's offset from the board corner. This starts interrupted slides from where the piece actually is, lets a dropped piece snap without a transition race, and lets a returned piece start from the drop point (scaling down from `dragScale`). A sliding piece is raised above the others.
+  - Captures fade with a Svelte `out:` transition on the piece. A leaving piece carries `data-leaving` until it is removed. Pieces that reappear (undo) fade in with `in:`.
+  - Promotion crossfades the old and new sprite. When the pawn also slides (an engine or opponent move), the crossfade waits until it lands.
+  - While the promotion picker is open, the pawn is drawn on the promotion square: snapped there after a drag, slid there after a click. Cancelling slides it back.
+  - A new game re-creates the piece layer (`{#key game}`), so nothing animates.
 
 ### 4.6 Computer opponent (Stockfish)
 
@@ -540,6 +546,7 @@ src/
       types.ts
     board/
       geometry.ts           # square↔grid per orientation, sprite offsets, coordinate labels
+      motion.ts             # animation durations, zeroed for reduced motion
     engine/
       engine.ts             # Promise-based UCI client (init, setOptions, bestMove, stop)
       uci.ts                # UCI line parsing
@@ -552,7 +559,7 @@ src/
       skin.svelte.ts        # active skin store: apply + swap
     components/
       Board.svelte          # grid, layers, orientation, pointer handling
-      Piece.svelte          # sprite + transform/transition
+      Piece.svelte          # positioned piece: FLIP slides, capture and promotion fades
       Sprite.svelte         # one sprite from the sheet (pieces, drag layer, promotion picker)
       Highlights.svelte     # selected, last move, check (check is a radial glow so the king stays readable)
       Indicators.svelte     # move + capture indicators
@@ -721,3 +728,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 20  | Skin source vs served       | Source art in `scratchpad/skins/<id>/assets/` (local, not committed). Served assets and the only manifest in `static/skins/<id>/`. Conversion is a manual one-off run of `scripts/convert-skin.py`, not a build step |
 | 21  | Manifest validation         | `manifestVersion: 1`, asset paths confined to the skin folder, optional fields filled with defaults, all errors reported with their paths (§5.1)                                                                     |
 | 22  | Captured pieces & material  | Shown in the player strips: each side's captures as small skin sprites, plus `+N` for the side ahead, computed from material on the board (§4.10)                                                                    |
+| 23  | Animation technique         | FLIP slides with the Web Animations API in `Piece` (not CSS transitions), Svelte fades for captures, durations in `board/motion.ts` zeroed by `prefers-reduced-motion` (§4.5)                                        |
