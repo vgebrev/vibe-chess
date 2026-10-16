@@ -6,21 +6,24 @@
 	import { AUTO_FLIP_DELAY_MS } from '#lib/board/motion.ts';
 	import Board from '#lib/components/Board.svelte';
 	import Controls from '#lib/components/Controls.svelte';
+	import Drawer from '#lib/components/Drawer.svelte';
+	import Icon from '#lib/components/Icon.svelte';
 	import MoveList from '#lib/components/MoveList.svelte';
 	import PlayerStrip from '#lib/components/PlayerStrip.svelte';
 	import NewGameForm from '#lib/components/NewGameForm.svelte';
+	import SettingsPanel from '#lib/components/SettingsPanel.svelte';
 	import StatusBar from '#lib/components/StatusBar.svelte';
 	import { Opponent } from '#lib/engine/opponent.svelte.ts';
 	import { Game } from '#lib/game/game.svelte.ts';
 	import { numberedMove } from '#lib/game/notation.ts';
 	import { DEFAULT_SETUP, pickColor, type GameSetup } from '#lib/game/setup.ts';
 	import { statusText } from '#lib/labels.ts';
-	import { SKIN_IDS, skinBaseUrl, type SkinId } from '#lib/skins/index.ts';
+	import { skinBaseUrl, type SkinId } from '#lib/skins/index.ts';
 	import { skin } from '#lib/skins/skin.svelte.ts';
 
-	// Interim screen for milestone 6: vs-Computer and hot-seat play with a skin switcher and
-	// toggles, and the lg side panel. The full layout and the drawers arrive in M7 (§9).
-	// `?fen=` starts from a given position (handy for testing promotion, mates, …), and
+	// The game screen (§6): header, strips, board and control bar in one column below lg; the
+	// status, move list and controls in a side panel from lg. New game, Settings and (below lg)
+	// the move list open in drawers. `?fen=` starts from a given position (handy for testing promotion, mates, …), and
 	// `?mode=hotseat` / `?color=b` pick the first game's setup.
 	const params = page.url.searchParams;
 	const startFen = params.get('fen') ?? undefined;
@@ -33,7 +36,8 @@
 	let human = $state<Color>(untrack(() => pickColor(setup.color)));
 	let game = $state(newGame());
 	let orientation = $state<Orientation>(untrack(() => (human === 'w' ? 'white' : 'black')));
-	let newGameOpen = $state(false);
+	/** The open drawer, if any (§6.3). */
+	let drawer = $state<'new' | 'settings' | 'moves' | null>(null);
 	/** Why the game isn't what was asked for, e.g. the engine failed to load. */
 	let notice = $state<string | null>(null);
 	let showCoordinates = $state(true);
@@ -61,7 +65,7 @@
 		human = pickColor(next.color);
 		game = newGame();
 		orientation = vsComputer && human === 'b' ? 'black' : 'white';
-		newGameOpen = false;
+		drawer = null;
 		notice = null;
 	}
 
@@ -144,12 +148,10 @@
 		}
 	}
 
-	async function changeSkin(e: Event & { currentTarget: HTMLSelectElement }) {
-		const select = e.currentTarget;
-		const id = select.value as SkinId;
-		// An invalid skin leaves the current one in place, so put the picker back too.
-		if (!(await skin.use(skinBaseUrl(id), id))) select.value = skin.current?.manifest.id ?? '';
-	}
+	// An invalid skin leaves the current one in place (§5.5), and the picker follows the
+	// current skin.
+	const changeSkin = (id: SkinId) => skin.use(skinBaseUrl(id), id);
+	const closeDrawer = () => (drawer = null);
 </script>
 
 <svelte:head>
@@ -158,43 +160,27 @@
 
 <svelte:window {onkeydown} />
 
-<main class="flex min-h-dvh flex-col items-center gap-2 p-4">
-	<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm">
-		<label class="flex items-center gap-2">
-			Skin
-			<select
-				class="rounded bg-surface-raised px-2 py-1"
-				value={skin.current?.manifest.id}
-				onchange={changeSkin}
-			>
-				{#each SKIN_IDS as id (id)}
-					<option value={id}>{id}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="flex items-center gap-2">
-			<input type="checkbox" bind:checked={showCoordinates} />
-			Coordinates
-		</label>
-		<label class="flex items-center gap-2">
-			<input type="checkbox" bind:checked={showLegalMoves} />
-			Legal moves
-		</label>
-		{#if !vsComputer}
-			<label class="flex items-center gap-2">
-				<input type="checkbox" bind:checked={autoFlip} />
-				Auto-flip
-			</label>
-		{/if}
-	</div>
+<div class="flex min-h-dvh flex-col">
+	<header class="flex h-12 shrink-0 items-center justify-between px-4">
+		<h1 class="text-xl">Chess</h1>
+		<button
+			class="-mr-2 rounded p-2 hover:text-accent"
+			aria-label="Settings"
+			onclick={() => (drawer = 'settings')}
+		>
+			<Icon name="settings" class="size-6" />
+		</button>
+	</header>
 
-	<!-- Below lg: one column. From lg: status, controls and moves in a side panel (§6.2). -->
-	<div
-		class="flex w-full flex-col items-center gap-2 lg:flex-row lg:items-start lg:justify-center lg:gap-6"
+	<!-- Below lg: one column, the control bar at the bottom. From lg: board + side panel (§6.2). -->
+	<main
+		class="flex flex-1 flex-col items-center gap-2 px-4 pb-4 lg:flex-none lg:flex-row lg:items-stretch lg:justify-center lg:gap-6"
 	>
 		{#if skin.current}
+			<!-- Board size: the full width below lg, unless the height is shorter (§6.1, §6.2). -->
 			<div
-				class="flex w-[min(100%,calc(100dvh-15rem))] flex-col gap-1 lg:w-[min(calc(100vw-20rem-3.5rem),calc(100dvh-10rem))]"
+				class="flex w-[min(100%,calc(100dvh-16rem))] flex-col gap-1 lg:w-[min(calc(100vw-23.5rem),calc(100dvh-10rem))]"
+				data-board-column
 			>
 				<PlayerStrip
 					color={top}
@@ -222,47 +208,57 @@
 			</div>
 		{/if}
 
-		<div
-			class="flex w-full max-w-xs flex-col items-center gap-2 lg:w-80 lg:max-w-none lg:items-stretch lg:pt-9"
-			data-panel
-		>
-			<StatusBar
-				{status}
-				{lastMove}
-				gameOver={game.isGameOver}
-				onnew={() => (newGameOpen = true)}
-			/>
-			{#if notice}
-				<p class="text-sm text-danger" role="alert">{notice}</p>
-			{/if}
+		<!-- At lg the panel is as tall as the board column, and the move list scrolls in it. -->
+		<div class="flex w-full flex-1 flex-col lg:relative lg:w-80 lg:flex-none" data-panel>
+			<div class="flex flex-1 flex-col gap-2 lg:absolute lg:inset-0 lg:pt-9 lg:pb-9">
+				<StatusBar {status} {lastMove} gameOver={game.isGameOver} onnew={() => (drawer = 'new')} />
+				{#if notice}
+					<p class="text-center text-sm text-danger lg:text-left" role="alert">{notice}</p>
+				{/if}
 
-			<Controls
-				{canUndo}
-				canResign={!game.isGameOver}
-				onnew={() => (newGameOpen = true)}
-				onundo={undo}
-				onflip={flip}
-				onresign={() => game.resign(vsComputer ? human : game.turn)}
-			/>
+				<div class="hidden min-h-0 flex-1 lg:flex">
+					<MoveList startFen={game.startFen} moves={game.moves.map((m) => m.san)} class="" />
+				</div>
 
-			<MoveList startFen={game.startFen} moves={game.moves.map((m) => m.san)} />
+				<div class="mt-auto lg:mt-0">
+					<Controls
+						{canUndo}
+						canResign={!game.isGameOver}
+						onnew={() => (drawer = 'new')}
+						onundo={undo}
+						onflip={flip}
+						onresign={() => game.resign(vsComputer ? human : game.turn)}
+						onmoves={() => (drawer = 'moves')}
+					/>
+				</div>
+			</div>
 		</div>
-	</div>
+	</main>
+</div>
 
-	{#if newGameOpen}
-		<dialog
-			{@attach (dialog: HTMLDialogElement) => dialog.showModal()}
-			class="m-auto w-[min(100%-2rem,24rem)] rounded-lg bg-surface p-4 text-text backdrop:bg-black/50"
-			aria-label="New game"
-			oncancel={() => (newGameOpen = false)}
-		>
-			<NewGameForm
-				initial={setup}
-				{labels}
-				eloRange={opponent.eloRange ?? undefined}
-				onstart={startGame}
-				oncancel={() => (newGameOpen = false)}
-			/>
-		</dialog>
-	{/if}
-</main>
+<Drawer open={drawer === 'new'} title="New game" onclose={closeDrawer}>
+	<NewGameForm
+		initial={setup}
+		{labels}
+		eloRange={opponent.eloRange ?? undefined}
+		onstart={startGame}
+	/>
+</Drawer>
+
+<Drawer open={drawer === 'settings'} title="Settings" onclose={closeDrawer}>
+	<SettingsPanel
+		skinId={skin.current?.manifest.id ?? ''}
+		onskin={changeSkin}
+		bind:showLegalMoves
+		bind:showCoordinates
+		bind:autoFlip
+		{vsComputer}
+		bind:difficulty={setup.difficulty}
+		{labels}
+		eloRange={opponent.eloRange ?? undefined}
+	/>
+</Drawer>
+
+<Drawer open={drawer === 'moves'} title="Moves" onclose={closeDrawer}>
+	<MoveList startFen={game.startFen} moves={game.moves.map((m) => m.san)} class="" />
+</Drawer>

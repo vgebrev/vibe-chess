@@ -51,7 +51,7 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
   - Each square is also a transparent `<button>`, for keyboard and screen-reader access (§6.5). There is a single tab stop on the selected square (or a1). Enter or Space acts like a click.
   - Esc cancels the promotion picker, then a drag, then the selection.
   - The dragged piece is drawn with `scale: theme.dragScale` (default 1.15) and `filter: drop-shadow(theme.dragShadow)`.
-  - The interim page accepts `?fen=<FEN>` to start from a position, which e2e tests use.
+  - The page accepts `?fen=<FEN>` to start from a position, which e2e tests use.
 
 ### 4.3 Move guidance
 
@@ -133,8 +133,8 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
   - `engine/engine.ts` is the UCI client. It talks to anything shaped like a Worker, so tests drive it with a scripted fake (`engine/fakeWorker.ts`). Every `go` gets exactly one `bestmove`, so pending searches form a queue; `stop()` marks them all cancelled and their replies resolve to `null`. Options are only changed once no search is running.
   - `engine/opponent.svelte.ts` owns the engine. It starts it when a vs-Computer game begins (not on first paint and not in hot-seat), applies the difficulty only when it changes, computes `T`, searches, waits out the rest of `T`, and plays the move if the request is still current and the position unchanged. Its `status` (`idle`, `thinking`, `failed`) drives the status line and the fallback.
   - The page runs the opponent from an effect whenever it is the computer's turn; a new position, undo, resignation or new game cancels the pending reply. The player can only move their own pieces (`Board`'s `canMove`).
-  - **New game** opens a form (`NewGameForm.svelte`): opponent (Computer / Two players), colour (the two side names or Random) and difficulty (the five presets or Custom with the Elo slider). It opens with the last game's choices. Until M7 puts it in a Drawer, it sits in a native modal `<dialog>` (Esc closes it). Playing Black orients the board to Black and the engine opens.
-  - The first game is vs Computer, as White, at the middle preset (`p2`). The interim page also reads `?mode=hotseat` and `?color=b`, alongside `?fen=`.
+  - **New game** opens a form (`NewGameForm.svelte`): opponent (Computer / Two players), colour (the two side names or Random) and difficulty (the five presets or Custom with the Elo slider). It opens with the last game's choices, in a Drawer (§6.4). Playing Black orients the board to Black and the engine opens.
+  - The first game is vs Computer, as White, at the middle preset (`p2`). The page also reads `?mode=hotseat` and `?color=b`, alongside `?fen=`.
   - Resign in vs-Computer mode resigns the player. Auto-flip is a hot-seat setting and is hidden vs Computer.
 
 #### 4.6.1 Think time ("organic" pacing)
@@ -199,7 +199,7 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
   - **Auto-flip** waits `AUTO_FLIP_DELAY_MS` (the 200 ms slide plus a 400 ms beat, in `board/motion.ts`) after a move or undo before turning the board, so the move is seen landing; board input is locked meanwhile. It is a pause rather than motion, so reduced motion keeps it.
   - The status line also shows the last move with its number ("12. Nf3", "12… Nf6"). When the game is over, a "New game" button sits next to the result.
   - Keyboard: `Ctrl/Cmd+Z` undoes (§6.5).
-  - The interim page (until M7) has toggles (including auto-flip) above the board. Below `lg`, the strips, board, status line, controls and move list stack in one column. From `lg`, the status line, controls (2×2) and move list sit in a 20 rem side panel to the right of the board (§6.2), brought forward from M7; the header, drawers and settings remain M7 work.
+  - **Layout (M7):** the page is laid out as in §6.1/§6.2. New game, Settings and (below `lg`) the move list open in Drawers (§6.4). New game is a form that starts the game on **Start**; Settings apply as they change, with no save button. In Settings, auto-flip shows only in hot-seat games and the difficulty only vs Computer, where a change applies from the computer's next move. The difficulty picker (presets + custom Elo) is shared by both drawers.
 
 ### 4.8 Side labels & status text
 
@@ -482,9 +482,9 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 ```
 
 - Board size is `min(100vw − 32px, 100dvh − header − strips − control bar)`. The board is always fully visible without scrolling, on any phone in portrait.
-- The last move in SAN is also shown in the status strip, so the drawer is optional during play.
-- **Game over:** the result and a "New game" button replace the player-strip status inline. No modal is used.
-- **Resign** (⚑) sits in the control bar. Its confirmation is an inline two-tap ("Resign?" ✓/✕) rather than a dialog.
+- **Implementation (M7):** the status sits on its own line under the player strip, rather than inside it, so a full row of captures still fits on a 360 px phone. The line shows the status (whose turn, check, thinking, result) and the last move in SAN, so the drawer is optional during play. The control bar sits at the bottom of the screen, in reach of a thumb. Its buttons are icons with short labels (New, Undo, Flip, Resign, Moves), and their accessible names are the full names (e.g. "Flip board").
+- **Game over:** the result and a "New game" button replace the status inline. No modal is used.
+- **Resign** (⚑) sits in the control bar. Its confirmation is an inline two-tap ("Resign?" ✓/✕) that takes over the bar, rather than a dialog. "No" puts focus back on Resign.
 
 ### 6.2 Wide layout (`lg` and up): board + side panel
 
@@ -504,22 +504,23 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 ```
 
 - At `lg`, the controls and move list move from under the board into a side panel (≈ 320 px) next to it. The move list renders inline in the panel, not in the drawer, and the ☰ button is hidden (`lg:hidden`).
+- **Implementation (M7):** the panel is exactly as tall as the board column (strips included). The status line sits level with the board's top edge and the controls (2×2, icon + full name) with its bottom edge, and the move list scrolls in between.
 - Board size is `min(100dvh − header − 32px, 100vw − panel − 48px)`.
 
 ### 6.3 What goes where
 
 **Principle:** simple controls fit into the main layout. A **composite** UI goes in a **Drawer** on narrow screens; a composite is a group of related inputs or content that doesn't fit the main column.
 
-| UI                                                     | Narrow (below `lg`)  | Wide (`lg` and up)                  |
-| ------------------------------------------------------ | -------------------- | ----------------------------------- |
-| New / Undo / Flip / Resign                             | Control bar          | Side panel                          |
-| Status, check, result, engine thinking                 | Player strips        | Player strips + side panel          |
-| Captured pieces, material `+N` (§4.10)                 | Player strips        | Player strips                       |
-| Move list                                              | **Drawer** (☰)      | Inline in side panel                |
-| New Game setup (mode, colour, difficulty + Elo slider) | **Drawer**           | Drawer (opened from the side panel) |
-| Settings (skin, guidance, coordinates, auto-flip)      | **Drawer** (⚙)       | Drawer                              |
-| Promotion picker                                       | Overlay on the board | Overlay on the board                |
-| Resign confirm, game-over                              | Inline               | Inline                              |
+| UI                                                     | Narrow (below `lg`)   | Wide (`lg` and up)                  |
+| ------------------------------------------------------ | --------------------- | ----------------------------------- |
+| New / Undo / Flip / Resign                             | Control bar           | Side panel                          |
+| Status, check, result, engine thinking                 | Line under the strips | Side panel                          |
+| Captured pieces, material `+N` (§4.10)                 | Player strips         | Player strips                       |
+| Move list                                              | **Drawer** (☰)       | Inline in side panel                |
+| New Game setup (mode, colour, difficulty + Elo slider) | **Drawer**            | Drawer (opened from the side panel) |
+| Settings (skin, guidance, coordinates, auto-flip)      | **Drawer** (⚙)        | Drawer                              |
+| Promotion picker                                       | Overlay on the board  | Overlay on the board                |
+| Resign confirm, game-over                              | Inline                | Inline                              |
 
 On wide screens, New Game and Settings could be shown as a centred dialog instead. The plan uses the same `Drawer` component everywhere for v1: one component, one behaviour, less to test. On `lg` the drawer can open as a side sheet from the right instead of a bottom sheet, through a `side` prop.
 
@@ -530,6 +531,12 @@ On wide screens, New Game and Settings could be shown as a centred dialog instea
 - **Close:** tap the backdrop, swipe down on the handle, press `Esc`, or use the close button.
 - While open, focus is trapped and the background is `inert`. Focus returns to the trigger on close.
 - Height is content-sized, capped at 70 dvh, with internal scroll.
+- **Implementation (M7):**
+  - A native modal `<dialog>` (`showModal()`) fills the viewport and draws its own scrim and sheet, so both can be animated. The modal dialog provides the focus trap and the inert background. The trigger's focus is restored once the sheet has slid out, if the trigger is still on the page.
+  - Esc is caught on the dialog's `cancel` event and routed through `onclose`, so the sheet slides out instead of vanishing.
+  - The slide direction comes from CSS variables set by breakpoint classes (`--sheet-x`/`--sheet-y`), so the component has no media query (§6.0). Durations come from `motion.drawer` (250 ms, 0 with reduced motion).
+  - The handle is shown below `lg` only. A swipe of more than 64 px closes the sheet; a shorter one springs back.
+  - The content mounts when the drawer opens, so the New game form always starts from the last game's setup.
 
 ### 6.5 Input & accessibility
 
@@ -595,8 +602,11 @@ src/
       MoveList.svelte
       Controls.svelte
       Drawer.svelte
-      NewGameForm.svelte    # mode, colour, difficulty presets + Elo slider (in a Drawer from M7)
-      SettingsPanel.svelte
+      NewGameForm.svelte    # mode, colour, difficulty (in a Drawer)
+      DifficultyPicker.svelte  # presets + custom Elo slider, shared by New game and Settings
+      SettingsPanel.svelte  # skin, guidance, coordinates, auto-flip, difficulty
+      Icon.svelte           # stroked icons for the control bar, header and drawers
+      options.ts            # shared chip style for radios
     labels.ts               # status templates + label fallbacks
     persistence.ts
 static/
@@ -689,6 +699,9 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Game results: each end reason, resignation (final, no undo), taking back a checkmate
 - Move list numbering, including games that start with Black to move
 - Persistence round-trip (replay restores undo history)
+- Drawer: modal dialog named by its title, Esc / close button / scrim ask to close, focus returns to the trigger, swipe threshold
+- Settings panel: skins listed by name, auto-flip only in hot-seat, difficulty only vs Computer
+- Controls: full accessible names, Moves button, focus back on Resign after "No"
 
 **E2E (Playwright, run at both 390×844 and 1280×800)**
 
@@ -698,7 +711,9 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - vs Computer: after the human's first move, the engine replies within 5 s, and the player can't move the computer's pieces meanwhile
 - vs Computer: undo takes back the pair; undo while the engine thinks cancels its reply; playing Black turns the board and the engine opens; a failed engine download falls back to two players
 - Custom Elo: the slider moves in steps of 50
-- Narrow viewport (390 px): the move list opens in a drawer and closes with Esc. Wide viewport (1280 px, i.e. `lg` and up): the move list is inline and there is no ☰ button.
+- Narrow viewport (390 px): the move list opens in a drawer and closes with Esc, giving focus back to ☰. Wide viewport (1280 px, i.e. `lg` and up): the move list is inline and there is no ☰ button.
+- The page fits without scrolling at 390×844, 1280×800 and 360×640, control bar included
+- Drawers: settings apply at once and the drawer closes from its scrim; a short swipe on the handle springs back and a long one closes it; vs Computer, Settings offer the difficulty and not auto-flip
 
 **Acceptance checklist (v1 done)**
 
@@ -761,3 +776,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 23  | Animation technique         | FLIP slides with the Web Animations API in `Piece` (not CSS transitions), Svelte fades for captures, durations in `board/motion.ts` zeroed by `prefers-reduced-motion` (§4.5)                                                                                                        |
 | 24  | Undo and game end           | Undo rebuilds pieces by replaying from the start FEN, so ids and animations come for free. Checkmates and draws can be taken back; a resignation is final. Hot-seat auto-flip waits for the move to land (§4.7)                                                                      |
 | 25  | Engine delivery             | The lite single-threaded build is imported with Vite `?url` (hashed assets, nothing copied to `static/`) and started when a vs-Computer game begins. A `HEAD` check catches a failed download, which falls back to hot-seat. vs Computer, Undo takes back the move pair (§4.6, §4.7) |
+| 26  | Shell and drawers           | Drawers are native modal `<dialog>`s with their own scrim and sheet. The status gets its own line under the strips rather than sitting in them, and the narrow control bar is at the bottom. Settings apply at once; difficulty can be changed mid-game vs Computer (§6.1, §6.4)     |

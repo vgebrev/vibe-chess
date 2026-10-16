@@ -97,16 +97,32 @@ describe('MoveList', () => {
 
 describe('Controls', () => {
 	function setup(props: { canUndo?: boolean; canResign?: boolean } = {}) {
-		const handlers = { onnew: vi.fn(), onundo: vi.fn(), onflip: vi.fn(), onresign: vi.fn() };
+		const handlers = {
+			onnew: vi.fn(),
+			onundo: vi.fn(),
+			onflip: vi.fn(),
+			onresign: vi.fn(),
+			onmoves: vi.fn()
+		};
 		render(Controls, { canUndo: true, canResign: true, ...handlers, ...props });
 		return handlers;
 	}
+
+	it('names each button in full, with short labels below lg', async () => {
+		const h = setup();
+		const flip = page.getByRole('button', { name: 'Flip board' });
+		await expect.element(flip).toHaveTextContent(/Flip/);
+		await page.getByRole('button', { name: 'Moves' }).click();
+		expect(h.onmoves).toHaveBeenCalledOnce();
+	});
 
 	it('asks for a second tap before resigning', async () => {
 		const h = setup();
 		await page.getByRole('button', { name: 'Resign' }).click();
 		expect(h.onresign).not.toHaveBeenCalled();
 		await page.getByRole('button', { name: 'No, keep playing' }).click();
+		// Focus goes back to Resign, which the confirmation had replaced.
+		await expect.element(page.getByRole('button', { name: 'Resign' })).toHaveFocus();
 		await page.getByRole('button', { name: 'Resign' }).click();
 		await userEvent.keyboard('{Enter}');
 		expect(h.onresign).toHaveBeenCalledOnce();

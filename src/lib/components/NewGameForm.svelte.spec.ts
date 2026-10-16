@@ -16,8 +16,7 @@ describe('NewGameForm', () => {
 		render(NewGameForm, {
 			initial: { mode: 'computer', color: 'b', difficulty: { kind: 'preset', id: 'p4' } },
 			labels: pirate,
-			onstart,
-			oncancel: () => {}
+			onstart
 		});
 		await expect.element(page.getByRole('radio', { name: 'Blue Crew' })).toBeChecked();
 		await expect.element(page.getByRole('radio', { name: 'Captain' })).toBeChecked();
@@ -41,8 +40,7 @@ describe('NewGameForm', () => {
 			initial: DEFAULT_SETUP,
 			labels: {},
 			eloRange: { min: 1400, max: 2850 },
-			onstart,
-			oncancel: () => {}
+			onstart
 		});
 		await page.getByText('Custom').click();
 		const slider = page.getByRole('slider', { name: 'Elo' });
@@ -61,8 +59,7 @@ describe('NewGameForm', () => {
 		render(NewGameForm, {
 			initial: DEFAULT_SETUP,
 			labels: {},
-			onstart: () => {},
-			oncancel: () => {}
+			onstart: () => {}
 		});
 		await page.getByText('Two players').click();
 		await expect.element(page.getByRole('group', { name: 'Difficulty' })).not.toBeInTheDocument();

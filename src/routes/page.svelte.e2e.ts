@@ -23,12 +23,33 @@ test('renders the start position in the default skin', async ({ page }) => {
 	await expect(page.locator('[data-file]')).toHaveText(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
 });
 
-test('the board fits the viewport without scrolling', async ({ page }) => {
+const fitsWithoutScrolling = async (page: Page) => {
 	const box = await page.locator('.frame').boundingBox();
 	const viewport = page.viewportSize()!;
 	expect(box!.x).toBeGreaterThanOrEqual(0);
 	expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
 	expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
+	const page_ = await page.evaluate(() => {
+		const root = document.scrollingElement!;
+		return { width: root.scrollWidth, height: root.scrollHeight };
+	});
+	expect(page_).toEqual(viewport);
+	// The control bar is on screen too.
+	const controls = (await page.locator('[data-controls]').boundingBox())!;
+	expect(controls.y + controls.height).toBeLessThanOrEqual(viewport.height);
+};
+
+test('the board fits the viewport without scrolling', async ({ page }) => {
+	await fitsWithoutScrolling(page);
+});
+
+test.describe('on a 360 px phone', () => {
+	test.use({ viewport: { width: 360, height: 640 } });
+
+	test('the page fits without scrolling', async ({ page }, info) => {
+		test.skip(info.project.name !== 'phone', 'a phone size');
+		await fitsWithoutScrolling(page);
+	});
 });
 
 for (const how of ['button', 'F key'] as const) {
@@ -63,9 +84,19 @@ for (const how of ['button', 'F key'] as const) {
 	});
 }
 
+/** Open the settings drawer. Radios and checkboxes are picked by their label text. */
+const settings = async (page: Page) => {
+	await page.getByRole('button', { name: 'Settings' }).click();
+	return page.getByRole('dialog', { name: 'Settings' });
+};
+
 test('switching to the Pirate skin draws coordinates in the frame', async ({ page }) => {
-	await page.getByLabel('Skin').selectOption('pirate');
-	await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
+	const drawer = await settings(page);
+	await drawer.getByText('Pirate', { exact: true }).click();
+	await expect(page.locator('[data-skin="pirate"]')).toBeAttached();
+	await expect(drawer.getByRole('radio', { name: 'Pirate' })).toBeChecked();
+	await page.keyboard.press('Escape');
+	await expect(drawer).toBeHidden();
 	const board = (await page.locator('.board').boundingBox())!;
 	const fileA = await centre(page.locator('[data-file="a"]'));
 	expect(fileA.y).toBeLessThan(board.y + board.height);
@@ -176,7 +207,10 @@ test('resigning takes a second tap and ends the game', async ({ page }) => {
 });
 
 test('auto-flip turns the board to the side to move', async ({ page }) => {
-	await page.getByLabel('Auto-flip').check();
+	const drawer = await settings(page);
+	await drawer.getByLabel('Auto-flip').check();
+	await page.keyboard.press('Escape');
+	await expect(drawer).toBeHidden();
 	await play(page, ['e2', 'e4']);
 	await expect(page.locator('[data-orientation="black"]')).toBeVisible();
 	await settle(page);
@@ -186,8 +220,57 @@ test('auto-flip turns the board to the side to move', async ({ page }) => {
 	await expect(page.locator('[data-orientation="black"]')).toBeVisible();
 });
 
+test('the move list is in a drawer below lg, and inline from lg', async ({ page }, info) => {
+	await play(page, ['e2', 'e4']);
+	const toggle = page.getByRole('button', { name: 'Moves' });
+	if (info.project.name === 'desktop') {
+		await expect(page.locator('[data-moves]')).toBeVisible();
+		await expect(toggle).toBeHidden();
+		return;
+	}
+	await expect(page.locator('[data-moves]')).toBeHidden();
+	await toggle.click();
+	const drawer = page.getByRole('dialog', { name: 'Moves' });
+	await expect(drawer.locator('[data-moves] [aria-current]')).toHaveText('e4');
+	// A modal dialog: the page behind is inert while the drawer is open.
+	expect(await drawer.evaluate((d) => d.matches(':modal'))).toBe(true);
+	await page.keyboard.press('Escape');
+	await expect(drawer).toBeHidden();
+	await expect(toggle).toBeFocused();
+});
+
+test('settings apply at once, and the drawer closes from its scrim', async ({ page }) => {
+	const drawer = await settings(page);
+	await expect(drawer.getByLabel('Auto-flip')).toBeVisible();
+	await expect(drawer.getByRole('group', { name: 'Difficulty' })).toHaveCount(0);
+	await drawer.getByLabel('Show coordinates').uncheck();
+	await expect(page.locator('[data-file]')).toHaveCount(0);
+	await drawer.getByLabel('Show legal moves').uncheck();
+	await page.mouse.click(8, 8);
+	await expect(drawer).toBeHidden();
+	await cell(page, 'e2').click();
+	await expect(page.locator('[data-indicator]')).toHaveCount(0);
+});
+
 test.describe('with reduced motion', () => {
 	test.use({ reducedMotion: 'reduce' });
+
+	// Without the slide, the handle is in place as soon as the drawer opens.
+	test('a drawer closes when swiped down by its handle', async ({ page }, info) => {
+		test.skip(info.project.name !== 'phone', 'the handle shows below lg');
+		const drawer = await settings(page);
+		const handle = await centre(drawer.locator('[data-handle]'));
+		const swipe = async (dy: number, steps: number) => {
+			await page.mouse.move(handle.x, handle.y);
+			await page.mouse.down();
+			await page.mouse.move(handle.x, handle.y + dy, { steps });
+			await page.mouse.up();
+		};
+		await swipe(30, 3);
+		await expect(drawer).toBeVisible(); // too short: it springs back
+		await swipe(150, 5);
+		await expect(drawer).toBeHidden();
+	});
 
 	test('moves and flips without animating', async ({ page }) => {
 		await page.locator('[data-cell="e2"]').click();
@@ -221,7 +304,7 @@ test.describe('vs Computer', () => {
 		await play(page, ['e2', 'e4']);
 		await expect(page.locator('[data-status]')).toHaveText('White to move', { timeout: 5000 });
 		await undo.click();
-		await expect(page.getByText('No moves yet')).toBeVisible();
+		await expect(page.locator('[data-moves] li')).toHaveText('No moves yet');
 		await expect(pieceOn(page, 'e2')).toHaveAttribute('data-piece', 'wp');
 		await expect(undo).toBeDisabled();
 	});
@@ -232,7 +315,7 @@ test.describe('vs Computer', () => {
 		await expect(page.locator('[data-status]')).toHaveText('White to move');
 		// Longer than any opening think: no reply arrives.
 		await page.waitForTimeout(1500);
-		await expect(page.getByText('No moves yet')).toBeVisible();
+		await expect(page.locator('[data-moves] li')).toHaveText('No moves yet');
 	});
 
 	test('playing Black, the board turns and the engine opens', async ({ page }) => {
@@ -242,8 +325,18 @@ test.describe('vs Computer', () => {
 		await dialog.getByRole('button', { name: 'Start' }).click();
 		await expect(dialog).toBeHidden();
 		await expect(page.locator('[data-orientation="black"]')).toBeVisible();
-		await expect(page.locator('[data-moves] [aria-current]')).toBeVisible({ timeout: 5000 });
+		await expect(page.locator('[data-moves] [aria-current]')).toBeAttached({ timeout: 5000 });
 		await expect(page.locator('[data-status]')).toHaveText('Black to move');
+	});
+
+	test('settings offer the difficulty, not auto-flip', async ({ page }) => {
+		const drawer = await settings(page);
+		await expect(drawer.getByRole('group', { name: 'Difficulty' })).toBeVisible();
+		await expect(drawer.getByLabel('Auto-flip')).toHaveCount(0);
+		await drawer.getByText('Hard', { exact: true }).click();
+		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'New game' }).click();
+		await expect(page.getByRole('radio', { name: 'Hard' })).toBeChecked();
 	});
 
 	test('the custom Elo slider moves in steps of 50', async ({ page }) => {

@@ -4,6 +4,7 @@ import { prefersReducedMotion } from 'svelte/motion';
 
 export const MOVE_MS = 200;
 export const CAPTURE_MS = 200;
+export const DRAWER_MS = 250;
 /**
  * Hot-seat auto-flip waits this long after a move, so the move is seen landing before the
  * board turns. It is a pause rather than motion, so reduced motion keeps it.
@@ -18,5 +19,9 @@ export const motion = {
 	/** Fades: captures, promotion crossfades, pieces restored by undo. */
 	get capture(): number {
 		return prefersReducedMotion.current ? 0 : CAPTURE_MS;
+	},
+	/** Drawers sliding in and out, and their backdrop fading (§6.4). */
+	get drawer(): number {
+		return prefersReducedMotion.current ? 0 : DRAWER_MS;
 	}
 };

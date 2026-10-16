@@ -5,9 +5,11 @@
 		startFen: string;
 		/** SAN of the moves played, oldest first. */
 		moves: string[];
+		/** Sizing from the container: the list scrolls within it. */
+		class?: string;
 	}
 
-	let { startFen, moves }: Props = $props();
+	let { startFen, moves, class: className = 'max-h-48' }: Props = $props();
 
 	const rows = $derived(moveRows(startFen, moves));
 
@@ -16,14 +18,15 @@
 	// Keep the latest move in view.
 	$effect(() => {
 		void rows;
-		list.scrollTop = list.scrollHeight;
+		// Whichever box scrolls: the list itself, or the drawer it sits in.
+		list.lastElementChild?.scrollIntoView({ block: 'nearest' });
 	});
 </script>
 
 <!-- SAN in numbered pairs, the current (last) move highlighted (§4.7). -->
 <ol
 	bind:this={list}
-	class="max-h-48 w-full overflow-y-auto tabular-nums lg:max-h-[calc(100dvh-16rem)]"
+	class={['w-full overflow-y-auto tabular-nums', className]}
 	aria-label="Moves"
 	data-moves
 >
