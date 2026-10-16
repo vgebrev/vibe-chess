@@ -156,6 +156,23 @@ export class Game {
 		return move;
 	}
 
+	/** `color` has a move to take back (vs Computer, where Undo takes back the pair). */
+	canUndoTurn(color: Color): boolean {
+		return this.canUndo && this.moves.some((m) => m.color === color);
+	}
+
+	/**
+	 * Take back `color`'s last move and any reply to it, so it is their turn again (§4.7).
+	 * Returns the number of moves taken back.
+	 */
+	undoTurn(color: Color): number {
+		if (!this.canUndoTurn(color)) return 0;
+		let undone = 0;
+		do undone += this.undo() ? 1 : 0;
+		while (this.turn !== color && this.canUndo);
+		return undone;
+	}
+
 	/** The side to move resigns (hot-seat), or the given side. */
 	resign(color: Color = this.turn) {
 		if (this.isGameOver) return;

@@ -10,8 +10,9 @@ const centre = async (locator: Locator) => {
 const settle = (page: Page) =>
 	page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
 
+// Most tests play both sides; the vs-Computer ones navigate again.
 test.beforeEach(async ({ page }) => {
-	await page.goto('/');
+	await page.goto('/?mode=hotseat');
 	await expect(page).toHaveTitle('Chess');
 });
 
@@ -88,7 +89,7 @@ test('moves by click and by drag', async ({ page }) => {
 });
 
 test('plays a promotion through the picker', async ({ page }) => {
-	await page.goto('/?fen=' + encodeURIComponent('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
+	await page.goto('/?mode=hotseat&fen=' + encodeURIComponent('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
 	await cell(page, 'a7').click();
 	await cell(page, 'a8').click();
 	await expect(page.locator('[data-promote]')).toHaveCount(4);
@@ -116,8 +117,10 @@ test("scholar's mate ends the game", async ({ page }) => {
 	await cell(page, 'e8').click();
 	await expect(page.locator('[data-indicator]')).toHaveCount(0);
 
-	// The result offers a new game inline.
+	// The result offers a new game inline, set up like the last one.
 	await page.locator('[data-status] + button', { hasText: 'New game' }).click();
+	await expect(page.getByRole('radio', { name: 'Two players' })).toBeChecked();
+	await page.getByRole('button', { name: 'Start' }).click();
 	await expect(page.locator('[data-status]')).toHaveText('White to move');
 	await expect(pieceOn(page, 'd1')).toHaveAttribute('data-piece', 'wq');
 });
@@ -195,5 +198,73 @@ test.describe('with reduced motion', () => {
 			'wp'
 		);
 		expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+	});
+});
+
+test.describe('vs Computer', () => {
+	test.beforeEach(async ({ page }) => {
+		await page.goto('/');
+	});
+
+	test('the engine replies to the first move within 5 s', async ({ page }) => {
+		await play(page, ['e2', 'e4']);
+		await expect(page.locator('[data-status]')).toHaveText('Black is thinking…');
+		// The player can't move the computer's pieces.
+		await cell(page, 'e7').click();
+		await expect(page.locator('[data-indicator]')).toHaveCount(0);
+		await expect(page.locator('[data-status]')).toHaveText('White to move', { timeout: 5000 });
+		await expect(page.locator('[data-moves] li')).toHaveText(/1\.\s*e4\s*\S+/);
+	});
+
+	test('undo takes back the move and the reply', async ({ page }) => {
+		const undo = page.getByRole('button', { name: 'Undo' });
+		await play(page, ['e2', 'e4']);
+		await expect(page.locator('[data-status]')).toHaveText('White to move', { timeout: 5000 });
+		await undo.click();
+		await expect(page.getByText('No moves yet')).toBeVisible();
+		await expect(pieceOn(page, 'e2')).toHaveAttribute('data-piece', 'wp');
+		await expect(undo).toBeDisabled();
+	});
+
+	test('undo while the engine thinks cancels its reply', async ({ page }) => {
+		await play(page, ['e2', 'e4']);
+		await page.getByRole('button', { name: 'Undo' }).click();
+		await expect(page.locator('[data-status]')).toHaveText('White to move');
+		// Longer than any opening think: no reply arrives.
+		await page.waitForTimeout(1500);
+		await expect(page.getByText('No moves yet')).toBeVisible();
+	});
+
+	test('playing Black, the board turns and the engine opens', async ({ page }) => {
+		await page.getByRole('button', { name: 'New game' }).click();
+		const dialog = page.getByRole('dialog', { name: 'New game' });
+		await dialog.getByText('Black', { exact: true }).click();
+		await dialog.getByRole('button', { name: 'Start' }).click();
+		await expect(dialog).toBeHidden();
+		await expect(page.locator('[data-orientation="black"]')).toBeVisible();
+		await expect(page.locator('[data-moves] [aria-current]')).toBeVisible({ timeout: 5000 });
+		await expect(page.locator('[data-status]')).toHaveText('Black to move');
+	});
+
+	test('the custom Elo slider moves in steps of 50', async ({ page }) => {
+		await page.getByRole('button', { name: 'New game' }).click();
+		await page.getByText('Custom', { exact: true }).click();
+		const slider = page.getByRole('slider', { name: 'Elo' });
+		await expect(slider).toHaveValue('1350');
+		await slider.focus();
+		await page.keyboard.press('ArrowRight');
+		await expect(slider).toHaveValue('1400');
+		await page.keyboard.press('End');
+		await expect(slider).toHaveValue('3150');
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('dialog')).toBeHidden();
+	});
+
+	test('falls back to two players if the engine fails to load', async ({ page }) => {
+		await page.route(/\.wasm$/, (route) => route.abort());
+		await page.goto('/');
+		await expect(page.getByRole('alert')).toContainText('two-player game');
+		await play(page, ['e2', 'e4'], ['e7', 'e5']);
+		await expect(page.locator('[data-status]')).toHaveText('White to move');
 	});
 });

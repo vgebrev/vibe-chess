@@ -123,12 +123,19 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
   - Preset names and descriptions can be overridden by the skin (`labels.difficulty`). The fallbacks are generic names: Beginner / Easy / Medium / Hard / Max.
 
 - Engine flow:
-  1. On init, send `uci`, wait for `uciok`, and record option ranges.
+  1. On init, check the WASM can be fetched (a `HEAD` request; a failed download never reaches the worker's error event), start the worker, send `uci`, wait for `uciok`, and record option ranges.
   2. Send `isready`, wait for `readyok`, then apply options.
   3. On the engine's turn, compute a think budget `T` (§4.6.1), then send `position fen <fen>` → `go movetime T`.
   4. Parse `bestmove e7e8q`. If it arrived before `T` elapsed (this can happen with mates or forced lines), wait out the remainder. Then apply the move through chess.js. The move animates.
 - **Stale replies:** a new game, an undo or a mode change sends `stop`. Every request carries a sequence id, and a `bestmove` for an outdated id is discarded.
-- **Load failure:** the app shows an error and falls back to hot-seat mode.
+- **Load failure:** the app shows an error and falls back to hot-seat mode. A start that hasn't reached `readyok` within 30 s counts as a failure.
+- **Implementation (M6):**
+  - `engine/engine.ts` is the UCI client. It talks to anything shaped like a Worker, so tests drive it with a scripted fake (`engine/fakeWorker.ts`). Every `go` gets exactly one `bestmove`, so pending searches form a queue; `stop()` marks them all cancelled and their replies resolve to `null`. Options are only changed once no search is running.
+  - `engine/opponent.svelte.ts` owns the engine. It starts it when a vs-Computer game begins (not on first paint and not in hot-seat), applies the difficulty only when it changes, computes `T`, searches, waits out the rest of `T`, and plays the move if the request is still current and the position unchanged. Its `status` (`idle`, `thinking`, `failed`) drives the status line and the fallback.
+  - The page runs the opponent from an effect whenever it is the computer's turn; a new position, undo, resignation or new game cancels the pending reply. The player can only move their own pieces (`Board`'s `canMove`).
+  - **New game** opens a form (`NewGameForm.svelte`): opponent (Computer / Two players), colour (the two side names or Random) and difficulty (the five presets or Custom with the Elo slider). It opens with the last game's choices. Until M7 puts it in a Drawer, it sits in a native modal `<dialog>` (Esc closes it). Playing Black orients the board to Black and the engine opens.
+  - The first game is vs Computer, as White, at the middle preset (`p2`). The interim page also reads `?mode=hotseat` and `?color=b`, alongside `?fen=`.
+  - Resign in vs-Computer mode resigns the player. Auto-flip is a hot-seat setting and is hidden vs Computer.
 
 #### 4.6.1 Think time ("organic" pacing)
 
@@ -166,11 +173,13 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
 | Custom Elo      | linear from **0.85 at 1350** to **1.20 at 3150** |
 
 - All constants live in `engine/thinkTime.ts`, so they can be tuned by feel.
-- During milestone M6, log nodes/s and depth from the engine's `info` lines on a desktop and a phone, to confirm the budgets are comfortably above what each difficulty needs.
+- During milestone M6, log nodes/s and depth from the engine's `info` lines on a desktop and a phone, to confirm the budgets are comfortably above what each difficulty needs. In dev builds each reply logs `[engine] <T> ms, depth <d>, <n>k nodes/s` to the console.
+  - **Desktop (M6, headless Chromium):** about 750–800k nodes/s in middlegames, reaching depth 16 in an opening reply of 650 ms and depth 18–20 in 1.6–2.9 s middlegame thinks; a simple pawn endgame runs at 3.5M nodes/s. Even a phone several times slower reaches depth 14 or more, far beyond what a 1350–2000 Elo opponent needs, so the budgets stand.
+  - **Phone:** not yet measured. Chromium's CPU throttling doesn't apply to workers, so this needs a real device.
 - A settings toggle could add a **"Fast engine"** option that caps `T` at 300 ms. This is a stretch goal.
 - **Possible v2:** use the engine's own signal for complexity, i.e. how much the best move and its score change between search depths in the `info` output. A position where the engine keeps changing its mind is "hard". This needs a short probe search first, so it is deferred.
 
-- **Bundle:** the `stockfish` npm package, using its single-threaded "lite" WASM build (≈7 MB). It is lazy-loaded the first time a vs-Computer game starts, so hot-seat play and first paint stay light. Files are copied to `static/stockfish/` at build time. This stays within Cloudflare Pages' 25 MiB per-file limit.
+- **Bundle:** the `stockfish` npm package (pinned at 19.0.0, Stockfish 19), using its single-threaded "lite" WASM build: a 21 KB loader script and a 1.8 MB `.wasm`. Both are imported with Vite's `?url`, so the build emits them as hashed, cacheable assets and nothing is copied by hand; the loader finds the `.wasm` through the URL fragment the worker is started with. They are only fetched when a vs-Computer game starts, so hot-seat play and first paint stay light. Both are far inside Cloudflare Pages' 25 MiB per-file limit. Stockfish is GPLv3; the app runs it unmodified as a separate program over UCI.
 
 ### 4.7 Game controls
 
@@ -183,8 +192,9 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
 - Settings: skin, show legal moves, show coordinates, auto-flip (hot-seat only), difficulty
 - **Implementation (M5):**
   - `Game` keeps the played moves (`moves`, chess.js verbose records) and derives `lastMove`, `result`, `captured` and `material` from them.
-  - **Undo** takes back one ply (the vs-Computer pair comes with M6) and rebuilds the render pieces by replaying the game from its start FEN. Ids come from starting squares, so every piece gets its id back: the mover slides home and a captured piece fades back in on its own square. An undo also clears the selection, a drag and a pending promotion. A checkmate or draw can be taken back; a **resignation is final**, so Undo is disabled after one.
+  - **Undo** takes back one ply in hot-seat mode, and rebuilds the render pieces by replaying the game from its start FEN. Ids come from starting squares, so every piece gets its id back: the mover slides home and a captured piece fades back in on its own square. An undo also clears the selection, a drag and a pending promotion. A checkmate or draw can be taken back; a **resignation is final**, so Undo is disabled after one.
   - **Resign:** in hot-seat mode the side to move resigns.
+  - **Undo vs Computer (M6):** `Game.undoTurn(color)` takes back the player's last move and the reply, if there is one, so it is the player's turn again; while the engine is thinking that is just the player's move, and the pending reply is cancelled. Undo is disabled until the player has a move to take back.
   - `result` is `{ winner, reason }`; reasons are checked in the order resignation, checkmate, stalemate, insufficient material, threefold repetition, 50-move rule. Moves are refused once the game is over.
   - **Auto-flip** waits `AUTO_FLIP_DELAY_MS` (the 200 ms slide plus a 400 ms beat, in `board/motion.ts`) after a move or undo before turning the board, so the move is seen landing; board input is locked meanwhile. It is a pause rather than motion, so reduced motion keeps it.
   - The status line also shows the last move with its number ("12. Nf3", "12… Nf6"). When the game is over, a "New game" button sits next to the result.
@@ -197,6 +207,7 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
 - Message templates are fixed in code. The labels are substituted into them:
   - `"{side} to move"`
   - `"{side} is in check"`
+  - `"{side} is thinking…"` (the computer's turn; check takes precedence)
   - `"Checkmate — {side} wins"`
   - `"{side} resigns — {side} wins"`
   - `"Stalemate — draw"`, `"Threefold repetition — draw"`, `"50-move rule — draw"`, `"Insufficient material — draw"`
@@ -554,6 +565,7 @@ src/
       pieces.ts             # stable piece-id reconciliation for animation
       material.ts           # captured pieces + material balance (§4.10)
       notation.ts           # move list rows, numbered SAN
+      setup.ts              # new-game setup: mode, colour choice, difficulty
       types.ts
     board/
       geometry.ts           # square↔grid per orientation, sprite offsets, coordinate labels
@@ -563,6 +575,8 @@ src/
       uci.ts                # UCI line parsing
       difficulty.ts         # presets + custom Elo config
       thinkTime.ts          # complexity estimate → think budget (§4.6.1)
+      opponent.svelte.ts    # starts the engine, times and plays its replies, cancellation
+      fakeWorker.ts         # scripted stand-in engine for tests
     skins/
       index.ts              # registry
       schema.ts             # Skin type + validation
@@ -581,14 +595,13 @@ src/
       MoveList.svelte
       Controls.svelte
       Drawer.svelte
-      NewGameDialog.svelte  # incl. difficulty presets + Elo slider
+      NewGameForm.svelte    # mode, colour, difficulty presets + Elo slider (in a Drawer from M7)
       SettingsPanel.svelte
     labels.ts               # status templates + label fallbacks
     persistence.ts
 static/
   skins/
     default/ pirate/        # skin.json, board.webp, pieces.webp, indicator-*.webp, font/…
-  stockfish/                # copied from node_modules at build
 tests/
   fixtures/skins/test/      # fixture skin (inset 0)
   fixtures/skins/invalid/   # deliberately broken manifest
@@ -655,7 +668,10 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
   - en passant
   - promotion
   - undo of each
-- UCI parsing: `bestmove`, promotion suffix, `option … UCI_Elo min/max`
+- UCI parsing: `bestmove`, promotion suffix, `option … UCI_Elo min/max`, `info` depth and nodes/s
+- UCI client (scripted fake worker): start-up handshake and Elo range, options, search, stale replies after `stop`, no option changes mid-search, load failure and timeout
+- Opponent: waits out the think budget, drops a cancelled or outdated reply, configures only on a difficulty change, reports a failed start
+- Undo vs Computer takes back the move pair, or just the player's move while the engine thinks
 - Difficulty: Elo snapping to 50 and clamping to the engine range
 - Think time (seeded RNG):
   - forced moves and opening positions fall in their ranges
@@ -679,7 +695,8 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Scholar's mate in hot-seat mode: the game ends with a checkmate status
 - Promotion flow shows the picker, and the chosen piece appears on the board
 - Flip: after flipping, h8 is at the bottom-left, and the coordinate labels mirror
-- vs Computer: after the human's first move, the engine replies within 5 s
+- vs Computer: after the human's first move, the engine replies within 5 s, and the player can't move the computer's pieces meanwhile
+- vs Computer: undo takes back the pair; undo while the engine thinks cancels its reply; playing Black turns the board and the engine opens; a failed engine download falls back to two players
 - Custom Elo: the slider moves in steps of 50
 - Narrow viewport (390 px): the move list opens in a drawer and closes with Esc. Wide viewport (1280 px, i.e. `lg` and up): the move list is inline and there is no ☰ button.
 
@@ -717,29 +734,30 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 
 ## 11. Decision log
 
-| #   | Question                    | Decision                                                                                                                                                                                                             |
-| --- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Which pirate crew is White? | Red = White (`rowFor: { w: 0, b: 1 }`)                                                                                                                                                                               |
-| 2   | Status text                 | Optional skin `labels`, falling back to White/Black                                                                                                                                                                  |
-| 3   | Difficulty                  | Presets + **Custom** Elo slider in 50-point steps (`UCI_LimitStrength`/`UCI_Elo`)                                                                                                                                    |
-| 4   | Capture indicator           | Optional `captureIndicator`. Fallback is `moveIndicator` at `captureScale`                                                                                                                                           |
-| 5   | Animations                  | In v1: slide moves, fade captures, animated flip, reduced-motion respected                                                                                                                                           |
-| 6   | Hosting                     | Static build. Local preview first, then Cloudflare Pages. Single-threaded Stockfish, so no special headers                                                                                                           |
-| 7   | Classic skin                | User will create it with the same tool as the Pirate set. A fixture skin covers tests meanwhile                                                                                                                      |
-| 8   | Font delivery               | **Bundled in the skin folder** (woff2 + OFL), loaded through `FontFace`. A CDN `css` URL is allowed but not the default                                                                                              |
-| 9   | Coordinates                 | Skin font + theme colours. In the frame when inset > 0, otherwise in an outside gutter                                                                                                                               |
-| 10  | Layout                      | Mobile-first single column. At the breakpoint, controls move beside the board. On narrow screens the move list is in a bottom Drawer                                                                                 |
-| 11  | Breakpoints                 | Standard Tailwind v4 breakpoints, unchanged. Components use prefixes only. Side panel at `lg`                                                                                                                        |
-| 12  | Drawer usage                | Only composite UI goes in a Drawer (move list on narrow screens, New Game, Settings). Simple controls stay inline                                                                                                    |
-| 13  | Custom Elo floor            | 1350 confirmed, and it is the default custom value                                                                                                                                                                   |
-| 14  | Engine pacing               | Complexity-based think budget with log-normal jitter, passed to the engine as `movetime` (§4.6.1)                                                                                                                    |
-| 15  | Phones in landscape         | No special handling in v1. The single-column layout applies, and users can rotate to portrait                                                                                                                        |
-| 16  | Difficulty personality      | Think time is scaled per difficulty (0.70× Cabin Boy → 1.15× Captain; custom 0.85×–1.20× by Elo)                                                                                                                     |
-| 17  | Indicator rendering         | Move and capture indicators are both drawn above the pieces with skin-set opacity. Hovering or dragging over a target raises it to `hoverOpacity` (0.85 by default)                                                  |
-| 18  | Pirate capture indicator    | Crossed sabers (`-2`). Skull and flag kept as alternatives                                                                                                                                                           |
-| 19  | Default skin                | "Marble": white marble and black granite, no frame, Marcellus font                                                                                                                                                   |
-| 20  | Skin source vs served       | Source art in `scratchpad/skins/<id>/assets/` (local, not committed). Served assets and the only manifest in `static/skins/<id>/`. Conversion is a manual one-off run of `scripts/convert-skin.py`, not a build step |
-| 21  | Manifest validation         | `manifestVersion: 1`, asset paths confined to the skin folder, optional fields filled with defaults, all errors reported with their paths (§5.1)                                                                     |
-| 22  | Captured pieces & material  | Shown in the player strips: each side's captures as small skin sprites, plus `+N` for the side ahead, computed from material on the board (§4.10)                                                                    |
-| 23  | Animation technique         | FLIP slides with the Web Animations API in `Piece` (not CSS transitions), Svelte fades for captures, durations in `board/motion.ts` zeroed by `prefers-reduced-motion` (§4.5)                                        |
-| 24  | Undo and game end           | Undo rebuilds pieces by replaying from the start FEN, so ids and animations come for free. Checkmates and draws can be taken back; a resignation is final. Hot-seat auto-flip waits for the move to land (§4.7)      |
+| #   | Question                    | Decision                                                                                                                                                                                                                                                                             |
+| --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Which pirate crew is White? | Red = White (`rowFor: { w: 0, b: 1 }`)                                                                                                                                                                                                                                               |
+| 2   | Status text                 | Optional skin `labels`, falling back to White/Black                                                                                                                                                                                                                                  |
+| 3   | Difficulty                  | Presets + **Custom** Elo slider in 50-point steps (`UCI_LimitStrength`/`UCI_Elo`)                                                                                                                                                                                                    |
+| 4   | Capture indicator           | Optional `captureIndicator`. Fallback is `moveIndicator` at `captureScale`                                                                                                                                                                                                           |
+| 5   | Animations                  | In v1: slide moves, fade captures, animated flip, reduced-motion respected                                                                                                                                                                                                           |
+| 6   | Hosting                     | Static build. Local preview first, then Cloudflare Pages. Single-threaded Stockfish, so no special headers                                                                                                                                                                           |
+| 7   | Classic skin                | User will create it with the same tool as the Pirate set. A fixture skin covers tests meanwhile                                                                                                                                                                                      |
+| 8   | Font delivery               | **Bundled in the skin folder** (woff2 + OFL), loaded through `FontFace`. A CDN `css` URL is allowed but not the default                                                                                                                                                              |
+| 9   | Coordinates                 | Skin font + theme colours. In the frame when inset > 0, otherwise in an outside gutter                                                                                                                                                                                               |
+| 10  | Layout                      | Mobile-first single column. At the breakpoint, controls move beside the board. On narrow screens the move list is in a bottom Drawer                                                                                                                                                 |
+| 11  | Breakpoints                 | Standard Tailwind v4 breakpoints, unchanged. Components use prefixes only. Side panel at `lg`                                                                                                                                                                                        |
+| 12  | Drawer usage                | Only composite UI goes in a Drawer (move list on narrow screens, New Game, Settings). Simple controls stay inline                                                                                                                                                                    |
+| 13  | Custom Elo floor            | 1350 confirmed, and it is the default custom value                                                                                                                                                                                                                                   |
+| 14  | Engine pacing               | Complexity-based think budget with log-normal jitter, passed to the engine as `movetime` (§4.6.1)                                                                                                                                                                                    |
+| 15  | Phones in landscape         | No special handling in v1. The single-column layout applies, and users can rotate to portrait                                                                                                                                                                                        |
+| 16  | Difficulty personality      | Think time is scaled per difficulty (0.70× Cabin Boy → 1.15× Captain; custom 0.85×–1.20× by Elo)                                                                                                                                                                                     |
+| 17  | Indicator rendering         | Move and capture indicators are both drawn above the pieces with skin-set opacity. Hovering or dragging over a target raises it to `hoverOpacity` (0.85 by default)                                                                                                                  |
+| 18  | Pirate capture indicator    | Crossed sabers (`-2`). Skull and flag kept as alternatives                                                                                                                                                                                                                           |
+| 19  | Default skin                | "Marble": white marble and black granite, no frame, Marcellus font                                                                                                                                                                                                                   |
+| 20  | Skin source vs served       | Source art in `scratchpad/skins/<id>/assets/` (local, not committed). Served assets and the only manifest in `static/skins/<id>/`. Conversion is a manual one-off run of `scripts/convert-skin.py`, not a build step                                                                 |
+| 21  | Manifest validation         | `manifestVersion: 1`, asset paths confined to the skin folder, optional fields filled with defaults, all errors reported with their paths (§5.1)                                                                                                                                     |
+| 22  | Captured pieces & material  | Shown in the player strips: each side's captures as small skin sprites, plus `+N` for the side ahead, computed from material on the board (§4.10)                                                                                                                                    |
+| 23  | Animation technique         | FLIP slides with the Web Animations API in `Piece` (not CSS transitions), Svelte fades for captures, durations in `board/motion.ts` zeroed by `prefers-reduced-motion` (§4.5)                                                                                                        |
+| 24  | Undo and game end           | Undo rebuilds pieces by replaying from the start FEN, so ids and animations come for free. Checkmates and draws can be taken back; a resignation is final. Hot-seat auto-flip waits for the move to land (§4.7)                                                                      |
+| 25  | Engine delivery             | The lite single-threaded build is imported with Vite `?url` (hashed assets, nothing copied to `static/`) and started when a vs-Computer game begins. A `HEAD` check catches a failed download, which falls back to hot-seat. vs Computer, Undo takes back the move pair (§4.6, §4.7) |

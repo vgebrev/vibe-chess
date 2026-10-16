@@ -47,6 +47,7 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"dependencies": {
-		"chess.js": "^1.4.0"
+		"chess.js": "^1.4.0",
+		"stockfish": "19.0.0"
 	}
 }

@@ -47,14 +47,15 @@ export function resultText(result: Result, labels: Labels): string {
 	}
 }
 
-/** The status line: whose turn it is, check, or the result (§4.7). */
+/** The status line: whose turn it is, check, the engine thinking, or the result (§4.7). */
 export function statusText(
-	state: { turn: Color; inCheck: boolean; result: Result | null },
+	state: { turn: Color; inCheck: boolean; thinking?: boolean; result: Result | null },
 	labels: Labels
 ): string {
 	if (state.result) return resultText(state.result, labels);
 	const side = sideName(state.turn, labels);
-	return state.inCheck ? `${side} is in check` : `${side} to move`;
+	if (state.inCheck) return `${side} is in check`;
+	return state.thinking ? `${side} is thinking…` : `${side} to move`;
 }
 
 /** Text equivalent of a player strip, e.g. "Red Crew captured: queen, 2 pawns. +7" (§4.10). */

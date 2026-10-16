@@ -1,0 +1,78 @@
+// The computer opponent: starts the engine on first use, times each reply with the think-time
+// model and plays it into the game (§4.6).
+import type { Game } from '#lib/game/game.svelte.ts';
+import type { Difficulty } from './difficulty.ts';
+import { Engine } from './engine.ts';
+import { thinkTime } from './thinkTime.ts';
+
+export type OpponentStatus = 'idle' | 'thinking' | 'failed';
+
+export class Opponent {
+	status = $state<OpponentStatus>('idle');
+	/** The custom Elo range, once the engine has reported it. */
+	eloRange = $state<{ min: number; max: number } | null>(null);
+	#start: () => Promise<Engine>;
+	#engine: Promise<Engine | null> | null = null;
+	#configured: string | null = null;
+	/** Bumped by every request and cancel; replies for an older one are dropped (§4.6). */
+	#request = 0;
+
+	constructor(start: () => Promise<Engine> = () => Engine.start()) {
+		this.#start = start;
+	}
+
+	/** Start the engine if it isn't running. Resolves null, with status `failed`, if it can't. */
+	load(): Promise<Engine | null> {
+		this.#engine ??= this.#start().then(
+			(engine) => {
+				this.eloRange = engine.eloRange;
+				return engine;
+			},
+			(error) => {
+				console.error(error);
+				this.status = 'failed';
+				return null;
+			}
+		);
+		return this.#engine;
+	}
+
+	/** Think for the side to move and play its reply, unless cancelled or the game moves on. */
+	async play(game: Game, difficulty: Difficulty): Promise<void> {
+		const request = ++this.#request;
+		const current = () => request === this.#request;
+		const fen = game.fen;
+		const budget = thinkTime({ fen, lastMove: game.lastMove }, difficulty);
+		this.status = 'thinking';
+
+		const engine = await this.load();
+		if (!engine || !current()) return;
+		const key = JSON.stringify(difficulty);
+		if (this.#configured !== key) {
+			this.#configured = key;
+			await engine.configure(difficulty);
+			if (!current()) return;
+		}
+		const started = performance.now();
+		const result = await engine.search(fen, budget);
+		if (!result || !current()) return;
+		// A forced line can come back early; the pause stays as long as planned.
+		const remaining = budget - (performance.now() - started);
+		if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+		if (!current() || game.fen !== fen) return;
+
+		this.status = 'idle';
+		if (import.meta.env.DEV && result.info) {
+			const { depth, nps } = result.info;
+			console.debug(`[engine] ${budget} ms, depth ${depth}, ${Math.round(nps / 1000)}k nodes/s`);
+		}
+		if (result.move) game.move(result.move);
+	}
+
+	/** Drop the pending reply, if any. */
+	cancel() {
+		this.#request++;
+		if (this.status === 'thinking') this.status = 'idle';
+		void this.#engine?.then((engine) => engine?.stop());
+	}
+}

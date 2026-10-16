@@ -22,6 +22,12 @@ describe('labels', () => {
 		expect(status('w')).toBe('Red Crew to move');
 		expect(status('b', true)).toBe('Blue Crew is in check');
 		expect(statusText({ turn: 'w', inCheck: false, result: null }, {})).toBe('White to move');
+		expect(statusText({ turn: 'b', inCheck: false, thinking: true, result: null }, pirate)).toBe(
+			'Blue Crew is thinking…'
+		);
+		expect(statusText({ turn: 'b', inCheck: true, thinking: true, result: null }, pirate)).toBe(
+			'Blue Crew is in check'
+		);
 		expect(
 			statusText({ turn: 'b', inCheck: true, result: { winner: 'w', reason: 'checkmate' } }, pirate)
 		).toBe('Checkmate — Red Crew wins');

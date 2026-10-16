@@ -105,6 +105,34 @@ describe('Game.undo', () => {
 	});
 });
 
+describe('Game.undoTurn (vs Computer)', () => {
+	it("takes back the player's move and the reply", () => {
+		const game = play(undefined, 'e4', 'e5', 'Nf3', 'Nc6');
+		expect(game.undoTurn('w')).toBe(2);
+		expect(game.moves.map((m) => m.san)).toEqual(['e4', 'e5']);
+		expect(game.turn).toBe('w');
+	});
+
+	it("takes back only the player's move while the reply is pending", () => {
+		const game = play(undefined, 'e4', 'e5', 'Nf3');
+		expect(game.undoTurn('w')).toBe(1);
+		expect(game.turn).toBe('w');
+	});
+
+	it("needs a move of the player's to take back", () => {
+		const game = play(undefined, 'e4');
+		expect(game.canUndoTurn('b')).toBe(false);
+		expect(game.undoTurn('b')).toBe(0);
+		expect(game.moves).toHaveLength(1);
+	});
+
+	it('takes back a checkmate the computer delivered', () => {
+		const game = play(undefined, 'f3', 'e5', 'g4', 'Qh4#');
+		expect(game.undoTurn('w')).toBe(2);
+		expect(game.lastMove?.san).toBe('e5');
+	});
+});
+
 describe('Game.result', () => {
 	it('is null while the game is on', () => {
 		expect(new Game().result).toBeNull();
