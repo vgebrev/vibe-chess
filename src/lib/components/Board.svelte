@@ -5,6 +5,7 @@
 		FILES,
 		gridToSquare,
 		RANKS,
+		squareToGrid,
 		type Orientation
 	} from '#lib/board/geometry.ts';
 	import type { Game, PromotionPiece } from '#lib/game/game.svelte.ts';
@@ -79,6 +80,8 @@
 	let hover = $state<Square | null>(null);
 	let drag = $state<Drag | null>(null);
 	let promotion = $state<{ from: Square; to: Square; color: Color } | null>(null);
+	/** The last square focused: the board's single tab stop (§6.5). */
+	let cursor = $state<Square | null>(null);
 
 	function movable(square: Square): boolean {
 		const piece = game.pieceAt(square);
@@ -90,6 +93,7 @@
 	// A selection that stops being movable (the game moved on, input locked) just lapses.
 	const active = $derived(selected && movable(selected) ? selected : null);
 	const targets = $derived(active ? game.targets(active) : []);
+	const tabStop = $derived(cursor ?? active ?? gridToSquare(0, 7, orientation));
 
 	const highlights = $derived.by(() => {
 		const list: Highlight[] = [];
@@ -126,10 +130,22 @@
 		return true;
 	}
 
+	const focusSquare = (square: Square) =>
+		grid.querySelector<HTMLElement>(`[data-cell="${square}"]`)?.focus();
+
+	/** Close the picker; focus in it goes back to `square` on the board rather than being lost. */
+	function closePromotion(square: Square) {
+		const picker = grid.querySelector('[data-promotion-picker]');
+		const hadFocus = picker?.contains(document.activeElement);
+		promotion = null;
+		if (hadFocus) focusSquare(square);
+	}
+
 	function promote(piece: PromotionPiece) {
 		if (!promotion) return;
+		const { to } = promotion;
 		game.move({ from: promotion.from, to: promotion.to, promotion: piece });
-		promotion = null;
+		closePromotion(to);
 	}
 
 	/** Click-to-move logic, shared by pointer clicks and keyboard activation (§4.2). */
@@ -213,9 +229,31 @@
 		hover = null;
 	}
 
+	// Arrow keys move between squares as seen on screen; Home/End go to the ends of the row.
+	const STEPS: Record<string, [number, number]> = {
+		ArrowUp: [0, -1],
+		ArrowDown: [0, 1],
+		ArrowLeft: [-1, 0],
+		ArrowRight: [1, 0]
+	};
+
+	function navigate(e: KeyboardEvent, square: Square) {
+		if (e.altKey || e.ctrlKey || e.metaKey) return;
+		const { col, row } = squareToGrid(square, orientation);
+		const clamp = (n: number) => Math.min(7, Math.max(0, n));
+		const step = STEPS[e.key];
+		let next: [number, number];
+		if (step) next = [clamp(col + step[0]), clamp(row + step[1])];
+		else if (e.key === 'Home') next = [0, row];
+		else if (e.key === 'End') next = [7, row];
+		else return;
+		e.preventDefault();
+		focusSquare(gridToSquare(...next, orientation));
+	}
+
 	function onkeydown(e: KeyboardEvent) {
 		if (e.key !== 'Escape') return;
-		if (promotion) promotion = null;
+		if (promotion) closePromotion(promotion.from);
 		else if (drag) drag = null;
 		else selected = null;
 	}
@@ -278,10 +316,12 @@
 					data-cell={square}
 					aria-label={squareLabel(square, game.pieceAt(square), manifest.labels)}
 					aria-pressed={active === square}
-					tabindex={square === (active ?? 'a1') ? 0 : -1}
+					tabindex={square === tabStop ? 0 : -1}
 					style:left="{pos.left}%"
 					style:top="{pos.top}%"
 					onclick={(e) => e.detail === 0 && activate(square)}
+					onfocus={() => (cursor = square)}
+					onkeydown={(e) => navigate(e, square)}
 				></button>
 			{/each}
 
@@ -306,7 +346,7 @@
 					{orientation}
 					{sheet}
 					onpick={promote}
-					oncancel={() => (promotion = null)}
+					oncancel={() => promotion && closePromotion(promotion.from)}
 				/>
 			{/if}
 		</div>

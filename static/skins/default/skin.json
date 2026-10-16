@@ -44,7 +44,7 @@
     "text": "#ecebe8",
     "textMuted": "#a3a19c",
     "accent": "#c2a878",
-    "danger": "#b3261e",
+    "danger": "#f2766b",
     "highlightSelected": "rgba(194, 168, 120, 0.45)",
     "highlightLastMove": "rgba(194, 168, 120, 0.28)",
     "highlightCheck": "rgba(190, 30, 30, 0.50)",

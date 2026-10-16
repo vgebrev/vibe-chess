@@ -25,4 +25,11 @@
 	body {
 		@apply bg-bg font-skin text-text;
 	}
+
+	/* A visible focus ring in the skin's accent (§6.5); the board squares and the promotion
+	   picker draw their own inside the square. */
+	:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
 }

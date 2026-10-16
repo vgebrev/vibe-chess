@@ -37,6 +37,7 @@ function setup({ fen, ...props }: Partial<Options> = {}) {
 	};
 	return {
 		game,
+		screen,
 		root,
 		cell,
 		click: (square: string) => userEvent.click(cell(square)),
@@ -250,6 +251,44 @@ describe('keyboard', () => {
 		await b.click('e2');
 		await userEvent.keyboard('{Escape}');
 		expect(b.highlights('selected')).toEqual([]);
+	});
+
+	it('moves between squares with the arrow keys, as seen on screen', async () => {
+		const b = setup();
+		b.cell('a1').focus();
+		await userEvent.keyboard('{ArrowUp}{ArrowUp}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}');
+		expect(document.activeElement).toBe(b.cell('e3'));
+		await userEvent.keyboard('{ArrowDown}');
+		await userEvent.keyboard('{Enter}');
+		await userEvent.keyboard('{ArrowUp}{ArrowUp}{Enter}');
+		expect(b.piece('e4')).toBe('wp');
+		// The last square focused is the board's one tab stop; edges stop the cursor.
+		expect(b.cell('e4').tabIndex).toBe(0);
+		expect(b.root.querySelectorAll('[data-cell][tabindex="0"]')).toHaveLength(1);
+		await userEvent.keyboard('{End}{ArrowRight}');
+		expect(document.activeElement).toBe(b.cell('h4'));
+		await userEvent.keyboard('{Home}');
+		expect(document.activeElement).toBe(b.cell('a4'));
+	});
+
+	it('follows the board when it is flipped', async () => {
+		const b = setup();
+		await b.screen.rerender({ orientation: 'black' });
+		b.cell('e2').focus();
+		await userEvent.keyboard('{ArrowUp}{ArrowRight}');
+		expect(document.activeElement).toBe(b.cell('d1'));
+	});
+
+	it('gives focus back to the board when the promotion picker closes', async () => {
+		const b = setup({ fen: '4k3/P7/8/8/8/8/8/4K3 w - - 0 1' });
+		b.cell('a7').focus();
+		await userEvent.keyboard('{Enter}{ArrowUp}{Enter}');
+		expect(document.activeElement?.getAttribute('aria-label')).toBe('Promote to queen');
+		await userEvent.keyboard('{Escape}');
+		expect(document.activeElement).toBe(b.cell('a7'));
+		await userEvent.keyboard('{Enter}{ArrowUp}{Enter}{Tab}{Enter}');
+		expect(b.piece('a8')).toBe('wn');
+		expect(document.activeElement).toBe(b.cell('a8'));
 	});
 
 	it('names each square and its piece', () => {

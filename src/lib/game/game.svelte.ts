@@ -49,6 +49,27 @@ export class Game {
 		this.pieces = piecesFromFen(fen);
 	}
 
+	/**
+	 * Rebuild a game by replaying its moves, so undo history survives a reload (§4.9).
+	 * Null if the start position or any move is invalid.
+	 */
+	static replay(startFen: string, moves: MoveInput[], resigned: Color | null = null): Game | null {
+		let game: Game;
+		try {
+			game = new Game(startFen);
+		} catch {
+			return null;
+		}
+		for (const m of moves) if (!game.move(m)) return null;
+		if (resigned) game.resign(resigned);
+		return game;
+	}
+
+	/** The side that resigned, if the game ended that way. */
+	get resigned(): Color | null {
+		return this.#resigned;
+	}
+
 	get lastMove(): Move | null {
 		return this.moves.at(-1) ?? null;
 	}

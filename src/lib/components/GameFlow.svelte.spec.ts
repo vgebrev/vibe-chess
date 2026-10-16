@@ -6,6 +6,7 @@ import { loadSkin, type LoadedSkin } from '#lib/skins/loader.ts';
 import Controls from './Controls.svelte';
 import MoveList from './MoveList.svelte';
 import PlayerStrip from './PlayerStrip.svelte';
+import StatusBar from './StatusBar.svelte';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -132,5 +133,20 @@ describe('Controls', () => {
 		setup({ canUndo: false, canResign: false });
 		await expect.element(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
 		await expect.element(page.getByRole('button', { name: 'Resign' })).toBeDisabled();
+	});
+});
+
+describe('StatusBar', () => {
+	it('announces the status with the move that caused it', async () => {
+		const screen = render(StatusBar, {
+			status: 'White to move',
+			lastMove: '1… e5',
+			gameOver: false,
+			onnew: () => {}
+		});
+		const live = screen.container.querySelector('[aria-live="polite"]')!;
+		expect(live.textContent?.trim()).toBe('1… e5. White to move');
+		await screen.rerender({ status: 'White to move', lastMove: null });
+		expect(live.textContent?.trim()).toBe('White to move');
 	});
 });

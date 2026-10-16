@@ -1,0 +1,84 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page } from '@playwright/test';
+
+// Accessibility (§6.5): an axe scan of each state of the screen, in both skins, and a game
+// played with the keyboard alone.
+
+/** Scan once motion has settled, naming the state in the failure message. */
+async function scan(page: Page, state: string) {
+	await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+	const { violations } = await new AxeBuilder({ page }).analyze();
+	const found = violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(', ')}`);
+	expect(found, state).toEqual([]);
+}
+
+for (const skin of ['Marble', 'Pirate']) {
+	test(`no axe violations in the ${skin} skin`, async ({ page }, info) => {
+		await page.goto('/?mode=hotseat');
+		await expect(page.locator('[data-piece]')).toHaveCount(32);
+		const dialog = page.getByRole('dialog');
+		await page.getByRole('button', { name: 'Settings' }).click();
+		await dialog.getByText(skin, { exact: true }).click();
+		await expect(
+			page.locator(`[data-skin="${skin === 'Marble' ? 'default' : 'pirate'}"]`)
+		).toBeVisible();
+		await scan(page, 'settings');
+		await page.keyboard.press('Escape');
+		await scan(page, 'start');
+
+		await page.locator('[data-cell="e2"]').click();
+		await scan(page, 'piece selected');
+		await page.locator('[data-cell="e4"]').click();
+
+		await page.getByRole('button', { name: 'New game' }).click();
+		await dialog.getByText('Computer', { exact: true }).click();
+		await dialog.getByText('Custom', { exact: true }).click();
+		await scan(page, 'new game');
+		await page.keyboard.press('Escape');
+
+		if (info.project.name === 'phone') {
+			await page.getByRole('button', { name: 'Moves' }).click();
+			await scan(page, 'moves');
+			await page.keyboard.press('Escape');
+		}
+
+		await page.getByRole('button', { name: 'Resign' }).click();
+		await scan(page, 'resign confirmation');
+		await page.getByRole('button', { name: 'Yes, resign' }).click();
+		await scan(page, 'game over');
+
+		await page.goto('/?mode=hotseat&fen=' + encodeURIComponent('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
+		await page.locator('[data-cell="a7"]').click();
+		await page.locator('[data-cell="a8"]').click();
+		await scan(page, 'promotion picker');
+	});
+}
+
+test('a game can be played with the keyboard alone', async ({ page }) => {
+	await page.goto('/?mode=hotseat');
+	const status = page.locator('[data-status]');
+	// Tab reaches the board's single tab stop, bottom-left (a1).
+	for (let i = 0; i < 10; i++) {
+		await page.keyboard.press('Tab');
+		if (await page.locator('[data-cell="a1"]').evaluate((el) => el === document.activeElement))
+			break;
+	}
+	await expect(page.locator('[data-cell="a1"]')).toBeFocused();
+
+	// e2–e4: right ×4, up, select, up ×2, move.
+	for (const key of ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowUp'])
+		await page.keyboard.press(key);
+	await page.keyboard.press('Enter');
+	await page.keyboard.press('ArrowUp');
+	await page.keyboard.press('ArrowUp');
+	await page.keyboard.press('Enter');
+	await expect(page.locator('[data-square="e4"][data-piece="wp"]')).toBeAttached();
+	await expect(status).toHaveText('Black to move');
+	await expect(page.locator('[data-announce]')).toHaveText('1. e4. Black to move');
+
+	// The rest of the screen is reachable too: Tab leaves the board for the controls.
+	await page.keyboard.press('Tab');
+	await expect(page.locator('[data-cell]:focus')).toHaveCount(0);
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(status).toHaveText('White to move');
+});

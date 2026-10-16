@@ -7,6 +7,8 @@ export type SkinId = (typeof SKIN_IDS)[number];
 
 export const DEFAULT_SKIN_ID: SkinId = 'default';
 
+export const isSkinId = (id: string): id is SkinId => (SKIN_IDS as readonly string[]).includes(id);
+
 /** URL of a registered skin's folder, with a trailing slash. */
 export function skinBaseUrl(id: SkinId): string {
 	// Typed against the static/ file list, so a registered id without a manifest fails `check`.

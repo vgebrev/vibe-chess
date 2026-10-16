@@ -14,37 +14,54 @@
 	import SettingsPanel from '#lib/components/SettingsPanel.svelte';
 	import StatusBar from '#lib/components/StatusBar.svelte';
 	import { Opponent } from '#lib/engine/opponent.svelte.ts';
-	import { Game } from '#lib/game/game.svelte.ts';
+	import { Game, type PromotionPiece } from '#lib/game/game.svelte.ts';
 	import { numberedMove } from '#lib/game/notation.ts';
 	import { DEFAULT_SETUP, pickColor, type GameSetup } from '#lib/game/setup.ts';
 	import { statusText } from '#lib/labels.ts';
+	import { loadGame, loadSettings, saveGame, saveSettings } from '#lib/persistence.ts';
 	import { skinBaseUrl, type SkinId } from '#lib/skins/index.ts';
 	import { skin } from '#lib/skins/skin.svelte.ts';
 
 	// The game screen (§6): header, strips, board and control bar in one column below lg; the
 	// status, move list and controls in a side panel from lg. New game, Settings and (below lg)
-	// the move list open in drawers. `?fen=` starts from a given position (handy for testing promotion, mates, …), and
-	// `?mode=hotseat` / `?color=b` pick the first game's setup.
+	// the move list open in drawers. The game and settings are saved as they change and resumed
+	// on reload (§4.9). `?fen=` starts from a given position (handy for testing promotion,
+	// mates, …), and `?mode=hotseat` / `?color=b` pick the first game's setup; any of them
+	// starts a new game instead of resuming the saved one.
 	const params = page.url.searchParams;
 	const startFen = params.get('fen') ?? undefined;
-	let setup = $state<GameSetup>({
-		...DEFAULT_SETUP,
-		mode: params.get('mode') === 'hotseat' ? 'hotseat' : DEFAULT_SETUP.mode,
-		color: params.get('color') === 'b' ? 'b' : DEFAULT_SETUP.color
-	});
+	const settings = loadSettings();
+	const resumed = ['fen', 'mode', 'color'].some((p) => params.has(p)) ? null : resume();
+	let setup = $state<GameSetup>(
+		resumed?.setup ?? {
+			...DEFAULT_SETUP,
+			mode: params.get('mode') === 'hotseat' ? 'hotseat' : DEFAULT_SETUP.mode,
+			color: params.get('color') === 'b' ? 'b' : DEFAULT_SETUP.color,
+			difficulty: settings.lastDifficulty
+		}
+	);
 	/** The player's colour vs the computer. */
-	let human = $state<Color>(untrack(() => pickColor(setup.color)));
-	let game = $state(newGame());
-	let orientation = $state<Orientation>(untrack(() => (human === 'w' ? 'white' : 'black')));
+	let human = $state<Color>(untrack(() => resumed?.human ?? pickColor(setup.color)));
+	let game = $state(resumed?.game ?? newGame());
+	let orientation = $state<Orientation>(
+		untrack(() => resumed?.orientation ?? (human === 'w' ? 'white' : 'black'))
+	);
 	/** The open drawer, if any (§6.3). */
 	let drawer = $state<'new' | 'settings' | 'moves' | null>(null);
 	/** Why the game isn't what was asked for, e.g. the engine failed to load. */
 	let notice = $state<string | null>(null);
-	let showCoordinates = $state(true);
-	let showLegalMoves = $state(true);
-	let autoFlip = $state(false);
+	let showCoordinates = $state(settings.showCoordinates);
+	let showLegalMoves = $state(settings.showLegalMoves);
+	let autoFlip = $state(settings.autoFlip);
 	/** An auto-flip is due; input waits for it. */
 	let turning = $state(false);
+
+	/** The saved game, replayed; null if there is none or it no longer replays. */
+	function resume() {
+		const saved = loadGame();
+		const game = saved && Game.replay(saved.startFen, saved.moves, saved.resigned);
+		return saved && game ? { ...saved, game } : null;
+	}
 
 	function newGame(): Game {
 		try {
@@ -135,6 +152,32 @@
 			clearTimeout(timer);
 			turning = false;
 		};
+	});
+
+	// Save as things change (§4.9): the game on every move, undo, flip or new game, and the
+	// settings as they are set. The skin is saved once it has loaded.
+	$effect(() => {
+		saveGame({
+			startFen: game.startFen,
+			moves: game.moves.map(({ from, to, promotion }) => ({
+				from,
+				to,
+				...(promotion && { promotion: promotion as PromotionPiece })
+			})),
+			resigned: game.resigned,
+			setup: $state.snapshot(setup),
+			human,
+			orientation
+		});
+	});
+	$effect(() => {
+		saveSettings({
+			skinId: skin.current?.manifest.id ?? settings.skinId,
+			showLegalMoves,
+			showCoordinates,
+			autoFlip,
+			lastDifficulty: $state.snapshot(setup.difficulty)
+		});
 	});
 
 	function onkeydown(e: KeyboardEvent) {

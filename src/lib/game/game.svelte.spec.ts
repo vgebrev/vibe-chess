@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { Chess, type Square } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import { Game } from './game.svelte.ts';
 
@@ -162,5 +162,45 @@ describe('Game.result', () => {
 		expect(game.move({ from: 'e7', to: 'e5' })).toBeNull();
 		expect(game.canUndo).toBe(false);
 		expect(game.undo()).toBeNull();
+	});
+
+	describe('replay (§4.9)', () => {
+		const play = (game: Game, moves: [Square, Square][]) =>
+			moves.forEach(([from, to]) => game.move({ from, to }));
+
+		it('rebuilds the position and the undo history from the saved moves', () => {
+			const game = new Game();
+			play(game, [
+				['e2', 'e4'],
+				['d7', 'd5'],
+				['e4', 'd5']
+			]);
+			game.move({ from: 'd8', to: 'd5' });
+			const saved = JSON.parse(
+				JSON.stringify(game.moves.map(({ from, to, promotion }) => ({ from, to, promotion })))
+			);
+
+			const restored = Game.replay(game.startFen, saved)!;
+			expect(restored.fen).toBe(game.fen);
+			expect(restored.pieces).toEqual(game.pieces);
+			expect(restored.captured).toEqual({ w: ['p'], b: ['p'] });
+			restored.undo();
+			restored.undo();
+			expect(restored.pieceAt('d5')).toEqual({ type: 'p', color: 'b' });
+			expect(restored.pieces.find((p) => p.id === 'bp-d7')?.square).toBe('d5');
+		});
+
+		it('keeps a promotion, a custom start and a resignation', () => {
+			const start = '4k3/P7/8/8/8/8/8/R3K3 w - - 0 1';
+			const restored = Game.replay(start, [{ from: 'a7', to: 'a8', promotion: 'n' }], 'b')!;
+			expect(restored.pieceAt('a8')).toEqual({ type: 'n', color: 'w' });
+			expect(restored.result).toEqual({ winner: 'w', reason: 'resignation' });
+			expect(restored.canUndo).toBe(false);
+		});
+
+		it('gives up on an illegal move or a bad start position', () => {
+			expect(Game.replay(new Game().startFen, [{ from: 'e2', to: 'e5' }])).toBeNull();
+			expect(Game.replay('not a fen', [])).toBeNull();
+		});
 	});
 });

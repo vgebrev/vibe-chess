@@ -48,10 +48,10 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
   - Pointer input is handled once on the board grid and mapped to a square from the pointer position.
   - A press on a legal target of the selected piece moves straight away. A press on a movable piece selects it and starts a potential drag, which becomes a drag after 4 px of travel.
   - A release without dragging on an already-selected piece deselects it. A drop anywhere other than a legal target returns the piece and keeps it selected, so click-to-move still works.
-  - Each square is also a transparent `<button>`, for keyboard and screen-reader access (§6.5). There is a single tab stop on the selected square (or a1). Enter or Space acts like a click.
+  - Each square is also a transparent `<button>`, for keyboard and screen-reader access (§6.5). There is a single tab stop: the last square focused, else the selected one, else the bottom-left corner. Arrow keys move between squares (M8). Enter or Space acts like a click.
   - Esc cancels the promotion picker, then a drag, then the selection.
   - The dragged piece is drawn with `scale: theme.dragScale` (default 1.15) and `filter: drop-shadow(theme.dragShadow)`.
-  - The page accepts `?fen=<FEN>` to start from a position, which e2e tests use.
+  - The page accepts `?fen=<FEN>` to start from a position, which e2e tests use. Like `?mode=` and `?color=`, it starts a new game instead of resuming the saved one (§4.9).
 
 ### 4.3 Move guidance
 
@@ -222,6 +222,13 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
   - the current game: start FEN, move list, mode, human colour, difficulty;
   - settings: skin, toggles, last difficulty.
 - On reload the game is rebuilt by replaying the moves, so undo history survives. Every read and write is wrapped in try/catch, and the app works without storage.
+- **Implementation (M8):**
+  - `persistence.ts` keeps two versioned keys, `chess:game:v1` and `chess:settings:v1`. A breaking change to either shape gets a new key rather than a migration.
+  - The game record is `SavedGame` (§7.3): the start FEN, the moves as from/to/promotion, the resigning side (a resignation isn't on the board), the New game setup, the player's colour and the board orientation. The page saves it on every move, undo, flip and new game, and the settings as they change.
+  - Loading validates the shape. A game that is malformed, or whose moves no longer replay (`Game.replay`), is dropped and a new game starts. A bad settings field falls back to its own default only.
+  - The layout loads the saved skin, falling back to the default skin if it is no longer registered or fails to load.
+  - A resumed vs-Computer game on the computer's turn has the engine reply as usual.
+  - `?fen=`, `?mode=` and `?color=` start a new game instead of resuming, which keeps e2e tests independent of storage.
 
 ### 4.10 Captured pieces & material balance
 
@@ -298,7 +305,7 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 		"text": "#f3e2b8",
 		"textMuted": "#bfa77a",
 		"accent": "#d9a441",
-		"danger": "#b3261e",
+		"danger": "#f2766b",
 		"highlightSelected": "rgba(217,164,65,0.45)",
 		"highlightLastMove": "rgba(240,200,90,0.30)",
 		"highlightCheck": "rgba(200,30,30,0.55)",
@@ -543,7 +550,13 @@ On wide screens, New Game and Settings could be shown as a centred dialog instea
 - Keyboard: `F` flips the board, `Ctrl/Cmd+Z` undoes, `Esc` deselects, closes the picker or closes the drawer.
 - Each square is a button with an `aria-label` (e.g. "e4, Red Crew pawn"). A visible focus ring is drawn from `--accent`.
 - Status changes are announced through an `aria-live="polite"` region.
-- Arrow-key square navigation is a stretch goal.
+- Arrow keys move between squares as seen on screen, so they follow a flip. Home and End go to the ends of the row. (Promoted from a stretch goal in M8: with a single tab stop, the board could not be played from the keyboard without them.)
+- **Implementation (M8):**
+  - The announcement includes the move that caused the status, e.g. "1… e5. White to move", so a screen reader hears the computer's reply. The visible status line is unchanged.
+  - A global `:focus-visible` outline in `--accent`; board squares and the promotion picker draw theirs inside the square.
+  - When the promotion picker closes with focus in it, focus goes back to the board: to the promotion square after a choice, to the pawn after a cancel.
+  - Text colours meet WCAG AA contrast on the skin surfaces. Both skins' `danger` became `#f2766b`; `#b3261e` was about 2.2:1 on their dark surfaces.
+  - `a11y.e2e.ts` runs axe (`@axe-core/playwright`) over each state of the screen in both skins, and plays moves with the keyboard alone.
 
 ## 7. Architecture
 
@@ -553,6 +566,11 @@ On wide screens, New Game and Settings could be shown as a centred dialog instea
 - **@sveltejs/adapter-static** (SPA mode, `fallback: 'index.html'`). It runs locally with `vite preview` or any static server, and deploys to **Cloudflare Pages** as plain static output with no special headers or functions.
 - `ssr = false` on the game route, because the chess state, engine, `localStorage` and `FontFace` are all browser-only.
 - **Tailwind CSS v4** (`@tailwindcss/vite`), standard breakpoints, skin tokens mapped through `@theme inline` (§6.0)
+- **Cloudflare Pages (M8 check):**
+  - The build is about 3 MB in a few dozen files, well under Pages' limits (20,000 files, 25 MiB per file); the largest file is the 1.8 MB engine WASM.
+  - With no `404.html`, Pages serves `index.html` for unknown paths, matching the SPA fallback.
+  - `static/_headers` caches `/_app/immutable/*` (hashed) for a year; `index.html` and the skins keep the default revalidation.
+  - Checked locally with `wrangler pages dev build`, which serves deep links as `index.html`, the WASM as `application/wasm` and the cache header; the whole e2e suite passes against it. Wrangler isn't a project dependency; run it with `npx`.
 - **chess.js**: rules
 - **stockfish** (npm, single-threaded lite WASM): engine
 - **Vitest** for unit tests, **Playwright** for end-to-end smoke tests
@@ -626,13 +644,14 @@ type Mode = 'computer' | 'hotseat';
 type Difficulty =
 	{ kind: 'preset'; id: 'p0' | 'p1' | 'p2' | 'p3' | 'p4' } | { kind: 'custom'; elo: number }; // multiple of 50, clamped to engine range
 
-interface GameState {
+interface SavedGame {
+	// persisted (§4.9); everything else is replayed from it
 	startFen: string;
-	moves: { san: string; from: Square; to: Square; promotion?: PieceType }[];
-	mode: Mode;
-	humanColor: Color; // computer mode only
-	difficulty: Difficulty;
-	result: null | { winner: Color | 'draw'; reason: EndReason };
+	moves: { from: Square; to: Square; promotion?: PieceType }[];
+	resigned: Color | null; // a resignation isn't on the board
+	setup: { mode: Mode; color: Color | 'random'; difficulty: Difficulty }; // New game choices
+	human: Color; // computer mode: the player's colour after a random choice
+	orientation: 'white' | 'black';
 }
 
 interface BoardPiece {
@@ -698,7 +717,9 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Captured pieces and material balance: captures (including en passant), a promotion (+8 for a queen), a captured promoted piece, and undo
 - Game results: each end reason, resignation (final, no undo), taking back a checkmate
 - Move list numbering, including games that start with Black to move
-- Persistence round-trip (replay restores undo history)
+- Persistence round-trip (replay restores undo history, a promotion, a custom start and a resignation); missing, throwing or malformed storage falls back to defaults
+- Keyboard: arrow keys move between squares as seen on screen (also when flipped), one tab stop, focus back to the board when the promotion picker closes
+- Status announcement includes the last move
 - Drawer: modal dialog named by its title, Esc / close button / scrim ask to close, focus returns to the trigger, swipe threshold
 - Settings panel: skins listed by name, auto-flip only in hot-seat, difficulty only vs Computer
 - Controls: full accessible names, Moves button, focus back on Resign after "No"
@@ -711,9 +732,11 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - vs Computer: after the human's first move, the engine replies within 5 s, and the player can't move the computer's pieces meanwhile
 - vs Computer: undo takes back the pair; undo while the engine thinks cancels its reply; playing Black turns the board and the engine opens; a failed engine download falls back to two players
 - Custom Elo: the slider moves in steps of 50
-- Narrow viewport (390 px): the move list opens in a drawer and closes with Esc, giving focus back to ☰. Wide viewport (1280 px, i.e. `lg` and up): the move list is inline and there is no ☰ button.
+- Narrow viewport (390 px): the move list opens in a drawer and closes with Esc, giving focus back to the Moves button. Wide viewport (1280 px, i.e. `lg` and up): the move list is inline and there is no Moves button.
 - The page fits without scrolling at 390×844, 1280×800 and 360×640, control bar included
 - Drawers: settings apply at once and the drawer closes from its scrim; a short swipe on the handle springs back and a long one closes it; vs Computer, Settings offer the difficulty and not auto-flip
+- Reload: the game resumes with its undo history, board side, skin and settings; a resignation stays final; vs Computer, Undo still takes back the pair and a reload on the computer's turn gets a reply; an unreplayable saved game starts afresh; the game plays with storage blocked
+- Accessibility: no axe violations in each state of the screen (settings, start, selection, new game, move drawer, resign confirmation, game over, promotion picker) in both skins; a move played with the keyboard alone
 
 **Acceptance checklist (v1 done)**
 
@@ -723,8 +746,8 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - [ ] With guidance on, indicators exactly match chess.js legal moves, and captures use the capture indicator or the fallback
 - [ ] Coordinates render in the frame on Pirate and in the gutter on the fixture skin, in the skin font
 - [ ] Status text uses skin labels, with "White"/"Black" fallbacks
-- [ ] Reloading resumes the in-progress game
-- [ ] Fully playable on a 360 px-wide phone in portrait with no page scroll
+- [x] Reloading resumes the in-progress game
+- [x] Fully playable on a 360 px-wide phone in portrait with no page scroll
 - [ ] Works in current Chrome, Firefox and Safari (including iOS)
 - [ ] Builds to static output and runs on Cloudflare Pages and under `npm run preview`
 
@@ -742,6 +765,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 6. **Engine:** lazy-loaded worker, UCI client, presets and custom Elo slider, think-time model and measuring nodes/s, vs-Computer mode
 7. **Layout:** mobile-first shell, the `lg` side panel, Drawer (move list, New Game, Settings)
 8. **Polish:** persistence, a11y pass, E2E suite, Cloudflare Pages deploy check
+9. **Sounds & haptics:** move, capture, check and game-end sounds, plus haptic feedback on supporting phones. Waiting on royalty-free or generated sound effects; scope and design to be specified once the assets are sourced.
 
 ## 10. Open questions
 
@@ -777,3 +801,6 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 24  | Undo and game end           | Undo rebuilds pieces by replaying from the start FEN, so ids and animations come for free. Checkmates and draws can be taken back; a resignation is final. Hot-seat auto-flip waits for the move to land (§4.7)                                                                      |
 | 25  | Engine delivery             | The lite single-threaded build is imported with Vite `?url` (hashed assets, nothing copied to `static/`) and started when a vs-Computer game begins. A `HEAD` check catches a failed download, which falls back to hot-seat. vs Computer, Undo takes back the move pair (§4.6, §4.7) |
 | 26  | Shell and drawers           | Drawers are native modal `<dialog>`s with their own scrim and sheet. The status gets its own line under the strips rather than sitting in them, and the narrow control bar is at the bottom. Settings apply at once; difficulty can be changed mid-game vs Computer (§6.1, §6.4)     |
+| 27  | Persistence                 | Two versioned localStorage keys, game and settings. The game is saved as moves and replayed, with the resigning side, setup and orientation. Bad data falls back to a new game or default settings. URL parameters start a new game instead of resuming (§4.9)                       |
+| 28  | Accessibility pass          | Arrow-key board navigation is in v1, since the single tab stop needs it. The live region names the last move. Accent focus ring everywhere. `danger` lightened for contrast. axe runs in e2e (§6.5)                                                                                  |
+| 29  | Cloudflare Pages            | No `404.html`, so Pages serves the SPA fallback. `_headers` caches hashed assets for a year. Verified with `wrangler pages dev` and the e2e suite, without adding wrangler as a dependency (§7.1)                                                                                    |

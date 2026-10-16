@@ -285,8 +285,9 @@ test.describe('with reduced motion', () => {
 });
 
 test.describe('vs Computer', () => {
+	// `?mode=` starts a new game rather than resuming the hot-seat one saved above.
 	test.beforeEach(async ({ page }) => {
-		await page.goto('/');
+		await page.goto('/?mode=computer');
 	});
 
 	test('the engine replies to the first move within 5 s', async ({ page }) => {
@@ -355,8 +356,81 @@ test.describe('vs Computer', () => {
 
 	test('falls back to two players if the engine fails to load', async ({ page }) => {
 		await page.route(/\.wasm$/, (route) => route.abort());
-		await page.goto('/');
+		await page.goto('/?mode=computer');
 		await expect(page.getByRole('alert')).toContainText('two-player game');
+		await play(page, ['e2', 'e4'], ['e7', 'e5']);
+		await expect(page.locator('[data-status]')).toHaveText('White to move');
+	});
+
+	test('a reload resumes the game, and Undo still takes back the pair', async ({ page }) => {
+		await play(page, ['e2', 'e4']);
+		await expect(page.locator('[data-status]')).toHaveText('White to move', { timeout: 5000 });
+		await page.goto('/');
+		await expect(page.locator('[data-moves] li')).toHaveText(/1\.\s*e4\s*\S+/);
+		await expect(page.locator('[data-status]')).toHaveText('White to move');
+		await page.getByRole('button', { name: 'Undo' }).click();
+		await expect(page.locator('[data-moves] li')).toHaveText('No moves yet');
+	});
+
+	test("a reload on the computer's turn lets it reply", async ({ page }) => {
+		await play(page, ['e2', 'e4']);
+		await page.goto('/');
+		await expect(page.locator('[data-status]')).toHaveText('White to move', { timeout: 5000 });
+		await expect(page.locator('[data-moves] li')).toHaveText(/1\.\s*e4\s*\S+/);
+	});
+});
+
+test.describe('resuming after a reload (§4.9)', () => {
+	test('restores the game, its undo history, the board side and the settings', async ({ page }) => {
+		await play(page, ['e2', 'e4'], ['d7', 'd5'], ['e4', 'd5']);
+		await page.keyboard.press('f');
+		const drawer = await settings(page);
+		await drawer.getByText('Pirate').click();
+		await drawer.getByLabel('Show legal moves').uncheck();
+		await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
+		await page.keyboard.press('Escape');
+
+		await page.goto('/');
+		await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
+		await expect(page.locator('[data-orientation="black"]')).toBeVisible();
+		await expect(pieceOn(page, 'd5')).toHaveAttribute('data-piece', 'wp');
+		await expect(page.locator('[data-status]')).toHaveText(/to move$/);
+		await cell(page, 'd8').click();
+		await expect(page.locator('[data-indicator]')).toHaveCount(0);
+
+		// Undo replays from the saved moves: the captured pawn comes back.
+		await page.getByRole('button', { name: 'Undo' }).click();
+		await expect(pieceOn(page, 'd5')).toHaveAttribute('data-piece', 'bp');
+		await expect(pieceOn(page, 'e4')).toHaveAttribute('data-piece', 'wp');
+	});
+
+	test('keeps a resignation final', async ({ page }) => {
+		await play(page, ['e2', 'e4']);
+		await page.getByRole('button', { name: 'Resign' }).click();
+		await page.getByRole('button', { name: 'Yes, resign' }).click();
+		await page.goto('/');
+		await expect(page.locator('[data-status]')).toHaveText('Black resigns — White wins');
+		await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+	});
+
+	test('starts afresh from a saved game that no longer replays', async ({ page }) => {
+		await page.evaluate(() =>
+			localStorage.setItem('chess:game:v1', JSON.stringify({ startFen: 'nonsense', moves: [] }))
+		);
+		await page.goto('/');
+		await expect(page.locator('[data-piece]')).toHaveCount(32);
+		await expect(page.locator('[data-status]')).toHaveText('White to move');
+	});
+
+	test('plays without storage', async ({ page }) => {
+		await page.addInitScript(() =>
+			Object.defineProperty(window, 'localStorage', {
+				get() {
+					throw new DOMException('blocked', 'SecurityError');
+				}
+			})
+		);
+		await page.goto('/?mode=hotseat');
 		await play(page, ['e2', 'e4'], ['e7', 'e5']);
 		await expect(page.locator('[data-status]')).toHaveText('White to move');
 	});
