@@ -1,0 +1,66 @@
+{
+  "manifestVersion": 1,
+  "id": "pirate",
+  "name": "Pirate",
+  "board": {
+    "image": "board.webp",
+    "inset": { "top": 0.059, "right": 0.06, "bottom": 0.064, "left": 0.06 }
+  },
+  "pieces": {
+    "image": "pieces.webp",
+    "columns": 6,
+    "rows": 2,
+    "order": ["k", "q", "b", "n", "r", "p"],
+    "rowFor": { "w": 0, "b": 1 },
+    "scale": 0.95,
+    "anchorY": 0.02
+  },
+  "moveIndicator": {
+    "image": "indicator-move.webp",
+    "scale": 0.9,
+    "opacity": 0.75
+  },
+  "captureIndicator": {
+    "image": "indicator-capture.webp",
+    "scale": 1.0,
+    "opacity": 0.6
+  },
+  "font": {
+    "family": "Pirata One",
+    "files": [
+      { "src": "font/PirataOne-Regular.woff2", "weight": 400, "style": "normal" }
+    ],
+    "fallback": "Georgia, serif",
+    "license": "font/OFL.txt"
+  },
+  "coordinates": {
+    "fontScale": 0.55
+  },
+  "theme": {
+    "bg": "#1b120b",
+    "surface": "#2b1d12",
+    "surfaceRaised": "#3a2716",
+    "text": "#f3e2b8",
+    "textMuted": "#bfa77a",
+    "accent": "#d9a441",
+    "danger": "#b3261e",
+    "highlightSelected": "rgba(217, 164, 65, 0.45)",
+    "highlightLastMove": "rgba(240, 200, 90, 0.30)",
+    "highlightCheck": "rgba(200, 30, 30, 0.55)",
+    "coordText": "#f3e2b8",
+    "coordShadow": "0 1px 2px rgba(0, 0, 0, 0.8)",
+    "dragShadow": "0 8px 16px rgba(0, 0, 0, 0.5)",
+    "scrim": "rgba(0, 0, 0, 0.55)"
+  },
+  "labels": {
+    "white": "Red Crew",
+    "black": "Blue Crew",
+    "difficulty": {
+      "p0": "Cabin Boy",
+      "p1": "Deckhand",
+      "p2": "Bosun",
+      "p3": "First Mate",
+      "p4": "Captain"
+    }
+  }
+}

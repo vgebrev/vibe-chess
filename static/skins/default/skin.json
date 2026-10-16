@@ -1,0 +1,54 @@
+{
+  "manifestVersion": 1,
+  "id": "default",
+  "name": "Marble",
+  "board": {
+    "image": "board.webp",
+    "inset": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
+  },
+  "pieces": {
+    "image": "pieces.webp",
+    "columns": 6,
+    "rows": 2,
+    "order": ["k", "q", "b", "n", "r", "p"],
+    "rowFor": { "w": 0, "b": 1 },
+    "scale": 0.92,
+    "anchorY": 0.03
+  },
+  "moveIndicator": {
+    "image": "indicator-move.webp",
+    "scale": 1.0,
+    "opacity": 0.8
+  },
+  "captureIndicator": {
+    "image": "indicator-capture.webp",
+    "scale": 0.9,
+    "opacity": 0.7
+  },
+  "font": {
+    "family": "Marcellus",
+    "files": [
+      { "src": "font/Marcellus-Regular.woff2", "weight": 400, "style": "normal" }
+    ],
+    "fallback": "Georgia, serif",
+    "license": "font/OFL.txt"
+  },
+  "coordinates": {
+    "gutter": 0.35
+  },
+  "theme": {
+    "bg": "#141414",
+    "surface": "#1f1f1f",
+    "surfaceRaised": "#2a2a2a",
+    "text": "#ecebe8",
+    "textMuted": "#a3a19c",
+    "accent": "#c2a878",
+    "danger": "#b3261e",
+    "highlightSelected": "rgba(194, 168, 120, 0.45)",
+    "highlightLastMove": "rgba(194, 168, 120, 0.28)",
+    "highlightCheck": "rgba(190, 30, 30, 0.50)",
+    "coordText": "#a3a19c",
+    "dragShadow": "0 8px 16px rgba(0, 0, 0, 0.5)",
+    "scrim": "rgba(0, 0, 0, 0.6)"
+  }
+}
