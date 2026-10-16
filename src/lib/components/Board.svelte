@@ -1,21 +1,48 @@
 <script lang="ts">
-	import type { Orientation } from '#lib/board/geometry.ts';
-	import type { BoardPiece } from '#lib/game/pieces.ts';
+	import type { Color, Square } from 'chess.js';
+	import {
+		cellPosition,
+		FILES,
+		gridToSquare,
+		RANKS,
+		type Orientation
+	} from '#lib/board/geometry.ts';
+	import type { Game, PromotionPiece } from '#lib/game/game.svelte.ts';
+	import { squareLabel } from '#lib/labels.ts';
 	import type { LoadedSkin } from '#lib/skins/loader.ts';
 	import Coordinates from './Coordinates.svelte';
+	import Highlights, { type Highlight } from './Highlights.svelte';
+	import Indicators from './Indicators.svelte';
 	import Piece from './Piece.svelte';
+	import PromotionPicker from './PromotionPicker.svelte';
+	import Sprite from './Sprite.svelte';
 
 	interface Props {
 		skin: LoadedSkin;
-		pieces: BoardPiece[];
+		game: Game;
 		orientation: Orientation;
 		showCoordinates?: boolean;
+		showLegalMoves?: boolean;
+		/** No input at all, e.g. while the engine is thinking (§4.2). */
+		locked?: boolean;
+		/** Whether the human may move this side's pieces (vs-Computer: only their own). */
+		canMove?: (color: Color) => boolean;
 	}
 
-	let { skin, pieces, orientation, showCoordinates = true }: Props = $props();
+	let {
+		skin,
+		game,
+		orientation,
+		showCoordinates = true,
+		showLegalMoves = true,
+		locked = false,
+		canMove = () => true
+	}: Props = $props();
 
 	// Gutter labels are sized relative to the gutter strip they sit in.
 	const GUTTER_FONT = 0.75;
+	// Pointer travel (px) before a press on a piece becomes a drag rather than a click.
+	const DRAG_THRESHOLD = 4;
 
 	const manifest = $derived(skin.manifest);
 	const inset = $derived(manifest.board.inset);
@@ -27,7 +54,172 @@
 	const boardPct = $derived(100 - gutterPct);
 
 	const sheet = $derived(manifest.pieces);
+
+	// Every square, top-left to bottom-right as seen on screen.
+	const squares = $derived(
+		RANKS.flatMap((_, row) => FILES.map((_, col) => gridToSquare(col, row, orientation)))
+	);
+
+	interface Drag {
+		id: string;
+		from: Square;
+		pointerId: number;
+		startX: number;
+		startY: number;
+		x: number;
+		y: number;
+		/** Past the threshold: the piece follows the pointer. */
+		active: boolean;
+		/** The piece was already selected when pressed, so a plain click deselects it. */
+		wasSelected: boolean;
+	}
+
+	let grid: HTMLDivElement;
+	let selected = $state<Square | null>(null);
+	let hover = $state<Square | null>(null);
+	let drag = $state<Drag | null>(null);
+	let promotion = $state<{ from: Square; to: Square; color: Color } | null>(null);
+
+	function movable(square: Square): boolean {
+		const piece = game.pieceAt(square);
+		return (
+			!!piece && !locked && !game.isGameOver && piece.color === game.turn && canMove(piece.color)
+		);
+	}
+
+	// A selection that stops being movable (the game moved on, input locked) just lapses.
+	const active = $derived(selected && movable(selected) ? selected : null);
+	const targets = $derived(active ? game.targets(active) : []);
+
+	const highlights = $derived.by(() => {
+		const list: Highlight[] = [];
+		if (game.lastMove) {
+			list.push({ square: game.lastMove.from, kind: 'last-move' });
+			list.push({ square: game.lastMove.to, kind: 'last-move' });
+		}
+		if (game.checkSquare) list.push({ square: game.checkSquare, kind: 'check' });
+		if (active) list.push({ square: active, kind: 'selected' });
+		return list;
+	});
+
+	// Flipping or a new game cancels a drag in progress (§4.4).
+	$effect(() => {
+		void orientation;
+		void game;
+		drag = null;
+	});
+	$effect(() => {
+		void game;
+		selected = null;
+		promotion = null;
+	});
+
+	/** Try to move the selected piece; true if `to` was a legal target (including a pending promotion). */
+	function tryMove(from: Square, to: Square): boolean {
+		const target = active === from ? targets.find((t) => t.square === to) : undefined;
+		if (!target) return false;
+		selected = null;
+		if (target.promotion) promotion = { from, to, color: game.turn };
+		else game.move({ from, to });
+		return true;
+	}
+
+	function promote(piece: PromotionPiece) {
+		if (!promotion) return;
+		game.move({ from: promotion.from, to: promotion.to, promotion: piece });
+		promotion = null;
+	}
+
+	/** Click-to-move logic, shared by pointer clicks and keyboard activation (§4.2). */
+	function activate(square: Square) {
+		if (promotion || locked) return;
+		if (active && tryMove(active, square)) return;
+		selected = active !== square && movable(square) ? square : null;
+	}
+
+	function local(e: PointerEvent) {
+		const r = grid.getBoundingClientRect();
+		return { x: e.clientX - r.left, y: e.clientY - r.top, size: r.width };
+	}
+
+	function squareAt(e: PointerEvent): Square | null {
+		const { x, y, size } = local(e);
+		const col = Math.floor((x / size) * 8);
+		const row = Math.floor((y / size) * 8);
+		if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+		return gridToSquare(col, row, orientation);
+	}
+
+	function onpointerdown(e: PointerEvent) {
+		if (e.button !== 0 || promotion || locked || drag) return;
+		const square = squareAt(e);
+		if (!square) return;
+		e.preventDefault(); // no text selection or focus shuffling while dragging
+		if (active && active !== square && tryMove(active, square)) return;
+		if (!movable(square)) {
+			selected = null;
+			return;
+		}
+		const piece = game.pieces.find((p) => p.square === square);
+		if (!piece) return;
+		const { x, y } = local(e);
+		drag = {
+			id: piece.id,
+			from: square,
+			pointerId: e.pointerId,
+			startX: x,
+			startY: y,
+			x,
+			y,
+			active: false,
+			wasSelected: active === square
+		};
+		selected = square;
+		grid.setPointerCapture(e.pointerId);
+	}
+
+	function onpointermove(e: PointerEvent) {
+		if (drag && e.pointerId === drag.pointerId) {
+			const { x, y } = local(e);
+			if (!drag.active && Math.hypot(x - drag.startX, y - drag.startY) > DRAG_THRESHOLD) {
+				drag.active = true;
+			}
+			drag.x = x;
+			drag.y = y;
+			hover = drag.active ? squareAt(e) : null;
+		} else if (e.pointerType === 'mouse') {
+			hover = squareAt(e);
+		}
+	}
+
+	function onpointerup(e: PointerEvent) {
+		if (!drag || e.pointerId !== drag.pointerId) return;
+		const d = drag;
+		drag = null;
+		if (e.pointerType !== 'mouse') hover = null;
+		if (d.active) {
+			// Dropped on a legal target: it snaps there. Anywhere else: it goes back, still selected.
+			const square = squareAt(e);
+			if (square && square !== d.from) tryMove(d.from, square);
+		} else if (d.wasSelected) {
+			selected = null;
+		}
+	}
+
+	function onpointercancel() {
+		drag = null;
+		hover = null;
+	}
+
+	function onkeydown(e: KeyboardEvent) {
+		if (e.key !== 'Escape') return;
+		if (promotion) promotion = null;
+		else if (drag) drag = null;
+		else selected = null;
+	}
 </script>
+
+<svelte:window {onkeydown} />
 
 <div class="frame" data-skin={manifest.id} data-orientation={orientation}>
 	<div
@@ -36,19 +228,76 @@
 		style:width="{boardPct}%"
 		style:background-image="url({JSON.stringify(skin.urls.board)})"
 	>
+		<!-- Layers bottom to top (§5.4): highlights, pieces, indicators, squares (input),
+		     dragged piece, promotion picker. -->
+		<!-- Pointer input is handled here; the square buttons give keyboard access. -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
+			bind:this={grid}
 			class="grid"
+			class:dragging={drag?.active}
 			style:top="{inset.top * 100}%"
 			style:right="{inset.right * 100}%"
 			style:bottom="{inset.bottom * 100}%"
 			style:left="{inset.left * 100}%"
 			style:--pieces-url="url({JSON.stringify(skin.urls.pieces)})"
 			style:--sheet-size="{sheet.columns * 100}% {sheet.rows * 100}%"
-			style:--piece-scale={sheet.scale}
+			{onpointerdown}
+			{onpointermove}
+			{onpointerup}
+			{onpointercancel}
+			onpointerleave={() => !drag && (hover = null)}
+			oncontextmenu={(e) => e.preventDefault()}
 		>
-			{#each pieces as piece (piece.id)}
-				<Piece {piece} {orientation} {sheet} />
+			<Highlights {highlights} {orientation} />
+
+			{#each game.pieces as piece (piece.id)}
+				<Piece {piece} {orientation} {sheet} hidden={drag?.active && drag.id === piece.id} />
 			{/each}
+
+			{#if showLegalMoves}
+				<Indicators {targets} {orientation} {skin} {hover} />
+			{/if}
+
+			{#each squares as square (square)}
+				{@const pos = cellPosition(square, orientation)}
+				<!-- Pointer input is handled on the grid; these give keyboard and screen-reader access (§6.5). -->
+				<button
+					class="square"
+					data-cell={square}
+					aria-label={squareLabel(square, game.pieceAt(square), manifest.labels)}
+					aria-pressed={active === square}
+					tabindex={square === (active ?? 'a1') ? 0 : -1}
+					style:left="{pos.left}%"
+					style:top="{pos.top}%"
+					onclick={(e) => e.detail === 0 && activate(square)}
+				></button>
+			{/each}
+
+			{#if drag?.active}
+				{@const piece = game.pieces.find((p) => p.id === drag?.id)}
+				{#if piece}
+					<div
+						class="dragged"
+						data-dragging={piece.id}
+						style:left="{drag.x}px"
+						style:top="{drag.y}px"
+					>
+						<Sprite type={piece.type} color={piece.color} {sheet} />
+					</div>
+				{/if}
+			{/if}
+
+			{#if promotion}
+				<PromotionPicker
+					square={promotion.to}
+					color={promotion.color}
+					{orientation}
+					{sheet}
+					onpick={promote}
+					oncancel={() => (promotion = null)}
+				/>
+			{/if}
 		</div>
 
 		{#if showCoordinates && framed}
@@ -97,5 +346,42 @@
 
 	.grid {
 		position: absolute;
+		/* No scrolling or zooming while dragging on touch screens (§4.2). */
+		touch-action: none;
+		user-select: none;
+		-webkit-user-select: none;
+		-webkit-touch-callout: none;
+	}
+
+	.dragging {
+		cursor: grabbing;
+	}
+
+	.square {
+		position: absolute;
+		width: 12.5%;
+		height: 12.5%;
+		background: none;
+		border: 0;
+		padding: 0;
+		cursor: pointer;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	.square:focus-visible {
+		outline: 3px solid var(--accent);
+		outline-offset: -3px;
+	}
+
+	/* Follows the pointer, lifted with the theme's scale and shadow (§4.2). */
+	.dragged {
+		position: absolute;
+		width: 12.5%;
+		height: 12.5%;
+		translate: -50% -50%;
+		scale: var(--drag-scale, 1.15);
+		filter: drop-shadow(var(--drag-shadow));
+		pointer-events: none;
+		z-index: 1;
 	}
 </style>

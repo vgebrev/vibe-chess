@@ -44,15 +44,23 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
 - **Promotion:** a picker shows the four piece options using the active skin's sprites. Cancelling the picker cancels the move.
 - Input is locked while the engine is thinking.
 - Touch: `touch-action: none` on the board prevents scroll and zoom while dragging. Touch targets are at least one board square; on a 360 px phone that is ≈ 40 px.
+- **Implementation (M3):**
+  - Pointer input is handled once on the board grid and mapped to a square from the pointer position.
+  - A press on a legal target of the selected piece moves straight away. A press on a movable piece selects it and starts a potential drag, which becomes a drag after 4 px of travel.
+  - A release without dragging on an already-selected piece deselects it. A drop anywhere other than a legal target returns the piece and keeps it selected, so click-to-move still works.
+  - Each square is also a transparent `<button>`, for keyboard and screen-reader access (§6.5). There is a single tab stop on the selected square (or a1). Enter or Space acts like a click.
+  - Esc cancels the promotion picker, then a drag, then the selection.
+  - The dragged piece is drawn with `scale: theme.dragScale` (default 1.15) and `filter: drop-shadow(theme.dragShadow)`.
+  - The interim page accepts `?fen=<FEN>` to start from a position, which e2e tests use.
 
 ### 4.3 Move guidance
 
 - When a piece is selected, an indicator is drawn on every legal destination square:
   - **Quiet move:** `moveIndicator` image.
-  - **Capture:** the `captureIndicator` image if the skin provides one. Otherwise the `moveIndicator` is drawn at `moveIndicator.captureScale`, which is upscaled so it frames the target piece. En passant counts as a capture, and its indicator is drawn on the destination square.
+  - **Capture:** the `captureIndicator` image if the skin provides one. Otherwise the `moveIndicator` is drawn at `moveIndicator.captureScale` (and `moveIndicator.opacity`), which is upscaled so it frames the target piece. En passant counts as a capture, and its indicator is drawn on the destination square. (chess.js's `isCapture()` excludes en passant, so `Game.targets` checks `isEnPassant()` too.)
 - All indicators are drawn in one layer **above the pieces**, with skin-defined **opacity**, so neither the square nor the piece underneath is fully hidden.
 - Defaults are `opacity` 0.75 for moves and 0.6 for captures; skins can override both.
-- When the pointer hovers over a target, or a dragged piece is over one, that indicator goes to full opacity, giving feedback on where the piece will land.
+- When the pointer hovers over a target, or a dragged piece is over one, that indicator goes to `hoverOpacity` (default 0.85; per indicator in the manifest), giving feedback on where the piece will land without fully hiding the piece underneath.
 - Additional highlights (each a theme colour, rendered as a translucent square overlay under pieces):
   - Selected square
   - Last move (from and to squares)
@@ -189,6 +197,17 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
   - settings: skin, toggles, last difficulty.
 - On reload the game is rebuilt by replaying the moves, so undo history survives. Every read and write is wrapped in try/catch, and the app works without storage.
 
+### 4.10 Captured pieces & material balance
+
+- Each player strip (§6.1) shows the pieces **that side has captured**, drawn as small sprites from the active skin. They are grouped by type in the order queen, rook, bishop, knight, pawn, and pieces of the same type overlap so a full set fits on a 360 px phone.
+- Next to the captures, the side that is **ahead on material** shows `+N`. Nothing is shown when material is level.
+  - Values: pawn 1, knight 3, bishop 3, rook 5, queen 9.
+  - `N` is computed from the material **on the board**, not from the captures, so promotions count correctly. A promoted queen adds 9 and removes the pawn's 1.
+- Captures come from the move history (`captured` on each chess.js move, en passant included), so they always match the game. When a promoted piece is captured, it is shown as the piece it had become.
+- Both values are derived from the game state, so undo, new game and resume from storage update them with no extra bookkeeping.
+- Strips follow the board orientation: the top strip belongs to the side at the top of the board, so flipping swaps them.
+- Accessibility: the strip has a text equivalent, for example "Red Crew captured: queen, 2 pawns. +7".
+
 ## 5. Skin system
 
 ### 5.1 Skin manifest
@@ -223,6 +242,7 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 		"image": "indicator-move.webp",
 		"scale": 0.8, // relative to a square
 		"opacity": 0.75,
+		"hoverOpacity": 0.85, // optional; target under the pointer or dragged piece
 		"captureScale": 1.1 // fallback capture rendering
 	},
 
@@ -260,7 +280,8 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 		"coordShadow": "0 1px 2px rgba(0,0,0,0.8)",
 		"pieceShadow": "drop-shadow(0 0 1px rgba(0,0,0,0.9)) drop-shadow(0 0 1px rgba(0,0,0,0.9)) drop-shadow(0.25cqw 0.8cqw 1cqw rgba(0,0,0,0.55))", // CSS filter: outline + diffuse shadow (cqw = 1% of board width)
 		"pieceShadowBlack": "drop-shadow(0 0 1px rgba(255,255,255,0.8)) …", // optional per-side override (also pieceShadowWhite)
-		"dragShadow": "0 8px 16px rgba(0,0,0,0.5)",
+		"dragShadow": "0 8px 16px rgba(0,0,0,0.5)", // x y blur colour, used in drop-shadow()
+		"dragScale": "1.15", // optional
 		"scrim": "rgba(0,0,0,0.55)" // drawer / dialog backdrop
 	},
 
@@ -284,7 +305,7 @@ Validation rules (`src/lib/skins/schema.ts`):
 - Every problem is reported with its JSON path (e.g. `pieces.order: expected each of …`), so a broken manifest can be fixed in one pass.
 - Asset paths must be relative paths inside the skin folder with an extension: no leading `/`, no scheme, no `..`.
 - `board.inset` sides are fractions in [0, 0.45]. `pieces.order` must list each of `k q b n r p` exactly once. `pieces.rowFor` rows must exist in the sheet.
-- Optional fields get defaults: `pieces.scale` 1, `pieces.anchorY` 0, `pieces.anchorYFor` each type at `anchorY`, indicator `scale` 1, `moveIndicator.opacity` 0.75, `moveIndicator.captureScale` 1.1, `captureIndicator.opacity` 0.6, font file `weight` 400 and `style` normal, `font.fallback` serif, `coordinates.fontScale` 0.55, `coordinates.gutter` 0.35, `theme.coordShadow` none, `theme.pieceShadow` a firm dark outline plus a soft drop shadow, `theme.pieceShadowWhite`/`pieceShadowBlack` the value of `pieceShadow`, `labels` empty. Every other `theme` key is required.
+- Optional fields get defaults: `pieces.scale` 1, `pieces.anchorY` 0, `pieces.anchorYFor` each type at `anchorY`, indicator `scale` 1, `moveIndicator.opacity` 0.75, `moveIndicator.captureScale` 1.1, `captureIndicator.opacity` 0.6, indicator `hoverOpacity` 0.85, font file `weight` 400 and `style` normal, `font.fallback` serif, `coordinates.fontScale` 0.55, `coordinates.gutter` 0.35, `theme.coordShadow` none, `theme.dragScale` 1.15, `theme.pieceShadow` a firm dark outline plus a soft drop shadow, `theme.pieceShadowWhite`/`pieceShadowBlack` the value of `pieceShadow`, `labels` empty. Every other `theme` key is required.
 
 ### 5.2 Fonts: bundled with the skin (decision)
 
@@ -414,7 +435,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 ┌──────────────────────────┐
 │ ☠ Title          ⚙       │  header (compact)
 ├──────────────────────────┤
-│ ● Blue Crew (Captain)    │  opponent strip: side, engine/diff, thinking dots
+│ ● Blue Crew ♟♟♞   +2     │  opponent strip: side, captures, +N, engine/thinking
 ├──────────────────────────┤
 │                          │
 │          BOARD           │  width = 100vw − 2×16px gutter,
@@ -422,7 +443,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 │    gutter, see §4.4)     │
 │                          │
 ├──────────────────────────┤
-│ ● Red Crew — to move     │  player strip + status
+│ ● Red Crew ♙♗ — to move  │  player strip: side, captures, +N, status
 ├──────────────────────────┤
 │ [New][Undo][Flip][⚑][☰]  │  control bar (icon buttons + short labels)
 └──────────────────────────┘
@@ -445,12 +466,12 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 ┌──────────────────────────────────────────────────┐
 │ ☠ Title                                   ⚙      │
 ├───────────────────────────────┬──────────────────┤
-│ ● Blue Crew (Captain)         │ Status           │
+│ ● Blue Crew ♟♟♞  +2           │ Status           │
 │                               │ ──────────────── │
 │            BOARD              │ Moves            │
 │                               │ 1. e4   e5       │
 │                               │ 2. Nf3  Nc6      │
-│ ● Red Crew                    │ ──────────────── │
+│ ● Red Crew ♙♗                 │ ──────────────── │
 │                               │ [New] [Undo]     │
 │                               │ [Flip] [Resign]  │
 └───────────────────────────────┴──────────────────┘
@@ -467,6 +488,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 | ------------------------------------------------------ | -------------------- | ----------------------------------- |
 | New / Undo / Flip / Resign                             | Control bar          | Side panel                          |
 | Status, check, result, engine thinking                 | Player strips        | Player strips + side panel          |
+| Captured pieces, material `+N` (§4.10)                 | Player strips        | Player strips                       |
 | Move list                                              | **Drawer** (☰)      | Inline in side panel                |
 | New Game setup (mode, colour, difficulty + Elo slider) | **Drawer**           | Drawer (opened from the side panel) |
 | Settings (skin, guidance, coordinates, auto-flip)      | **Drawer** (⚙)       | Drawer                              |
@@ -531,7 +553,8 @@ src/
     components/
       Board.svelte          # grid, layers, orientation, pointer handling
       Piece.svelte          # sprite + transform/transition
-      Highlights.svelte
+      Sprite.svelte         # one sprite from the sheet (pieces, drag layer, promotion picker)
+      Highlights.svelte     # selected, last move, check (check is a radial glow so the king stays readable)
       Indicators.svelte     # move + capture indicators
       Coordinates.svelte    # in-frame or gutter labels
       PromotionPicker.svelte
@@ -628,6 +651,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
   - inset 0
   - bad paths
 - Label fallbacks
+- Captured pieces and material balance: captures (including en passant), a promotion (+8 for a queen), a captured promoted piece, and undo
 - Persistence round-trip (replay restores undo history)
 
 **E2E (Playwright, run at both 390×844 and 1280×800)**
@@ -662,7 +686,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
    - Flip
 3. **Interaction:** select, guidance (move and capture indicators), click-move, drag-move, promotion, through chess.js
 4. **Animation:** piece-id reconciliation, slide/fade transitions, reduced motion
-5. **Game flow:** status and labels, move list, game-over, undo, new game, hot-seat mode, auto-flip
+5. **Game flow:** status and labels, player strips with captured pieces and material balance (§4.10), move list, game-over, undo, new game, hot-seat mode, auto-flip
 6. **Engine:** lazy-loaded worker, UCI client, presets and custom Elo slider, think-time model and measuring nodes/s, vs-Computer mode
 7. **Layout:** mobile-first shell, the `lg` side panel, Drawer (move list, New Game, Settings)
 8. **Polish:** persistence, a11y pass, E2E suite, Cloudflare Pages deploy check
@@ -691,8 +715,9 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 14  | Engine pacing               | Complexity-based think budget with log-normal jitter, passed to the engine as `movetime` (§4.6.1)                                                                                                                    |
 | 15  | Phones in landscape         | No special handling in v1. The single-column layout applies, and users can rotate to portrait                                                                                                                        |
 | 16  | Difficulty personality      | Think time is scaled per difficulty (0.70× Cabin Boy → 1.15× Captain; custom 0.85×–1.20× by Elo)                                                                                                                     |
-| 17  | Indicator rendering         | Move and capture indicators are both drawn above the pieces with skin-set opacity. Hovering or dragging over a target shows it at full opacity                                                                       |
+| 17  | Indicator rendering         | Move and capture indicators are both drawn above the pieces with skin-set opacity. Hovering or dragging over a target raises it to `hoverOpacity` (0.85 by default)                                                  |
 | 18  | Pirate capture indicator    | Crossed sabers (`-2`). Skull and flag kept as alternatives                                                                                                                                                           |
 | 19  | Default skin                | "Marble": white marble and black granite, no frame, Marcellus font                                                                                                                                                   |
 | 20  | Skin source vs served       | Source art in `scratchpad/skins/<id>/assets/` (local, not committed). Served assets and the only manifest in `static/skins/<id>/`. Conversion is a manual one-off run of `scripts/convert-skin.py`, not a build step |
 | 21  | Manifest validation         | `manifestVersion: 1`, asset paths confined to the skin folder, optional fields filled with defaults, all errors reported with their paths (§5.1)                                                                     |
+| 22  | Captured pieces & material  | Shown in the player strips: each side's captures as small skin sprites, plus `+N` for the side ahead, computed from material on the board (§4.10)                                                                    |

@@ -1,15 +1,18 @@
 <script lang="ts">
-	import { spritePosition, squareToGrid, type Orientation } from '#lib/board/geometry.ts';
+	import { squareToGrid, type Orientation } from '#lib/board/geometry.ts';
 	import type { BoardPiece } from '#lib/game/pieces.ts';
 	import type { SkinManifest } from '#lib/skins/schema.ts';
+	import Sprite from './Sprite.svelte';
 
 	interface Props {
 		piece: BoardPiece;
 		orientation: Orientation;
 		sheet: SkinManifest['pieces'];
+		/** Hidden while it is being dragged (the drag layer draws it instead). */
+		hidden?: boolean;
 	}
 
-	let { piece, orientation, sheet }: Props = $props();
+	let { piece, orientation, sheet, hidden = false }: Props = $props();
 
 	const cell = $derived(squareToGrid(piece.square, orientation));
 </script>
@@ -17,16 +20,12 @@
 <!-- One square-sized box per piece, moved with a transform so square changes can transition (§4.5). -->
 <div
 	class="piece"
+	class:hidden
 	data-piece="{piece.color}{piece.type}"
 	data-square={piece.square}
 	style:transform="translate({cell.col * 100}%, {cell.row * 100}%)"
 >
-	<div
-		class="sprite"
-		style:filter="var(--piece-shadow-{piece.color === 'w' ? 'white' : 'black'}, none)"
-		style:bottom="{sheet.anchorYFor[piece.type] * 100}%"
-		style:background-position={spritePosition(piece.type, piece.color, sheet)}
-	></div>
+	<Sprite type={piece.type} color={piece.color} {sheet} />
 </div>
 
 <style>
@@ -39,14 +38,7 @@
 		pointer-events: none;
 	}
 
-	/* Sheet URL, grid size and scale come from CSS variables set by Board; the shadow from the theme. */
-	.sprite {
-		position: absolute;
-		left: calc((1 - var(--piece-scale)) * 50%);
-		width: calc(var(--piece-scale) * 100%);
-		height: calc(var(--piece-scale) * 100%);
-		background-image: var(--pieces-url);
-		background-size: var(--sheet-size);
-		background-repeat: no-repeat;
+	.hidden {
+		visibility: hidden;
 	}
 </style>

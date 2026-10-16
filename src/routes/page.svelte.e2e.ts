@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const centre = async (locator: Locator) => {
 	const box = await locator.boundingBox();
@@ -65,4 +65,48 @@ test('switching to the Pirate skin draws coordinates in the frame', async ({ pag
 	expect(fileA.y).toBeLessThan(board.y + board.height);
 	expect(fileA.y).toBeGreaterThan(board.y + board.height * (1 - 0.064));
 	expect(await page.evaluate(() => document.fonts.check('1em "Pirata One"'))).toBe(true);
+});
+
+const cell = (page: Page, square: string) => page.locator(`[data-cell="${square}"]`);
+const pieceOn = (page: Page, square: string) =>
+	page.locator(`[data-piece][data-square="${square}"]`);
+
+test('moves by click and by drag', async ({ page }) => {
+	await cell(page, 'e2').click();
+	await expect(page.locator('[data-indicator]')).toHaveCount(2);
+	await cell(page, 'e4').click();
+	await expect(pieceOn(page, 'e4')).toHaveAttribute('data-piece', 'wp');
+
+	await cell(page, 'g8').dragTo(cell(page, 'f6'));
+	await expect(pieceOn(page, 'f6')).toHaveAttribute('data-piece', 'bn');
+	await expect(page.locator('[data-status]')).toHaveText('White to move');
+});
+
+test('plays a promotion through the picker', async ({ page }) => {
+	await page.goto('/?fen=' + encodeURIComponent('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
+	await cell(page, 'a7').click();
+	await cell(page, 'a8').click();
+	await expect(page.locator('[data-promote]')).toHaveCount(4);
+	await page.getByRole('button', { name: 'Promote to knight' }).click();
+	await expect(pieceOn(page, 'a8')).toHaveAttribute('data-piece', 'wn');
+	await expect(page.locator('[data-promote]')).toHaveCount(0);
+});
+
+test("scholar's mate ends the game", async ({ page }) => {
+	for (const [from, to] of [
+		['e2', 'e4'],
+		['e7', 'e5'],
+		['f1', 'c4'],
+		['b8', 'c6'],
+		['d1', 'h5'],
+		['g8', 'f6'],
+		['h5', 'f7']
+	]) {
+		await cell(page, from).click();
+		await cell(page, to).click();
+	}
+	await expect(page.locator('[data-status]')).toHaveText('Checkmate — White wins');
+	await expect(page.locator('[data-highlight="check"]')).toHaveAttribute('data-square', 'e8');
+	await cell(page, 'e8').click();
+	await expect(page.locator('[data-indicator]')).toHaveCount(0);
 });

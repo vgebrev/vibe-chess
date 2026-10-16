@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { piecesFromFen } from '#lib/game/pieces.ts';
+import { Game } from '#lib/game/game.svelte.ts';
 import { loadSkin, type LoadedSkin } from '#lib/skins/loader.ts';
 import Board from './Board.svelte';
 
@@ -32,7 +32,7 @@ function setup(
 ) {
 	const screen = render(Board, {
 		skin: fixture,
-		pieces: piecesFromFen(),
+		game: new Game(),
 		orientation: 'white',
 		...props
 	});
@@ -41,7 +41,7 @@ function setup(
 		root,
 		frame: root.querySelector('.frame')!,
 		board: root.querySelector('.board')!,
-		piece: (square: string) => root.querySelector(`[data-square="${square}"]`),
+		piece: (square: string) => root.querySelector(`[data-piece][data-square="${square}"]`),
 		file: (f: string) => root.querySelector(`[data-file="${f}"]`),
 		rank: (r: string) => root.querySelector(`[data-rank="${r}"]`),
 		rerender: screen.rerender

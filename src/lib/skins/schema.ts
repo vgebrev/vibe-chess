@@ -37,7 +37,10 @@ export interface Theme {
 	/** Per-side overrides of `pieceShadow`, e.g. a light rim so dark pieces show on dark squares. */
 	pieceShadowWhite: string;
 	pieceShadowBlack: string;
+	/** Shadow of a dragged piece, as `x y blur color` (used in `drop-shadow()`). */
 	dragShadow: string;
+	/** Scale of a dragged piece, as a CSS number. */
+	dragScale: string;
 	scrim: string;
 }
 
@@ -64,8 +67,15 @@ export interface SkinManifest {
 		/** Per-type anchor, `anchorY` unless overridden by the manifest's `anchorYFor`. */
 		anchorYFor: Record<PieceType, number>;
 	};
-	moveIndicator: { image: string; scale: number; opacity: number; captureScale: number };
-	captureIndicator: { image: string; scale: number; opacity: number } | null;
+	moveIndicator: {
+		image: string;
+		scale: number;
+		opacity: number;
+		/** Opacity of the target under the pointer or dragged piece. */
+		hoverOpacity: number;
+		captureScale: number;
+	};
+	captureIndicator: { image: string; scale: number; opacity: number; hoverOpacity: number } | null;
 	font: {
 		family: string;
 		files: FontFile[];
@@ -81,12 +91,14 @@ export interface SkinManifest {
 export const DEFAULTS = {
 	moveOpacity: 0.75,
 	captureOpacity: 0.6,
+	hoverOpacity: 0.85,
 	captureScale: 1.1,
 	captureIndicatorScale: 1,
 	fontFallback: 'serif',
 	coordFontScale: 0.55,
 	coordGutter: 0.35,
 	coordShadow: 'none',
+	dragScale: '1.15',
 	// Thin 0-offset shadows read as an antialiased outline (stacked filters compound, so two
 	// make it firmer); the last is a diffuse shadow in cqw (1% of the board width) so it
 	// scales with the board.
@@ -229,6 +241,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 		image: file(move.image, 'moveIndicator.image'),
 		scale: num(move.scale, 'moveIndicator.scale', 0.05, 2, 1),
 		opacity: num(move.opacity, 'moveIndicator.opacity', 0, 1, DEFAULTS.moveOpacity),
+		hoverOpacity: num(move.hoverOpacity, 'moveIndicator.hoverOpacity', 0, 1, DEFAULTS.hoverOpacity),
 		captureScale: num(
 			move.captureScale,
 			'moveIndicator.captureScale',
@@ -241,7 +254,14 @@ export function validateSkin(raw: unknown): ValidationResult {
 	const captureIndicator = capture && {
 		image: file(capture.image, 'captureIndicator.image'),
 		scale: num(capture.scale, 'captureIndicator.scale', 0.05, 2, DEFAULTS.captureIndicatorScale),
-		opacity: num(capture.opacity, 'captureIndicator.opacity', 0, 1, DEFAULTS.captureOpacity)
+		opacity: num(capture.opacity, 'captureIndicator.opacity', 0, 1, DEFAULTS.captureOpacity),
+		hoverOpacity: num(
+			capture.hoverOpacity,
+			'captureIndicator.hoverOpacity',
+			0,
+			1,
+			DEFAULTS.hoverOpacity
+		)
 	};
 
 	// font: bundled files (documented path) or a stylesheet URL for experiments (§5.2)
@@ -284,9 +304,13 @@ export function validateSkin(raw: unknown): ValidationResult {
 
 	// theme
 	const themeRaw = obj(root.theme, 'theme') ?? {};
-	const theme = { coordShadow: DEFAULTS.coordShadow, pieceShadow: DEFAULTS.pieceShadow } as Theme;
+	const theme = {
+		coordShadow: DEFAULTS.coordShadow,
+		pieceShadow: DEFAULTS.pieceShadow,
+		dragScale: DEFAULTS.dragScale
+	} as Theme;
 	for (const key of REQUIRED_THEME_KEYS) theme[key] = str(themeRaw[key], `theme.${key}`);
-	for (const key of ['coordShadow', 'pieceShadow'] as const) {
+	for (const key of ['coordShadow', 'pieceShadow', 'dragScale'] as const) {
 		if (themeRaw[key] !== undefined) theme[key] = str(themeRaw[key], `theme.${key}`);
 	}
 	for (const key of ['pieceShadowWhite', 'pieceShadowBlack'] as const) {

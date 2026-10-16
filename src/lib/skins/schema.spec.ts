@@ -37,6 +37,7 @@ describe('validateSkin', () => {
 			image: 'indicator-move.webp',
 			scale: 1,
 			opacity: DEFAULTS.moveOpacity,
+			hoverOpacity: DEFAULTS.hoverOpacity,
 			captureScale: DEFAULTS.captureScale
 		});
 		expect(skin.pieces.scale).toBe(1);
@@ -64,7 +65,8 @@ describe('validateSkin', () => {
 		expect(result.ok && result.skin.captureIndicator).toEqual({
 			image: 'x.webp',
 			scale: DEFAULTS.captureIndicatorScale,
-			opacity: DEFAULTS.captureOpacity
+			opacity: DEFAULTS.captureOpacity,
+			hoverOpacity: DEFAULTS.hoverOpacity
 		});
 	});
 

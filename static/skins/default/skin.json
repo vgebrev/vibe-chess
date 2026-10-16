@@ -19,12 +19,12 @@
   "moveIndicator": {
     "image": "indicator-move.webp",
     "scale": 1.0,
-    "opacity": 0.8
+    "opacity": 0.5
   },
   "captureIndicator": {
     "image": "indicator-capture.webp",
     "scale": 0.9,
-    "opacity": 0.7
+    "opacity": 0.45
   },
   "font": {
     "family": "Marcellus",

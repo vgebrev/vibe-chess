@@ -19,12 +19,12 @@
   "moveIndicator": {
     "image": "indicator-move.webp",
     "scale": 0.9,
-    "opacity": 0.75
+    "opacity": 0.5
   },
   "captureIndicator": {
     "image": "indicator-capture.webp",
     "scale": 1.0,
-    "opacity": 0.6
+    "opacity": 0.4
   },
   "font": {
     "family": "Pirata One",
@@ -45,9 +45,9 @@
     "textMuted": "#bfa77a",
     "accent": "#d9a441",
     "danger": "#b3261e",
-    "highlightSelected": "rgba(217, 164, 65, 0.45)",
-    "highlightLastMove": "rgba(240, 200, 90, 0.30)",
-    "highlightCheck": "rgba(200, 30, 30, 0.55)",
+    "highlightSelected": "rgba(0, 0, 0, 0.35)",
+    "highlightLastMove": "rgba(255, 255, 255, 0.3)",
+    "highlightCheck": "rgba(255, 45, 30, 0.8)",
     "coordText": "#f3e2b8",
     "coordShadow": "0 1px 2px rgba(0, 0, 0, 0.8)",
     "dragShadow": "0 8px 16px rgba(0, 0, 0, 0.5)",

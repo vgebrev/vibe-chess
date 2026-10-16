@@ -31,7 +31,7 @@
 		"highlightLastMove": "rgba(51, 102, 255, 0.25)",
 		"highlightCheck": "rgba(204, 0, 0, 0.5)",
 		"coordText": "#ff00ff",
-		"dragShadow": "none",
+		"dragShadow": "0 4px 8px rgba(0, 0, 0, 0.5)",
 		"scrim": "rgba(0, 0, 0, 0.5)"
 	}
 }

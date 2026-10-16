@@ -48,3 +48,12 @@ export function spritePosition(
 	const pct = (i: number, n: number) => (n > 1 ? (i / (n - 1)) * 100 : 0);
 	return `${pct(col, pieces.columns)}% ${pct(row, pieces.rows)}%`;
 }
+
+/** Top-left corner of a square's cell, in percent of the grid. */
+export function cellPosition(
+	square: Square,
+	orientation: Orientation
+): { left: number; top: number } {
+	const { col, row } = squareToGrid(square, orientation);
+	return { left: col * 12.5, top: row * 12.5 };
+}
