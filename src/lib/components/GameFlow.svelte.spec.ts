@@ -26,14 +26,14 @@ describe('PlayerStrip', () => {
 			active: true
 		});
 		const root = screen.container;
-		expect(root.textContent).toContain('Red Crew');
+		expect(root.textContent).toContain('Blue Crew');
 		expect(
 			[...root.querySelectorAll<HTMLElement>('[data-captured]')].map((el) => el.dataset.captured)
 		).toEqual(['q', 'p', 'p']);
 		expect(root.querySelector('[data-advantage]')?.textContent).toBe('+7');
 		expect(root.querySelector('[data-strip]')?.hasAttribute('data-active')).toBe(true);
 		await expect
-			.element(page.getByRole('img', { name: 'Red Crew captured: queen, 2 pawns. +7' }))
+			.element(page.getByRole('img', { name: 'Blue Crew captured: queen, 2 pawns. +7' }))
 			.toBeInTheDocument();
 	});
 

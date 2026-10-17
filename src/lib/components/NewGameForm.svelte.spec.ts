@@ -5,8 +5,8 @@ import { DEFAULT_SETUP } from '#lib/game/setup.ts';
 import NewGameForm from './NewGameForm.svelte';
 
 const pirate = {
-	white: 'Red Crew',
-	black: 'Blue Crew',
+	white: 'Blue Crew',
+	black: 'Red Crew',
 	difficulty: { p0: 'Cabin Boy', p4: 'Captain' }
 };
 
@@ -18,7 +18,7 @@ describe('NewGameForm', () => {
 			labels: pirate,
 			onstart
 		});
-		await expect.element(page.getByRole('radio', { name: 'Blue Crew' })).toBeChecked();
+		await expect.element(page.getByRole('radio', { name: 'Red Crew' })).toBeChecked();
 		await expect.element(page.getByRole('radio', { name: 'Captain' })).toBeChecked();
 		// Skin names for presets, generic names for the rest.
 		await expect.element(page.getByRole('radio', { name: 'Cabin Boy' })).toBeInTheDocument();

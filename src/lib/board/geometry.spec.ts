@@ -48,18 +48,18 @@ describe('spritePosition', () => {
 	const pieces = (result as { skin: SkinManifest }).skin.pieces;
 
 	it.each([
-		['k', 'w', '0% 0%'],
-		['q', 'w', '20% 0%'],
-		['b', 'w', '40% 0%'],
-		['n', 'w', '60% 0%'],
-		['r', 'w', '80% 0%'],
-		['p', 'w', '100% 0%'],
-		['k', 'b', '0% 100%'],
-		['q', 'b', '20% 100%'],
-		['b', 'b', '40% 100%'],
-		['n', 'b', '60% 100%'],
-		['r', 'b', '80% 100%'],
-		['p', 'b', '100% 100%']
+		['k', 'w', '0% 100%'],
+		['q', 'w', '20% 100%'],
+		['b', 'w', '40% 100%'],
+		['n', 'w', '60% 100%'],
+		['r', 'w', '80% 100%'],
+		['p', 'w', '100% 100%'],
+		['k', 'b', '0% 0%'],
+		['q', 'b', '20% 0%'],
+		['b', 'b', '40% 0%'],
+		['n', 'b', '60% 0%'],
+		['r', 'b', '80% 0%'],
+		['p', 'b', '100% 0%']
 	] as const)('%s%s is at %s', (type, color, expected) => {
 		expect(spritePosition(type, color, pieces)).toBe(expected);
 	});
@@ -68,9 +68,9 @@ describe('spritePosition', () => {
 		const swapped = {
 			...pieces,
 			order: ['p', 'r', 'n', 'b', 'q', 'k'] as SkinManifest['pieces']['order'],
-			rowFor: { w: 1, b: 0 }
+			rowFor: { w: 0, b: 1 }
 		};
-		expect(spritePosition('k', 'w', swapped)).toBe('100% 100%');
-		expect(spritePosition('p', 'b', swapped)).toBe('0% 0%');
+		expect(spritePosition('k', 'w', swapped)).toBe('100% 0%');
+		expect(spritePosition('p', 'b', swapped)).toBe('0% 100%');
 	});
 });

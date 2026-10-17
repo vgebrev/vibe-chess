@@ -5,8 +5,8 @@ the hand-maintained manifest in static/skins/<id>/:
 
   board.png              -> board.webp (framed boards: resampled so the hand-drawn
                             square edges fall on an even 8x8 grid)
-  pieces.png             -> pieces.webp (sprites detected by transparent gaps,
-                            cropped, repacked into a clean columns x rows grid
+  pieces.png             -> pieces.webp (rows split at transparent gaps, sprites
+                            by their outlines, repacked into a clean columns x rows grid
                             of square cells: shared scale, centred on their base,
                             common baseline)
   indicator-move.png     -> indicator-move.webp
@@ -34,7 +34,6 @@ OUT_DIR = ROOT / "static" / "skins"
 
 DETECT_ALPHA = 40  # alpha above this counts as "sprite" when finding gaps
 CROP_ALPHA = 8  # alpha above this is kept when cropping (keeps soft edges)
-MERGE_GAP_X = 20  # horizontal runs closer than this belong to the same sprite
 MERGE_GAP_Y = 2  # rows can sit very close together (Marble's gap is 3 px)
 CELL_PX = 320  # output size of one piece cell
 CELL_PAD = 0.03  # padding around the largest sprite, fraction of the cell
@@ -106,22 +105,67 @@ def base_centre(sprite):
     return statistics.median(centres)
 
 
+def outlines(band, count):
+    """Split one row of the sheet into its `count` sprites by their connected outlines.
+
+    Sprites packed tightly can overlap horizontally (a feather reaching over its neighbour's
+    sword) without touching, so a straight cut would clip them. Each sprite is the largest
+    connected shapes; stray specks join the sprite whose box is nearest. Returns cropped
+    RGBA sprites, left to right.
+    """
+    w, h = band.size
+    alpha = band.getchannel("A").tobytes()
+    label = [0] * (w * h)
+    shapes = []  # (pixel count, bbox, label)
+    for start in range(w * h):
+        if alpha[start] <= CROP_ALPHA or label[start]:
+            continue
+        n = len(shapes) + 1
+        label[start] = n
+        stack, size = [start], 0
+        x0, y0, x1, y1 = w, h, 0, 0
+        while stack:
+            p = stack.pop()
+            size += 1
+            x, y = p % w, p // w
+            x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+            for q, ok in ((p - 1, x > 0), (p + 1, x < w - 1), (p - w, y > 0), (p + w, y < h - 1)):
+                if ok and alpha[q] > CROP_ALPHA and not label[q]:
+                    label[q] = n
+                    stack.append(q)
+        shapes.append((size, (x0, y0, x1, y1), n))
+    if len(shapes) < count:
+        raise SystemExit(f"expected {count} sprites in a row, found {len(shapes)} shapes")
+
+    seeds = sorted(sorted(shapes, reverse=True)[:count], key=lambda s: s[1][0])
+    owner = {seed[2]: i for i, seed in enumerate(seeds)}
+    for size, (x0, y0, x1, y1), n in shapes:
+        if n in owner:
+            continue
+
+        def distance(seed):
+            # gap between the boxes, then (where boxes overlap) between their centres
+            sx0, sy0, sx1, sy1 = seed[1]
+            gap = max(sx0 - x1, x0 - sx1, 0) ** 2 + max(sy0 - y1, y0 - sy1, 0) ** 2
+            return gap, (sx0 + sx1 - x0 - x1) ** 2 + (sy0 + sy1 - y0 - y1) ** 2
+
+        owner[n] = min(range(count), key=lambda i: distance(seeds[i]))
+
+    sprites = []
+    for i in range(count):
+        mask = Image.frombytes("L", (w, h), bytes(255 if v and owner[v] == i else 0 for v in label))
+        sprite = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        sprite.paste(band, mask=mask)
+        sprites.append(sprite.crop(mask.getbbox()))
+    return sprites
+
+
 def normalise_sheet(path, columns, rows):
     sheet = Image.open(path).convert("RGBA")
-    alpha = sheet.getchannel("A")
-    detect = alpha.point(lambda v: 255 if v > DETECT_ALPHA else 0).convert("1")
-    keep = alpha.point(lambda v: 255 if v > CROP_ALPHA else 0)
+    detect = sheet.getchannel("A").point(lambda v: 255 if v > DETECT_ALPHA else 0).convert("1")
 
     row_bands = split_bands(runs(projection(detect, 1), MERGE_GAP_Y), sheet.height, rows, "rows")
-    sprites = []  # [row][col] -> cropped RGBA
-    for y0, y1 in row_bands:
-        band = detect.crop((0, y0, sheet.width, y1))
-        col_bands = split_bands(runs(projection(band, 0), MERGE_GAP_X), sheet.width, columns, "sprites in a row")
-        row = []
-        for x0, x1 in col_bands:
-            bbox = keep.crop((x0, y0, x1, y1)).getbbox()
-            row.append(sheet.crop((x0 + bbox[0], y0 + bbox[1], x0 + bbox[2], y0 + bbox[3])))
-        sprites.append(row)
+    sprites = [outlines(sheet.crop((0, y0, sheet.width, y1)), columns) for y0, y1 in row_bands]  # [row][col]
 
     centres = [[base_centre(s) for s in row] for row in sprites]
     flat = [(s, cx) for row, crow in zip(sprites, centres) for s, cx in zip(row, crow)]

@@ -11,7 +11,7 @@
     "columns": 6,
     "rows": 2,
     "order": ["k", "q", "b", "n", "r", "p"],
-    "rowFor": { "w": 0, "b": 1 },
+    "rowFor": { "w": 1, "b": 0 },
     "scale": 0.95,
     "anchorY": 0.02,
     "anchorYFor": { "p": 0.10 }
@@ -50,12 +50,13 @@
     "highlightCheck": "rgba(255, 45, 30, 0.8)",
     "coordText": "#f3e2b8",
     "coordShadow": "0 1px 2px rgba(0, 0, 0, 0.8)",
+    "pieceShadow": "drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.6)) drop-shadow(0.2cqw 0.6cqw 0.8cqw rgba(0, 0, 0, 0.45))",
     "dragShadow": "0 8px 16px rgba(0, 0, 0, 0.5)",
     "scrim": "rgba(0, 0, 0, 0.55)"
   },
   "labels": {
-    "white": "Red Crew",
-    "black": "Blue Crew",
+    "white": "Blue Crew",
+    "black": "Red Crew",
     "difficulty": {
       "p0": "Cabin Boy",
       "p1": "Deckhand",

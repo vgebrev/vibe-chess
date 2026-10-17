@@ -17,7 +17,7 @@ export function sideName(color: Color, labels: Labels): string {
 	return color === 'w' ? (labels.white ?? 'White') : (labels.black ?? 'Black');
 }
 
-/** Accessible name of a board square, e.g. "e4, Red Crew pawn" (§6.5). */
+/** Accessible name of a board square, e.g. "e4, Blue Crew pawn" (§6.5). */
 export function squareLabel(
 	square: Square,
 	piece: { color: Color; type: PieceSymbol } | null,
@@ -28,7 +28,7 @@ export function squareLabel(
 
 const other = (color: Color): Color => (color === 'w' ? 'b' : 'w');
 
-/** How a finished game ended, e.g. "Checkmate — Red Crew wins". */
+/** How a finished game ended, e.g. "Checkmate — Blue Crew wins". */
 export function resultText(result: Result, labels: Labels): string {
 	const winner = result.winner === 'draw' ? '' : sideName(result.winner, labels);
 	switch (result.reason) {
@@ -58,7 +58,7 @@ export function statusText(
 	return state.thinking ? `${side} is thinking…` : `${side} to move`;
 }
 
-/** Text equivalent of a player strip, e.g. "Red Crew captured: queen, 2 pawns. +7" (§4.10). */
+/** Text equivalent of a player strip, e.g. "Blue Crew captured: queen, 2 pawns. +7" (§4.10). */
 export function capturesLabel(
 	color: Color,
 	captured: PieceSymbol[],

@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 test('starts in Pirate, the only enabled skin, with its labels', async ({ page }) => {
 	await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
 	await expect(page.locator('[data-piece]')).toHaveCount(32);
-	await expect(page.locator('[data-status]')).toHaveText('Red Crew to move');
+	await expect(page.locator('[data-status]')).toHaveText('Blue Crew to move');
 });
 
 test('with only one skin there is no skin picker', async ({ page }) => {
