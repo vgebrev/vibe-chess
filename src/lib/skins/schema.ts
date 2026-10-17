@@ -55,6 +55,8 @@ export interface SkinManifest {
 	manifestVersion: 1;
 	id: string;
 	name: string;
+	/** Left out of the skin choices, though still loadable (§5.5). */
+	disabled: boolean;
 	board: { image: string; inset: Inset };
 	pieces: {
 		image: string;
@@ -182,6 +184,9 @@ export function validateSkin(raw: unknown): ValidationResult {
 	const id = str(root.id, 'id');
 	if (id && !/^[a-z0-9-]+$/.test(id)) err('id', 'expected lowercase letters, digits and dashes');
 	const name = str(root.name, 'name');
+	if (root.disabled !== undefined && typeof root.disabled !== 'boolean')
+		err('disabled', 'expected a boolean');
+	const disabled = root.disabled === true;
 
 	// board
 	const board = obj(root.board, 'board') ?? {};
@@ -338,6 +343,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 			manifestVersion: 1,
 			id,
 			name,
+			disabled,
 			board: { image: boardImage, inset },
 			pieces: piecesOut,
 			moveIndicator,

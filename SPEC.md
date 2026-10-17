@@ -189,7 +189,7 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
 - Resign
 - Move list: SAN in numbered pairs, current move highlighted, auto-scrolled to the end
 - Status line: whose turn it is, check, game result, engine thinking
-- Settings: skin, show legal moves, show coordinates, auto-flip (hot-seat only), difficulty
+- Settings: skin (only when more than one is available, §5.5), show legal moves, show coordinates, auto-flip (hot-seat only), difficulty
 - **Implementation (M5):**
   - `Game` keeps the played moves (`moves`, chess.js verbose records) and derives `lastMove`, `result`, `captured` and `material` from them.
   - **Undo** takes back one ply in hot-seat mode, and rebuilds the render pieces by replaying the game from its start FEN. Ids come from starting squares, so every piece gets its id back: the mover slides home and a captured piece fades back in on its own square. An undo also clears the selection, a drag and a pending promotion. A checkmate or draw can be taken back; a **resignation is final**, so Undo is disabled after one.
@@ -226,7 +226,7 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
   - `persistence.ts` keeps two versioned keys, `chess:game:v1` and `chess:settings:v1`. A breaking change to either shape gets a new key rather than a migration.
   - The game record is `SavedGame` (§7.3): the start FEN, the moves as from/to/promotion, the resigning side (a resignation isn't on the board), the New game setup, the player's colour and the board orientation. The page saves it on every move, undo, flip and new game, and the settings as they change.
   - Loading validates the shape. A game that is malformed, or whose moves no longer replay (`Game.replay`), is dropped and a new game starts. A bad settings field falls back to its own default only.
-  - The layout loads the saved skin, falling back to the default skin if it is no longer registered or fails to load.
+  - The layout loads the saved skin if it is still available, falling back to the default skin and then the other available skins if it is not, or fails to load (§5.5).
   - A resumed vs-Computer game on the computer's turn has the engine reply as usual.
   - `?fen=`, `?mode=` and `?color=` start a new game instead of resuming, which keeps e2e tests independent of storage.
 
@@ -252,6 +252,7 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 	"manifestVersion": 1, // required; bumped on incompatible format changes
 	"id": "pirate", // must match the folder name
 	"name": "Pirate",
+	"disabled": false, // optional; true leaves the skin out of the choices (§5.5)
 
 	"board": {
 		"image": "board.webp",
@@ -338,7 +339,7 @@ Validation rules (`src/lib/skins/schema.ts`):
 - Every problem is reported with its JSON path (e.g. `pieces.order: expected each of …`), so a broken manifest can be fixed in one pass.
 - Asset paths must be relative paths inside the skin folder with an extension: no leading `/`, no scheme, no `..`.
 - `board.inset` sides are fractions in [0, 0.45]. `pieces.order` must list each of `k q b n r p` exactly once. `pieces.rowFor` rows must exist in the sheet.
-- Optional fields get defaults: `pieces.scale` 1, `pieces.anchorY` 0, `pieces.anchorYFor` each type at `anchorY`, indicator `scale` 1, `moveIndicator.opacity` 0.75, `moveIndicator.captureScale` 1.1, `captureIndicator.opacity` 0.6, indicator `hoverOpacity` 0.85, font file `weight` 400 and `style` normal, `font.fallback` serif, `coordinates.fontScale` 0.55, `coordinates.gutter` 0.35, `theme.coordShadow` none, `theme.dragScale` 1.15, `theme.pieceShadow` a firm dark outline plus a soft drop shadow, `theme.pieceShadowWhite`/`pieceShadowBlack` the value of `pieceShadow`, `labels` empty. Every other `theme` key is required.
+- Optional fields get defaults: `pieces.scale` 1, `pieces.anchorY` 0, `pieces.anchorYFor` each type at `anchorY`, indicator `scale` 1, `moveIndicator.opacity` 0.75, `moveIndicator.captureScale` 1.1, `captureIndicator.opacity` 0.6, indicator `hoverOpacity` 0.85, `disabled` false, font file `weight` 400 and `style` normal, `font.fallback` serif, `coordinates.fontScale` 0.55, `coordinates.gutter` 0.35, `theme.coordShadow` none, `theme.dragScale` 1.15, `theme.pieceShadow` a firm dark outline plus a soft drop shadow, `theme.pieceShadowWhite`/`pieceShadowBlack` the value of `pieceShadow`, `labels` empty. Every other `theme` key is required.
 
 ### 5.2 Fonts: bundled with the skin (decision)
 
@@ -405,7 +406,10 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
   4. apply the CSS variables
   5. swap the skin
 - If a manifest is invalid, the app logs the specific errors and stays on the current skin.
-- **Skins in v1:** Marble (`default`, the default skin) and Pirate. The skin-system component tests use a small **fixture skin** in `tests/fixtures/skins/test/` (tiny generated images, inset 0, no capture indicator, no labels) so the frameless, coordinate-gutter and default-filling paths are covered independently of the real art. `tests/fixtures/skins/invalid/` covers the "stay on the current skin" path.
+- **Availability:** a manifest with `"disabled": true` keeps its skin registered but leaves it out of the choices. `availableSkins()` reads every registered manifest once, keeping the enabled skins with their names; a manifest that can't be read stays listed, so loading it reports the problem.
+  - At start-up the layout tries the saved skin, then the default, then the other available skins, in that order, and uses the first that loads. If every skin is disabled, the default is used anyway.
+  - The Settings skin picker shows only when more than one skin is available. With one, it is simply applied.
+- **Skins in v1:** Marble (`default`, the default skin) and Pirate. **Marble is currently disabled**, so Pirate is the only skin on offer and the picker is hidden. The e2e tests enable every skin by rewriting the manifests in the browser (`enableAllSkins`), so gameplay is tested in Marble with its White/Black labels, and `skins.e2e.ts` covers the skins as shipped. The skin-system component tests use a small **fixture skin** in `tests/fixtures/skins/test/` (tiny generated images, inset 0, no capture indicator, no labels) so the frameless, coordinate-gutter and default-filling paths are covered independently of the real art. `tests/fixtures/skins/invalid/` covers the "stay on the current skin" path.
 
 ### 5.6 Skin assets: source art vs served files
 
@@ -721,7 +725,8 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Keyboard: arrow keys move between squares as seen on screen (also when flipped), one tab stop, focus back to the board when the promotion picker closes
 - Status announcement includes the last move
 - Drawer: modal dialog named by its title, Esc / close button / scrim ask to close, focus returns to the trigger, swipe threshold
-- Settings panel: skins listed by name, auto-flip only in hot-seat, difficulty only vs Computer
+- Settings panel: skins listed by name, no skin picker with a single skin, auto-flip only in hot-seat, difficulty only vs Computer
+- Skin availability: the `disabled` flag is validated; the start order is the saved skin, the default, then the rest, skipping disabled ones
 - Controls: full accessible names, Moves button, focus back on Resign after "No"
 
 **E2E (Playwright, run at both 390×844 and 1280×800)**
@@ -736,6 +741,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - The page fits without scrolling at 390×844, 1280×800 and 360×640, control bar included
 - Drawers: settings apply at once and the drawer closes from its scrim; a short swipe on the handle springs back and a long one closes it; vs Computer, Settings offer the difficulty and not auto-flip
 - Reload: the game resumes with its undo history, board side, skin and settings; a resignation stays final; vs Computer, Undo still takes back the pair and a reload on the computer's turn gets a reply; an unreplayable saved game starts afresh; the game plays with storage blocked
+- Skins as shipped: Pirate only, with no picker; a saved skin that has since been disabled falls back to an enabled one. With every skin enabled, the picker switches skin and the choice survives a reload
 - Accessibility: no axe violations in each state of the screen (settings, start, selection, new game, move drawer, resign confirmation, game over, promotion picker) in both skins; a move played with the keyboard alone
 
 **Acceptance checklist (v1 done)**
@@ -804,3 +810,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 27  | Persistence                 | Two versioned localStorage keys, game and settings. The game is saved as moves and replayed, with the resigning side, setup and orientation. Bad data falls back to a new game or default settings. URL parameters start a new game instead of resuming (§4.9)                       |
 | 28  | Accessibility pass          | Arrow-key board navigation is in v1, since the single tab stop needs it. The live region names the last move. Accent focus ring everywhere. `danger` lightened for contrast. axe runs in e2e (§6.5)                                                                                  |
 | 29  | Cloudflare Pages            | No `404.html`, so Pages serves the SPA fallback. `_headers` caches hashed assets for a year. Verified with `wrangler pages dev` and the e2e suite, without adding wrangler as a dependency (§7.1)                                                                                    |
+| 30  | Disabling skins             | Optional `"disabled": true` in `skin.json` leaves a registered skin out of the choices without code changes. The picker is hidden when only one skin is available. Marble is disabled for now, leaving Pirate as the only skin (§5.5)                                                |

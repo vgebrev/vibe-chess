@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { enableAllSkins } from './e2e-helpers.ts';
 
 const centre = async (locator: Locator) => {
 	const box = await locator.boundingBox();
@@ -10,8 +11,11 @@ const centre = async (locator: Locator) => {
 const settle = (page: Page) =>
 	page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
 
-// Most tests play both sides; the vs-Computer ones navigate again.
+// Most tests play both sides; the vs-Computer ones navigate again. Every skin is enabled, so
+// play starts in the default skin with its White/Black labels; skins.e2e.ts covers the
+// skins as shipped.
 test.beforeEach(async ({ page }) => {
+	await enableAllSkins(page);
 	await page.goto('/?mode=hotseat');
 	await expect(page).toHaveTitle('Chess');
 });
@@ -89,20 +93,6 @@ const settings = async (page: Page) => {
 	await page.getByRole('button', { name: 'Settings' }).click();
 	return page.getByRole('dialog', { name: 'Settings' });
 };
-
-test('switching to the Pirate skin draws coordinates in the frame', async ({ page }) => {
-	const drawer = await settings(page);
-	await drawer.getByText('Pirate', { exact: true }).click();
-	await expect(page.locator('[data-skin="pirate"]')).toBeAttached();
-	await expect(drawer.getByRole('radio', { name: 'Pirate' })).toBeChecked();
-	await page.keyboard.press('Escape');
-	await expect(drawer).toBeHidden();
-	const board = (await page.locator('.board').boundingBox())!;
-	const fileA = await centre(page.locator('[data-file="a"]'));
-	expect(fileA.y).toBeLessThan(board.y + board.height);
-	expect(fileA.y).toBeGreaterThan(board.y + board.height * (1 - 0.064));
-	expect(await page.evaluate(() => document.fonts.check('1em "Pirata One"'))).toBe(true);
-});
 
 const cell = (page: Page, square: string) => page.locator(`[data-cell="${square}"]`);
 const pieceOn = (page: Page, square: string) =>
@@ -385,13 +375,10 @@ test.describe('resuming after a reload (§4.9)', () => {
 		await play(page, ['e2', 'e4'], ['d7', 'd5'], ['e4', 'd5']);
 		await page.keyboard.press('f');
 		const drawer = await settings(page);
-		await drawer.getByText('Pirate').click();
 		await drawer.getByLabel('Show legal moves').uncheck();
-		await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
 		await page.keyboard.press('Escape');
 
 		await page.goto('/');
-		await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
 		await expect(page.locator('[data-orientation="black"]')).toBeVisible();
 		await expect(pieceOn(page, 'd5')).toHaveAttribute('data-piece', 'wp');
 		await expect(page.locator('[data-status]')).toHaveText(/to move$/);
@@ -433,5 +420,24 @@ test.describe('resuming after a reload (§4.9)', () => {
 		await page.goto('/?mode=hotseat');
 		await play(page, ['e2', 'e4'], ['e7', 'e5']);
 		await expect(page.locator('[data-status]')).toHaveText('White to move');
+	});
+});
+
+test.describe('skins', () => {
+	test('the default skin draws coordinates in the gutter', async ({ page }) => {
+		await expect(page.locator('[data-skin="default"]')).toBeVisible();
+		const board = (await page.locator('.board').boundingBox())!;
+		const fileA = await centre(page.locator('[data-file="a"]'));
+		expect(fileA.y).toBeGreaterThan(board.y + board.height);
+	});
+
+	test('the picker switches skin, and the choice survives a reload', async ({ page }) => {
+		const drawer = await settings(page);
+		await expect(drawer.getByRole('radio', { name: 'Marble' })).toBeChecked();
+		await drawer.getByText('Pirate', { exact: true }).click();
+		await expect(page.locator('[data-skin="pirate"]')).toBeAttached();
+		await expect(drawer.getByRole('radio', { name: 'Pirate' })).toBeChecked();
+		await page.goto('/');
+		await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
 	});
 });

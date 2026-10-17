@@ -19,7 +19,7 @@
 	import { DEFAULT_SETUP, pickColor, type GameSetup } from '#lib/game/setup.ts';
 	import { statusText } from '#lib/labels.ts';
 	import { loadGame, loadSettings, saveGame, saveSettings } from '#lib/persistence.ts';
-	import { skinBaseUrl, type SkinId } from '#lib/skins/index.ts';
+	import { availableSkins, skinBaseUrl, type SkinId, type SkinInfo } from '#lib/skins/index.ts';
 	import { skin } from '#lib/skins/skin.svelte.ts';
 
 	// The game screen (§6): header, strips, board and control bar in one column below lg; the
@@ -194,6 +194,8 @@
 	// An invalid skin leaves the current one in place (§5.5), and the picker follows the
 	// current skin.
 	const changeSkin = (id: SkinId) => skin.use(skinBaseUrl(id), id);
+	let skins = $state<SkinInfo[]>([]);
+	availableSkins().then((s) => (skins = s));
 	const closeDrawer = () => (drawer = null);
 </script>
 
@@ -291,6 +293,7 @@
 <Drawer open={drawer === 'settings'} title="Settings" onclose={closeDrawer}>
 	<SettingsPanel
 		skinId={skin.current?.manifest.id ?? ''}
+		{skins}
 		onskin={changeSkin}
 		bind:showLegalMoves
 		bind:showCoordinates

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { enableAllSkins } from './e2e-helpers.ts';
 
 // Accessibility (§6.5): an axe scan of each state of the screen, in both skins, and a game
 // played with the keyboard alone.
@@ -14,6 +15,8 @@ async function scan(page: Page, state: string) {
 
 for (const skin of ['Marble', 'Pirate']) {
 	test(`no axe violations in the ${skin} skin`, async ({ page }, info) => {
+		// Marble is disabled in its manifest; scan it anyway, through the picker.
+		await enableAllSkins(page);
 		await page.goto('/?mode=hotseat');
 		await expect(page.locator('[data-piece]')).toHaveCount(32);
 		const dialog = page.getByRole('dialog');
@@ -55,6 +58,7 @@ for (const skin of ['Marble', 'Pirate']) {
 }
 
 test('a game can be played with the keyboard alone', async ({ page }) => {
+	await enableAllSkins(page);
 	await page.goto('/?mode=hotseat');
 	const status = page.locator('[data-status]');
 	// Tab reaches the board's single tab stop, bottom-left (a1).

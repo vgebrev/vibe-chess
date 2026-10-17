@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { ELO_RANGE, type Difficulty } from '#lib/engine/difficulty.ts';
-	import { SKIN_IDS, skinNames, type SkinId } from '#lib/skins/index.ts';
+	import type { SkinId, SkinInfo } from '#lib/skins/index.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
 	import DifficultyPicker from './DifficultyPicker.svelte';
 	import { option } from './options.ts';
 
 	interface Props {
 		skinId: string;
+		/** The skins to choose from; with fewer than two there is no choice to offer (§5.5). */
+		skins: SkinInfo[];
 		onskin: (id: SkinId) => void;
 		showLegalMoves: boolean;
 		showCoordinates: boolean;
@@ -20,6 +22,7 @@
 
 	let {
 		skinId,
+		skins,
 		onskin,
 		showLegalMoves = $bindable(),
 		showCoordinates = $bindable(),
@@ -30,29 +33,28 @@
 		eloRange = ELO_RANGE
 	}: Props = $props();
 
-	let names = $state<Partial<Record<SkinId, string>>>({});
-	skinNames().then((n) => (names = n));
-
 	const toggle = 'flex cursor-pointer items-center gap-3 py-1';
 </script>
 
-<!-- Settings apply as they change: skin, guidance, coordinates, auto-flip, difficulty (§4.7). -->
+<!-- Settings apply as they change: skin (when there is a choice), guidance, coordinates, auto-flip, difficulty (§4.7). -->
 <div class="flex flex-col gap-4" data-settings>
-	<fieldset class="flex flex-wrap gap-2">
-		<legend class="mb-1 text-sm text-muted">Skin</legend>
-		{#each SKIN_IDS as id (id)}
-			<label class={option}>
-				<input
-					class="sr-only"
-					type="radio"
-					name="skin"
-					checked={skinId === id}
-					onchange={() => onskin(id)}
-				/>
-				{names[id] ?? id}
-			</label>
-		{/each}
-	</fieldset>
+	{#if skins.length > 1}
+		<fieldset class="flex flex-wrap gap-2">
+			<legend class="mb-1 text-sm text-muted">Skin</legend>
+			{#each skins as { id, name } (id)}
+				<label class={option}>
+					<input
+						class="sr-only"
+						type="radio"
+						name="skin"
+						checked={skinId === id}
+						onchange={() => onskin(id)}
+					/>
+					{name}
+				</label>
+			{/each}
+		</fieldset>
+	{/if}
 
 	<fieldset class="flex flex-col">
 		<legend class="mb-1 text-sm text-muted">Board</legend>

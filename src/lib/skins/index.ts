@@ -7,28 +7,47 @@ export type SkinId = (typeof SKIN_IDS)[number];
 
 export const DEFAULT_SKIN_ID: SkinId = 'default';
 
-export const isSkinId = (id: string): id is SkinId => (SKIN_IDS as readonly string[]).includes(id);
-
 /** URL of a registered skin's folder, with a trailing slash. */
 export function skinBaseUrl(id: SkinId): string {
 	// Typed against the static/ file list, so a registered id without a manifest fails `check`.
 	return asset(`skins/${id}/skin.json`).replace(/skin\.json$/, '');
 }
 
-let names: Promise<Record<SkinId, string>> | undefined;
+export interface SkinInfo {
+	id: SkinId;
+	name: string;
+}
 
-/** Display names of the registered skins from their manifests, falling back to the id. */
-export function skinNames(): Promise<Record<SkinId, string>> {
-	names ??= Promise.all(
+let available: Promise<SkinInfo[]> | undefined;
+
+/**
+ * The registered skins whose manifests aren't `disabled`, in registry order, with their
+ * display names. A manifest that can't be read stays listed under its id, so loading it
+ * reports the problem (§5.5).
+ */
+export function availableSkins(): Promise<SkinInfo[]> {
+	available ??= Promise.all(
 		SKIN_IDS.map(async (id) => {
 			try {
 				const res = await fetch(`${skinBaseUrl(id)}skin.json`);
-				const { name } = await res.json();
-				return [id, typeof name === 'string' && name ? name : id] as const;
+				const { name, disabled } = await res.json();
+				if (disabled === true) return null;
+				return { id, name: typeof name === 'string' && name ? name : id };
 			} catch {
-				return [id, id] as const;
+				return { id, name: id };
 			}
 		})
-	).then((entries) => Object.fromEntries(entries) as Record<SkinId, string>);
-	return names;
+	).then((skins) => skins.filter((s) => s !== null));
+	return available;
+}
+
+/**
+ * The skins to try at start-up, in order: the saved one if it is still available, then the
+ * default, then the rest. With every skin disabled, the default is used anyway.
+ */
+export function startOrder(saved: string, skins: readonly SkinInfo[]): SkinId[] {
+	const ids = skins.map((s) => s.id);
+	if (ids.length === 0) return [DEFAULT_SKIN_ID];
+	const order = [saved, DEFAULT_SKIN_ID, ...ids].filter((id) => ids.includes(id as SkinId));
+	return [...new Set(order)] as SkinId[];
 }

@@ -17,6 +17,17 @@ describe('validateSkin', () => {
 		expect(result.ok && result.skin.id).toBe(id);
 	});
 
+	it('reads the optional disabled flag, enabled by default', () => {
+		const ok = (raw: unknown) => {
+			const result = validateSkin(raw);
+			if (!result.ok) throw new Error(result.errors.join('; '));
+			return result.skin;
+		};
+		expect(ok(fixture()).disabled).toBe(false);
+		expect(ok({ ...fixture(), disabled: true }).disabled).toBe(true);
+		expect(errorsOf({ ...fixture(), disabled: 'yes' })).toEqual(['disabled: expected a boolean']);
+	});
+
 	it('accepts a framed board and keeps its inset', () => {
 		const result = validateSkin(read('static/skins/pirate/skin.json'));
 		expect(result.ok && result.skin.board.inset).toEqual({

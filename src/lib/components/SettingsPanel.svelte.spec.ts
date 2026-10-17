@@ -2,11 +2,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { Difficulty } from '#lib/engine/difficulty.ts';
+import type { SkinInfo } from '#lib/skins/index.ts';
 import SettingsPanel from './SettingsPanel.svelte';
 
-function setup(vsComputer: boolean) {
+const BOTH: SkinInfo[] = [
+	{ id: 'default', name: 'Marble' },
+	{ id: 'pirate', name: 'Pirate' }
+];
+
+function setup(vsComputer: boolean, skins = BOTH) {
 	const props = {
 		skinId: 'default',
+		skins,
 		onskin: vi.fn(),
 		showLegalMoves: true,
 		showCoordinates: true,
@@ -25,6 +32,12 @@ describe('SettingsPanel', () => {
 		await expect.element(page.getByRole('radio', { name: 'Marble' })).toBeChecked();
 		await page.getByText('Pirate').click();
 		expect(onskin).toHaveBeenCalledWith('pirate');
+	});
+
+	it('offers no skin choice with only one skin available', async () => {
+		setup(false, [{ id: 'pirate', name: 'Pirate' }]);
+		await expect.element(page.getByRole('group', { name: 'Board' })).toBeInTheDocument();
+		await expect.element(page.getByRole('group', { name: 'Skin' })).not.toBeInTheDocument();
 	});
 
 	it('offers auto-flip in a two-player game, and no difficulty', async () => {

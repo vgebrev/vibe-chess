@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "default",
   "name": "Marble",
+  "disabled": true,
   "board": {
     "image": "board.webp",
     "inset": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
