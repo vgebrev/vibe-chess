@@ -70,6 +70,16 @@ describe('persistence (§4.9)', () => {
 		expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
 	});
 
+	it('keeps sound volumes in [0, 1], each falling back on its own', () => {
+		const storage = memoryStorage();
+		vi.stubGlobal('localStorage', storage);
+		storage.setItem(
+			'chess:settings:v1',
+			JSON.stringify({ sound: { music: 0, sfx: 1.5, voices: 'loud' } })
+		);
+		expect(loadSettings().sound).toEqual({ music: 0, sfx: 0.8, voices: 1 });
+	});
+
 	it('drops a malformed game', () => {
 		const storage = memoryStorage();
 		vi.stubGlobal('localStorage', storage);

@@ -64,5 +64,96 @@
       "p3": "First Mate",
       "p4": "Captain"
     }
+  },
+  "audio": {
+    "music": ["audio/music/battle-alt.mp3", "audio/music/battle.mp3", "audio/music/midnight.mp3", "audio/music/sailing.mp3", "audio/music/shanty.mp3", "audio/music/tavern-alt.mp3", "audio/music/tavern.mp3"],
+    "sfx": {
+      "capture": "audio/sfx/capture.mp3",
+      "castle": "audio/sfx/castle.mp3",
+      "check": "audio/sfx/check.mp3",
+      "checkmate": "audio/sfx/checkmate.mp3",
+      "start": "audio/sfx/start.mp3",
+      "illegal": "audio/sfx/illegal.mp3",
+      "move": "audio/sfx/move.mp3",
+      "promotion": "audio/sfx/promotion.mp3",
+      "select": "audio/sfx/select.mp3",
+      "draw": "audio/sfx/draw.mp3"
+    },
+    "voices": {
+      "b": {
+        "b": {
+          "capture": ["audio/voices/b-bishop-capture-1.mp3", "audio/voices/b-bishop-capture-2.mp3", "audio/voices/b-bishop-capture-3.mp3"],
+          "captured": ["audio/voices/b-bishop-captured-1.mp3", "audio/voices/b-bishop-captured-2.mp3"],
+          "move": ["audio/voices/b-bishop-move-1.mp3", "audio/voices/b-bishop-move-2.mp3", "audio/voices/b-bishop-move-3.mp3"],
+          "taunt": ["audio/voices/b-bishop-taunt-1.mp3", "audio/voices/b-bishop-taunt-2.mp3"]
+        },
+        "k": {
+          "capture": ["audio/voices/b-king-capture-1.mp3", "audio/voices/b-king-capture-2.mp3", "audio/voices/b-king-capture-3.mp3"],
+          "check": ["audio/voices/b-king-check-1.mp3", "audio/voices/b-king-check-2.mp3"],
+          "defeat": ["audio/voices/b-king-defeat-1.mp3", "audio/voices/b-king-defeat-2.mp3"],
+          "move": ["audio/voices/b-king-move-1.mp3", "audio/voices/b-king-move-2.mp3", "audio/voices/b-king-move-3.mp3"],
+          "taunt": ["audio/voices/b-king-taunt-1.mp3", "audio/voices/b-king-taunt-2.mp3"]
+        },
+        "n": {
+          "capture": ["audio/voices/b-knight-capture-1.mp3", "audio/voices/b-knight-capture-2.mp3"],
+          "captured": ["audio/voices/b-knight-captured-1.mp3", "audio/voices/b-knight-captured-2.mp3"],
+          "move": ["audio/voices/b-knight-move-1.mp3", "audio/voices/b-knight-move-2.mp3"]
+        },
+        "p": {
+          "capture": ["audio/voices/b-pawn-capture-1.mp3", "audio/voices/b-pawn-capture-2.mp3", "audio/voices/b-pawn-capture-3.mp3"],
+          "captured": ["audio/voices/b-pawn-captured-1.mp3", "audio/voices/b-pawn-captured-2.mp3"],
+          "move": ["audio/voices/b-pawn-move-1.mp3", "audio/voices/b-pawn-move-2.mp3", "audio/voices/b-pawn-move-3.mp3"],
+          "taunt": ["audio/voices/b-pawn-taunt-1.mp3", "audio/voices/b-pawn-taunt-2.mp3"]
+        },
+        "q": {
+          "capture": ["audio/voices/b-queen-capture-1.mp3", "audio/voices/b-queen-capture-2.mp3", "audio/voices/b-queen-capture-3.mp3"],
+          "captured": ["audio/voices/b-queen-captured-1.mp3", "audio/voices/b-queen-captured-2.mp3"],
+          "move": ["audio/voices/b-queen-move-1.mp3", "audio/voices/b-queen-move-2.mp3", "audio/voices/b-queen-move-3.mp3"],
+          "taunt": ["audio/voices/b-queen-taunt-1.mp3", "audio/voices/b-queen-taunt-2.mp3"]
+        },
+        "r": {
+          "capture": ["audio/voices/b-rook-capture-1.mp3", "audio/voices/b-rook-capture-2.mp3"],
+          "captured": ["audio/voices/b-rook-captured-1.mp3", "audio/voices/b-rook-captured-2.mp3"],
+          "move": ["audio/voices/b-rook-move-1.mp3", "audio/voices/b-rook-move-2.mp3"]
+        }
+      },
+      "w": {
+        "b": {
+          "capture": ["audio/voices/w-bishop-capture-1.mp3", "audio/voices/w-bishop-capture-2.mp3", "audio/voices/w-bishop-capture-3.mp3"],
+          "captured": ["audio/voices/w-bishop-captured-1.mp3", "audio/voices/w-bishop-captured-2.mp3"],
+          "move": ["audio/voices/w-bishop-move-1.mp3", "audio/voices/w-bishop-move-2.mp3", "audio/voices/w-bishop-move-3.mp3"],
+          "taunt": ["audio/voices/w-bishop-taunt-1.mp3", "audio/voices/w-bishop-taunt-2.mp3"]
+        },
+        "k": {
+          "capture": ["audio/voices/w-king-capture-1.mp3", "audio/voices/w-king-capture-2.mp3", "audio/voices/w-king-capture-3.mp3"],
+          "check": ["audio/voices/w-king-check-1.mp3", "audio/voices/w-king-check-2.mp3"],
+          "defeat": ["audio/voices/w-king-defeat-1.mp3", "audio/voices/w-king-defeat-2.mp3"],
+          "move": ["audio/voices/w-king-move-1.mp3", "audio/voices/w-king-move-2.mp3", "audio/voices/w-king-move-3.mp3"],
+          "taunt": ["audio/voices/w-king-taunt-1.mp3", "audio/voices/w-king-taunt-2.mp3"]
+        },
+        "n": {
+          "capture": ["audio/voices/w-knight-capture-1.mp3", "audio/voices/w-knight-capture-2.mp3"],
+          "captured": ["audio/voices/w-knight-captured-1.mp3", "audio/voices/w-knight-captured-2.mp3"],
+          "move": ["audio/voices/w-knight-move-1.mp3", "audio/voices/w-knight-move-2.mp3"]
+        },
+        "p": {
+          "capture": ["audio/voices/w-pawn-capture-1.mp3", "audio/voices/w-pawn-capture-2.mp3", "audio/voices/w-pawn-capture-3.mp3"],
+          "captured": ["audio/voices/w-pawn-captured-1.mp3", "audio/voices/w-pawn-captured-2.mp3"],
+          "move": ["audio/voices/w-pawn-move-1.mp3", "audio/voices/w-pawn-move-2.mp3", "audio/voices/w-pawn-move-3.mp3"],
+          "taunt": ["audio/voices/w-pawn-taunt-1.mp3", "audio/voices/w-pawn-taunt-2.mp3"]
+        },
+        "q": {
+          "capture": ["audio/voices/w-queen-capture-1.mp3", "audio/voices/w-queen-capture-2.mp3", "audio/voices/w-queen-capture-3.mp3"],
+          "captured": ["audio/voices/w-queen-captured-1.mp3", "audio/voices/w-queen-captured-2.mp3"],
+          "move": ["audio/voices/w-queen-move-1.mp3", "audio/voices/w-queen-move-2.mp3", "audio/voices/w-queen-move-3.mp3"],
+          "taunt": ["audio/voices/w-queen-taunt-1.mp3", "audio/voices/w-queen-taunt-2.mp3"]
+        },
+        "r": {
+          "capture": ["audio/voices/w-rook-capture-1.mp3", "audio/voices/w-rook-capture-2.mp3"],
+          "captured": ["audio/voices/w-rook-captured-1.mp3", "audio/voices/w-rook-captured-2.mp3"],
+          "move": ["audio/voices/w-rook-move-1.mp3", "audio/voices/w-rook-move-2.mp3"]
+        }
+      }
+    }
   }
 }

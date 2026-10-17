@@ -168,6 +168,70 @@ describe('validateSkin', () => {
 	});
 });
 
+describe('validateSkin: audio (§4.11)', () => {
+	const audioOf = (raw: unknown) => {
+		const result = validateSkin(raw);
+		if (!result.ok) throw new Error(result.errors.join('; '));
+		return result.skin.audio;
+	};
+
+	it('reads the Pirate sounds', () => {
+		const audio = audioOf(read('static/skins/pirate/skin.json'))!;
+		expect(audio.music).toHaveLength(7);
+		expect(Object.keys(audio.sfx).sort()).toEqual([
+			'capture',
+			'castle',
+			'check',
+			'checkmate',
+			'draw',
+			'illegal',
+			'move',
+			'promotion',
+			'select',
+			'start'
+		]);
+		const pools = (['w', 'b'] as const).flatMap((side) =>
+			Object.values(audio.voices[side]).flatMap((byEvent) => Object.values(byEvent))
+		);
+		expect(pools.flat()).toHaveLength(108);
+		expect(audio.voices.w.k?.check).toEqual([
+			'audio/voices/w-king-check-1.mp3',
+			'audio/voices/w-king-check-2.mp3'
+		]);
+		expect(audio.voices.b.n?.taunt).toBeUndefined();
+	});
+
+	it('is null for a silent skin, and every part is optional', () => {
+		expect(audioOf(fixture())).toBeNull();
+		expect(audioOf({ ...fixture(), audio: {} })).toEqual({
+			music: [],
+			sfx: {},
+			voices: { w: {}, b: {} }
+		});
+	});
+
+	it('reports unknown names and bad pools with their paths', () => {
+		expect(
+			errorsOf({
+				...fixture(),
+				audio: {
+					music: [],
+					sfx: { moves: 'a.mp3', check: '../c.mp3' },
+					voices: { white: {}, w: { x: {}, k: { shout: ['a.mp3'], move: [] } } }
+				}
+			})
+		).toEqual([
+			'audio.music: expected a non-empty array of paths',
+			'audio.sfx.moves: unknown sound',
+			'audio.sfx.check: expected a relative path inside the skin folder, got "../c.mp3"',
+			'audio.voices.white: unknown side',
+			'audio.voices.w.x: unknown piece type',
+			'audio.voices.w.k.shout: unknown event',
+			'audio.voices.w.k.move: expected a non-empty array of paths'
+		]);
+	});
+});
+
 describe('isSkinPath', () => {
 	it.each(['board.webp', 'font/PirataOne-Regular.woff2', 'a/b/c_d-e.png'])('accepts %s', (p) => {
 		expect(isSkinPath(p)).toBe(true);

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Category, Volumes } from '#lib/audio/mixer.ts';
 	import type { Difficulty } from '#lib/engine/difficulty.ts';
 	import type { SkinId, SkinInfo } from '#lib/skins/index.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
@@ -17,6 +18,10 @@
 		vsComputer: boolean;
 		difficulty: Difficulty;
 		labels: Labels;
+		/** Volume per sound category, 0–1 (§4.11). */
+		sound: Volumes;
+		/** The categories the skin has sounds for; each gets a slider. */
+		soundCategories: Category[];
 	}
 
 	let {
@@ -28,13 +33,21 @@
 		autoFlip = $bindable(),
 		vsComputer,
 		difficulty = $bindable(),
-		labels
+		labels,
+		sound = $bindable(),
+		soundCategories
 	}: Props = $props();
 
 	const toggle = 'flex cursor-pointer items-center gap-3 py-1';
+	const SOUND_NAMES: Record<Category, string> = {
+		music: 'Music',
+		sfx: 'Effects',
+		voices: 'Voices'
+	};
 </script>
 
-<!-- Settings apply as they change: skin (when there is a choice), guidance, coordinates, auto-flip, difficulty (§4.7). -->
+<!-- Settings apply as they change: skin (when there is a choice), guidance, coordinates, auto-flip,
+     sound volumes (for what the skin has), difficulty (§4.7, §4.11). -->
 <div class="flex flex-col gap-4" data-settings>
 	{#if skins.length > 1}
 		<fieldset class="flex flex-wrap gap-2">
@@ -71,6 +84,30 @@
 			</label>
 		{/if}
 	</fieldset>
+
+	{#if soundCategories.length > 0}
+		<fieldset class="flex flex-col gap-1">
+			<legend class="mb-1 text-sm text-muted">Sound</legend>
+			{#each soundCategories as category (category)}
+				<label class="flex items-center gap-3">
+					<span class="w-16 shrink-0">{SOUND_NAMES[category]}</span>
+					<input
+						class="min-w-0 flex-1 accent-(--accent)"
+						type="range"
+						min="0"
+						max="100"
+						step="5"
+						value={Math.round(sound[category] * 100)}
+						oninput={(e) => (sound = { ...sound, [category]: e.currentTarget.valueAsNumber / 100 })}
+						data-volume={category}
+					/>
+					<output class="w-12 text-right tabular-nums">
+						{sound[category] === 0 ? 'Off' : `${Math.round(sound[category] * 100)}%`}
+					</output>
+				</label>
+			{/each}
+		</fieldset>
+	{/if}
 
 	{#if vsComputer}
 		<div class="flex flex-col gap-3">

@@ -12,19 +12,29 @@ the hand-maintained manifest in static/skins/<id>/:
   indicator-move.png     -> indicator-move.webp
   indicator-capture.png  -> indicator-capture.webp (optional)
   font/*.ttf             -> font/*.woff2, font/OFL.txt copied
+  audio/music/*.mp3      -> audio/music/*.mp3 (stereo, levelled)
+  audio/sfx/*.mp3        -> audio/sfx/<event>.mp3 (mono, trimmed, levelled)
+  audio/voices/          -> audio/voices/<w|b>-<piece>-<event>-<n>.mp3: one-line recordings
+                            are cut at the points in voice-cues.json (scripts/cue-voices.py);
+                            files named <colour>-<piece>-<event>[-alt].mp3 are taken as they are
 
-static/skins/<id>/skin.json is never written; it must reference the names above.
+static/skins/<id>/skin.json is never written; it must reference the names above. For audio,
+the script prints the manifest's "audio" block to paste in.
 
-Usage: python scripts/convert-skin.py <skin-id> [<skin-id> ...]
-Requires: pillow, fonttools, brotli
+Usage: python scripts/convert-skin.py [--only images,fonts,audio] [<skin-id> ...]
+Requires: requirements.txt (pillow, fonttools, brotli, numpy, imageio-ffmpeg)
 """
 
+import argparse
 import json
+import re
 import shutil
 import statistics
-import sys
+import subprocess
 from pathlib import Path
 
+import imageio_ffmpeg
+import numpy as np
 from fontTools.ttLib import TTFont
 from PIL import Image
 
@@ -41,6 +51,23 @@ BASE_FRACTION = 0.15  # bottom part of a sprite treated as its base when centrin
 GRID_SEARCH = 0.18  # how far from the even grid to look for a drawn line, fraction of a square
 INDICATOR_PX = 320
 WEBP_QUALITY = 88
+
+CLIP_RATE = 44100  # SFX and voices: mono MP3 at CLIP_BITRATE
+CLIP_BITRATE = "64k"
+MUSIC_BITRATE = "112k"  # stereo, at the source rate
+CLIP_LOUDNESS = -18.0  # target gated RMS, dBFS (one level for SFX and voices; volumes balance them)
+MUSIC_LOUDNESS = -20.0
+PEAK_LIMIT = -1.0  # never raise a sound's peak above this, dBFS
+TRIM_BELOW = -45.0  # clip edges quieter than this (dB under the loudest moment) are trimmed
+PRE_ROLL = 0.01  # seconds kept before a clip's first sound
+TAIL = 0.10  # and after its last, for decay
+FADE_IN = 0.005
+FADE_OUT = 0.04
+SFX_EVENTS = {"game-start": "start", "castling": "castle", "illegal-move": "illegal", "stalemate": "draw"}
+SFX_KNOWN = {"start", "select", "move", "capture", "castle", "promotion", "check", "checkmate", "draw", "illegal"}
+SIDES = {"white": "w", "black": "b"}
+PIECES = {"king": "k", "queen": "q", "bishop": "b", "knight": "n", "rook": "r", "pawn": "p"}
+VOICE_FILE = re.compile(r"(white|black)-(king|queen|bishop|knight|rook|pawn)-(move|capture|captured|check|defeat|taunt)(-alt)?\.mp3")
 
 
 def runs(values, min_gap):
@@ -247,7 +274,110 @@ def save_webp(im, path, lossless=False):
     return path
 
 
-def convert(skin_id):
+def decode(path, rate=None, channels=1):
+    """Float samples, shape (frames, channels), through the bundled ffmpeg."""
+    args = [imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-i", str(path), "-f", "f32le", "-ac", str(channels)]
+    if rate:
+        args += ["-ar", str(rate)]
+    raw = subprocess.run([*args, "-"], capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.float32).reshape(-1, channels).copy()
+
+
+def encode(samples, rate, path, bitrate):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    channels = samples.shape[1]
+    subprocess.run(
+        [imageio_ffmpeg.get_ffmpeg_exe(), "-v", "error", "-y", "-f", "f32le", "-ar", str(rate), "-ac", str(channels), "-i", "-"]
+        + ["-map_metadata", "-1", "-c:a", "libmp3lame", "-b:a", bitrate, str(path)],
+        input=np.clip(samples, -1, 1).astype(np.float32).tobytes(),
+        check=True,
+    )
+    return path
+
+
+def envelope(samples, rate, window):
+    """Per-window loudness in dBFS (RMS over channels)."""
+    n = max(1, round(window * rate))
+    frames = len(samples) // n
+    power = (samples[: frames * n] ** 2).mean(axis=1).reshape(frames, n).mean(axis=1)
+    return 10 * np.log10(power + 1e-12), n
+
+
+def level(samples, rate, target):
+    """Gain to `target` gated RMS loudness: the mean power of the 50 ms windows within
+    20 dB of the loudest, so pauses don't count. Capped so the peak stays under PEAK_LIMIT."""
+    db, _ = envelope(samples, rate, 0.05)
+    loud = db[db > db.max() - 20]
+    loudness = 10 * np.log10(np.mean(10 ** (loud / 10)))
+    peak = 20 * np.log10(np.abs(samples).max() + 1e-12)
+    gain = min(target - loudness, PEAK_LIMIT - peak)
+    return samples * 10 ** (gain / 20)
+
+
+def clip(samples, rate):
+    """Trim silence from both ends (keeping a little pre-roll and tail), fade, level."""
+    db, n = envelope(samples, rate, 0.01)
+    sound = np.nonzero(db > db.max() + TRIM_BELOW)[0]
+    start = max(0, sound[0] * n - round(PRE_ROLL * rate))
+    end = min(len(samples), (sound[-1] + 1) * n + round(TAIL * rate))
+    out = samples[start:end].copy()
+    fade_in, fade_out = round(FADE_IN * rate), round(FADE_OUT * rate)
+    out[:fade_in] *= np.linspace(0, 1, fade_in)[:, None]
+    out[-fade_out:] *= np.linspace(1, 0, fade_out)[:, None]
+    return level(out, rate, CLIP_LOUDNESS)
+
+
+def convert_audio(src, out):
+    """Music, SFX and voices (SPEC §4.11, §5.6). Returns the manifest's "audio" block."""
+    audio = out / "audio"
+    if audio.exists():
+        shutil.rmtree(audio)  # fully generated, so renamed or dropped sounds don't linger
+    block = {}
+
+    music = sorted((src / "music").glob("*.mp3"))
+    for path in music:
+        rate = int(re.search(r"(\d+) Hz", subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-i", str(path)], capture_output=True, text=True).stderr).group(1))
+        encode(level(decode(path, channels=2), rate, MUSIC_LOUDNESS), rate, audio / "music" / path.name, MUSIC_BITRATE)
+    if music:
+        block["music"] = [f"audio/music/{p.name}" for p in music]
+
+    sfx = {}
+    for path in sorted((src / "sfx").glob("*.mp3")):
+        event = SFX_EVENTS.get(path.stem, path.stem)
+        if event not in SFX_KNOWN:
+            raise SystemExit(f"unknown SFX {path.name}: expected one of {sorted(SFX_KNOWN)} (or {sorted(SFX_EVENTS)})")
+        encode(clip(decode(path, CLIP_RATE), CLIP_RATE), CLIP_RATE, audio / "sfx" / f"{event}.mp3", CLIP_BITRATE)
+        sfx[event] = f"audio/sfx/{event}.mp3"
+    if sfx:
+        block["sfx"] = sfx
+
+    voices = {}  # (side, piece, event) -> [samples, ...]
+    folder = src / "voices"
+    cues_path = folder / "voice-cues.json"
+    cued = json.loads(cues_path.read_text())["files"] if cues_path.exists() else {}
+    for name, cue in cued.items():
+        samples = decode(folder / name, CLIP_RATE)
+        for line in cue["lines"]:
+            part = samples[round(line["start"] * CLIP_RATE) : round(line["end"] * CLIP_RATE)]
+            voices.setdefault((cue["side"], cue["piece"], line["event"]), []).append(part)
+    for path in sorted(folder.glob("*.mp3"), key=lambda p: (p.stem.removesuffix("-alt"), p.stem.endswith("-alt"))):
+        if path.name in cued:
+            continue
+        match = VOICE_FILE.fullmatch(path.name)
+        if not match:
+            raise SystemExit(f"{path.name}: not in {cues_path.name} and not named <colour>-<piece>-<event>[-alt].mp3")
+        colour, piece, event, _ = match.groups()
+        voices.setdefault((SIDES[colour], piece, event), []).append(decode(path, CLIP_RATE))
+    for (side, piece, event), parts in sorted(voices.items()):
+        pool = block.setdefault("voices", {}).setdefault(side, {}).setdefault(PIECES[piece], {}).setdefault(event, [])
+        for i, part in enumerate(parts, 1):
+            name = f"{side}-{piece}-{event}-{i}.mp3"
+            encode(clip(part, CLIP_RATE), CLIP_RATE, audio / "voices" / name, CLIP_BITRATE)
+            pool.append(f"audio/voices/{name}")
+    return block
+
+
+def convert(skin_id, parts):
     src = SRC_DIR / skin_id / "assets"
     out = OUT_DIR / skin_id
     out.mkdir(parents=True, exist_ok=True)
@@ -260,6 +390,24 @@ def convert(skin_id):
     inset = manifest.get("board", {}).get("inset", {})
 
     print(f"{skin_id}:")
+    if "images" in parts:
+        convert_images(src, out, pieces, inset)
+    if "fonts" in parts:
+        convert_fonts(src, out)
+    block = convert_audio(src / "audio", out) if "audio" in parts and (src / "audio").is_dir() else None
+
+    for f in sorted(out.rglob("*")):
+        if f.is_file():
+            print(f"  {f.relative_to(out)}  {f.stat().st_size / 1024:.0f} KB")
+    if block:
+        # one line per pool of variations, as in the hand-edited manifest
+        text = json.dumps({"audio": block}, indent=2, ensure_ascii=False)[2:-2]
+        text = re.sub(r"\[\s+(\"[^\]]*?\")\s+\]", lambda m: "[" + re.sub(r",\s+", ", ", m.group(1)) + "]", text)
+        print('  "audio" for skin.json:')
+        print(text)
+
+
+def convert_images(src, out, pieces, inset):
     board = Image.open(src / "board.png").convert("RGB")
     if any(inset.get(side, 0) > 0 for side in ("top", "right", "bottom", "left")):
         board = fit_grid(board, inset)
@@ -273,6 +421,8 @@ def convert(skin_id):
             im = Image.open(src / f"{name}.png").convert("RGBA")
             save_webp(resize_rgba(im, (INDICATOR_PX, INDICATOR_PX)), out / f"{name}.webp")
 
+
+def convert_fonts(src, out):
     (out / "font").mkdir(exist_ok=True)
     for ttf in (src / "font").glob("*.ttf"):
         tt = TTFont(ttf)
@@ -281,11 +431,14 @@ def convert(skin_id):
     for lic in (src / "font").glob("OFL.txt"):
         shutil.copy(lic, out / "font" / lic.name)
 
-    for f in sorted(out.rglob("*")):
-        if f.is_file():
-            print(f"  {f.relative_to(out)}  {f.stat().st_size / 1024:.0f} KB")
-
 
 if __name__ == "__main__":
-    for skin in sys.argv[1:] or [d.name for d in SRC_DIR.iterdir() if (d / "assets").is_dir()]:
-        convert(skin)
+    parser = argparse.ArgumentParser(description="Convert skin source art (SPEC §5.6).")
+    parser.add_argument("skins", nargs="*", help="skin ids (default: every skin with source assets)")
+    parser.add_argument("--only", default="images,fonts,audio", help="comma-separated parts to convert")
+    args = parser.parse_args()
+    parts = set(args.only.split(","))
+    if parts - {"images", "fonts", "audio"}:
+        raise SystemExit(f"--only: unknown part(s) {sorted(parts - {'images', 'fonts', 'audio'})}")
+    for skin in args.skins or [d.name for d in SRC_DIR.iterdir() if (d / "assets").is_dir()]:
+        convert(skin, parts)

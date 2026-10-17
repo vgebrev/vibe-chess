@@ -2,6 +2,7 @@
 	import type { Color } from 'chess.js';
 	import { untrack } from 'svelte';
 	import { page } from '$app/state';
+	import { Sound } from '#lib/audio/sound.ts';
 	import type { Orientation } from '#lib/board/geometry.ts';
 	import { AUTO_FLIP_DELAY_MS } from '#lib/board/motion.ts';
 	import Board from '#lib/components/Board.svelte';
@@ -54,6 +55,7 @@
 	let showCoordinates = $state(settings.showCoordinates);
 	let showLegalMoves = $state(settings.showLegalMoves);
 	let autoFlip = $state(settings.autoFlip);
+	let volumes = $state(settings.sound);
 	/** An auto-flip is due; input waits for it. */
 	let turning = $state(false);
 
@@ -118,6 +120,35 @@
 		notice = 'The computer opponent could not be loaded, so this is now a two-player game.';
 	});
 
+	// Sound (§4.11): the active skin's sounds at the chosen volumes, unlocked by the first press
+	// or key. Moves (the player's or the computer's), undo, resignation and a new game are
+	// heard from the game's changes; a resumed game starts silently.
+	const sound = new Sound();
+	const soundCategories = $derived(Sound.categories(skin.current?.manifest.audio ?? null));
+	$effect(() => sound.attach());
+	$effect(() => {
+		if (skin.current) sound.setSkin(skin.current);
+	});
+	$effect(() => sound.setVolumes($state.snapshot(volumes)));
+	let heard = untrack(() => ({ game, moves: game.moves.length, resigned: game.resigned }));
+	$effect(() => {
+		const current = { game, moves: game.moves.length, resigned: game.resigned };
+		untrack(() => {
+			const was = heard;
+			heard = current;
+			const g = current.game;
+			if (g !== was.game) sound.newGame();
+			else if (current.resigned && !was.resigned) sound.resign(current.resigned);
+			else if (current.moves === was.moves + 1 && g.lastMove)
+				sound.move(g.lastMove, {
+					result: g.result,
+					human: vsComputer ? human : null,
+					computerPieces: g.pieces.filter((p) => p.color !== human && !p.leaving).map((p) => p.type)
+				});
+			else if (current.moves < was.moves) sound.undo();
+		});
+	});
+
 	const labels = $derived(skin.current?.manifest.labels ?? {});
 	const status = $derived(
 		statusText(
@@ -180,7 +211,8 @@
 			showLegalMoves,
 			showCoordinates,
 			autoFlip,
-			lastDifficulty: $state.snapshot(setup.difficulty)
+			lastDifficulty: $state.snapshot(setup.difficulty),
+			sound: $state.snapshot(volumes)
 		});
 	});
 
@@ -247,6 +279,8 @@
 					{showLegalMoves}
 					locked={turning}
 					canMove={(color) => !vsComputer || color === human}
+					onselect={() => sound.select()}
+					onillegal={() => sound.illegal()}
 				/>
 				<PlayerStrip
 					color={bottom}
@@ -302,6 +336,8 @@
 		{vsComputer}
 		bind:difficulty={setup.difficulty}
 		{labels}
+		bind:sound={volumes}
+		{soundCategories}
 	/>
 </Drawer>
 

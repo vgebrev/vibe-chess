@@ -1,0 +1,2 @@
+# For scripts/cue-voices.py only (Whisper is large); install on top of requirements.txt.
+faster-whisper==1.2.1

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
+import type { Category } from '#lib/audio/mixer.ts';
 import type { Difficulty } from '#lib/engine/difficulty.ts';
 import type { SkinInfo } from '#lib/skins/index.ts';
 import SettingsPanel from './SettingsPanel.svelte';
@@ -10,7 +11,7 @@ const BOTH: SkinInfo[] = [
 	{ id: 'pirate', name: 'Pirate' }
 ];
 
-function setup(vsComputer: boolean, skins = BOTH) {
+function setup(vsComputer: boolean, skins = BOTH, soundCategories: Category[] = []) {
 	const props = {
 		skinId: 'default',
 		skins,
@@ -20,7 +21,9 @@ function setup(vsComputer: boolean, skins = BOTH) {
 		autoFlip: false,
 		vsComputer,
 		difficulty: { kind: 'preset', id: 'p2' } as Difficulty,
-		labels: { difficulty: { p3: 'First Mate' } }
+		labels: { difficulty: { p3: 'First Mate' } },
+		sound: { music: 0.5, sfx: 0.8, voices: 1 },
+		soundCategories
 	};
 	render(SettingsPanel, props);
 	return props;
@@ -52,5 +55,23 @@ describe('SettingsPanel', () => {
 		await expect.element(page.getByLabelText('Auto-flip')).not.toBeInTheDocument();
 		await page.getByText('First Mate').click();
 		await expect.element(page.getByRole('radio', { name: 'First Mate' })).toBeChecked();
+	});
+
+	it('has a volume slider for each kind of sound the skin has (§4.11)', async () => {
+		setup(false, BOTH, ['music', 'voices']);
+		await expect.element(page.getByRole('group', { name: 'Sound' })).toBeInTheDocument();
+		await expect.element(page.getByRole('slider', { name: 'Music' })).toHaveValue('50');
+		await expect.element(page.getByRole('slider', { name: 'Voices' })).toHaveValue('100');
+		await expect.element(page.getByRole('slider', { name: 'Effects' })).not.toBeInTheDocument();
+		const music = page.getByRole('slider', { name: 'Music' }).element() as HTMLInputElement;
+		music.value = '0';
+		music.dispatchEvent(new Event('input', { bubbles: true }));
+		await expect.element(page.getByText('Off')).toBeInTheDocument();
+	});
+
+	it('has no sound settings for a silent skin', async () => {
+		setup(false);
+		await expect.element(page.getByRole('group', { name: 'Board' })).toBeInTheDocument();
+		await expect.element(page.getByRole('group', { name: 'Sound' })).not.toBeInTheDocument();
 	});
 });

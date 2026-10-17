@@ -2,6 +2,7 @@
 // write is guarded, and anything missing or malformed falls back to the defaults, so the
 // app works without storage (private windows, blocked site data, quota).
 import type { Color, Square } from 'chess.js';
+import type { Volumes } from '#lib/audio/mixer.ts';
 import type { Orientation } from '#lib/board/geometry.ts';
 import {
 	clampElo,
@@ -36,6 +37,8 @@ export interface Settings {
 	showCoordinates: boolean;
 	autoFlip: boolean;
 	lastDifficulty: Difficulty;
+	/** Volume per sound category, 0 (off) to 1 (§4.11). */
+	sound: Volumes;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,7 +46,9 @@ export const DEFAULT_SETTINGS: Settings = {
 	showLegalMoves: true,
 	showCoordinates: true,
 	autoFlip: false,
-	lastDifficulty: DEFAULT_DIFFICULTY
+	lastDifficulty: DEFAULT_DIFFICULTY,
+	// The music sits under the game; voices are the loudest (§4.11).
+	sound: { music: 0.5, sfx: 0.8, voices: 1 }
 };
 
 function storage(): Storage | null {
@@ -139,8 +144,19 @@ export function parseSettings(v: unknown): Settings {
 		showLegalMoves: bool('showLegalMoves'),
 		showCoordinates: bool('showCoordinates'),
 		autoFlip: bool('autoFlip'),
-		lastDifficulty: parseDifficulty(s.lastDifficulty) ?? DEFAULT_SETTINGS.lastDifficulty
+		lastDifficulty: parseDifficulty(s.lastDifficulty) ?? DEFAULT_SETTINGS.lastDifficulty,
+		sound: parseVolumes(s.sound)
 	};
+}
+
+/** Each volume on its own: a bad one falls back to its default. */
+function parseVolumes(v: unknown): Volumes {
+	const o = isObj(v) ? v : {};
+	const volume = (key: keyof Volumes) => {
+		const x = o[key];
+		return typeof x === 'number' && x >= 0 && x <= 1 ? x : DEFAULT_SETTINGS.sound[key];
+	};
+	return { music: volume('music'), sfx: volume('sfx'), voices: volume('voices') };
 }
 
 export const loadGame = (): SavedGame | null => parseGame(read(GAME_KEY));

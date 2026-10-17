@@ -44,6 +44,55 @@ export interface Theme {
 	scrim: string;
 }
 
+/** Generic game sounds (§4.11). */
+export type SfxName =
+	| 'start'
+	| 'select'
+	| 'move'
+	| 'capture'
+	| 'castle'
+	| 'promotion'
+	| 'check'
+	| 'checkmate'
+	| 'draw'
+	| 'illegal';
+export const SFX_NAMES: readonly SfxName[] = [
+	'start',
+	'select',
+	'move',
+	'capture',
+	'castle',
+	'promotion',
+	'check',
+	'checkmate',
+	'draw',
+	'illegal'
+];
+
+/** What a piece's voice line is about (§4.11). */
+export type VoiceEvent = 'move' | 'capture' | 'captured' | 'check' | 'defeat' | 'taunt';
+export const VOICE_EVENTS: readonly VoiceEvent[] = [
+	'move',
+	'capture',
+	'captured',
+	'check',
+	'defeat',
+	'taunt'
+];
+
+/** Pools of variations per side, piece type and event; any level may be missing. */
+export type Voices = Record<
+	Color,
+	Partial<Record<PieceType, Partial<Record<VoiceEvent, string[]>>>>
+>;
+
+/** A skin's sounds, as asset paths (§4.11). Every part is optional. */
+export interface SkinAudio {
+	music: string[];
+	sfx: Partial<Record<SfxName, string>>;
+	voices: Voices;
+}
+
 export interface Labels {
 	white?: string;
 	black?: string;
@@ -88,6 +137,8 @@ export interface SkinManifest {
 	coordinates: { fontScale: number; gutter: number };
 	theme: Theme;
 	labels: Labels;
+	/** Null for a silent skin. */
+	audio: SkinAudio | null;
 }
 
 export const DEFAULTS = {
@@ -336,6 +387,44 @@ export function validateSkin(raw: unknown): ValidationResult {
 		}
 	}
 
+	// audio (optional, every part optional; unknown names are errors so a typo isn't silent)
+	const audioRaw = optObj(root.audio, 'audio');
+	let audio: SkinAudio | null = null;
+	if (audioRaw) {
+		const files = (v: unknown, path: string): string[] => {
+			if (Array.isArray(v) && v.length > 0) return v.map((f, i) => file(f, `${path}[${i}]`));
+			err(path, 'expected a non-empty array of paths');
+			return [];
+		};
+		const known = (o: Obj, names: readonly string[], path: string, what: string) => {
+			for (const key of Object.keys(o))
+				if (!names.includes(key)) err(`${path}.${key}`, `unknown ${what}`);
+		};
+		audio = { music: [], sfx: {}, voices: { w: {}, b: {} } };
+		if (audioRaw.music !== undefined) audio.music = files(audioRaw.music, 'audio.music');
+		const sfx = optObj(audioRaw.sfx, 'audio.sfx') ?? {};
+		known(sfx, SFX_NAMES, 'audio.sfx', 'sound');
+		for (const name of SFX_NAMES)
+			if (sfx[name] !== undefined) audio.sfx[name] = file(sfx[name], `audio.sfx.${name}`);
+		const voices = optObj(audioRaw.voices, 'audio.voices') ?? {};
+		known(voices, ['w', 'b'], 'audio.voices', 'side');
+		for (const side of ['w', 'b'] as const) {
+			const byPiece = optObj(voices[side], `audio.voices.${side}`) ?? {};
+			known(byPiece, PIECE_TYPES, `audio.voices.${side}`, 'piece type');
+			for (const type of PIECE_TYPES) {
+				const path = `audio.voices.${side}.${type}`;
+				const byEvent = optObj(byPiece[type], path);
+				if (!byEvent) continue;
+				known(byEvent, VOICE_EVENTS, path, 'event');
+				const pools: Partial<Record<VoiceEvent, string[]>> = {};
+				for (const event of VOICE_EVENTS)
+					if (byEvent[event] !== undefined)
+						pools[event] = files(byEvent[event], `${path}.${event}`);
+				audio.voices[side][type] = pools;
+			}
+		}
+	}
+
 	if (errors.length > 0) return { ok: false, errors };
 	return {
 		ok: true,
@@ -351,7 +440,8 @@ export function validateSkin(raw: unknown): ValidationResult {
 			font: fontOut,
 			coordinates,
 			theme,
-			labels
+			labels,
+			audio
 		}
 	};
 }

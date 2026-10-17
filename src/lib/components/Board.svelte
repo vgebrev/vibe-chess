@@ -28,6 +28,10 @@
 		locked?: boolean;
 		/** Whether the human may move this side's pieces (vs-Computer: only their own). */
 		canMove?: (color: Color) => boolean;
+		/** A piece was picked up or selected (for its sound, §4.11). */
+		onselect?: () => void;
+		/** A dragged piece was dropped where it can't go and slides back. */
+		onillegal?: () => void;
 	}
 
 	let {
@@ -37,7 +41,9 @@
 		showCoordinates = true,
 		showLegalMoves = true,
 		locked = false,
-		canMove = () => true
+		canMove = () => true,
+		onselect,
+		onillegal
 	}: Props = $props();
 
 	// Gutter labels are sized relative to the gutter strip they sit in.
@@ -153,6 +159,7 @@
 		if (promotion || locked) return;
 		if (active && tryMove(active, square)) return;
 		selected = active !== square && movable(square) ? square : null;
+		if (selected) onselect?.();
 	}
 
 	function local(e: PointerEvent) {
@@ -192,6 +199,7 @@
 			active: false,
 			wasSelected: active === square
 		};
+		if (active !== square) onselect?.();
 		selected = square;
 		grid.setPointerCapture(e.pointerId);
 	}
@@ -218,7 +226,7 @@
 		if (d.active) {
 			// Dropped on a legal target: it snaps there. Anywhere else: it goes back, still selected.
 			const square = squareAt(e);
-			if (square && square !== d.from) tryMove(d.from, square);
+			if (square !== d.from && !(square && tryMove(d.from, square))) onillegal?.();
 		} else if (d.wasSelected) {
 			selected = null;
 		}
