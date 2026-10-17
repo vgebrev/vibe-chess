@@ -4,7 +4,9 @@ import { Engine } from './engine.ts';
 import { FakeWorker } from './fakeWorker.ts';
 import { Opponent } from './opponent.svelte.ts';
 
-const cabinBoy = { kind: 'preset', id: 'p0' } as const;
+const beginner = { kind: 'preset', id: 'p0' } as const;
+const expert = { kind: 'preset', id: 'p4' } as const;
+const master = { kind: 'custom', elo: 3000 } as const;
 
 function setup() {
 	const worker = new FakeWorker();
@@ -25,11 +27,12 @@ describe('Opponent', () => {
 
 	it('thinks for the whole budget, even when the engine answers at once, then plays', async () => {
 		const { worker, opponent, game } = setup();
-		const playing = opponent.play(game, cabinBoy);
+		const playing = opponent.play(game, beginner);
 		expect(opponent.status).toBe('thinking');
 		await vi.advanceTimersByTimeAsync(400);
 		// The engine has answered, but the reply waits out the opening budget (≥ 500 ms).
-		expect(worker.sent).toContain('setoption name Skill Level value 0');
+		// A beginner might play any move, so every one is scored.
+		expect(worker.sent).toContain('setoption name MultiPV value 20');
 		expect(game.moves).toHaveLength(1);
 		await vi.advanceTimersByTimeAsync(1000);
 		await playing;
@@ -39,7 +42,7 @@ describe('Opponent', () => {
 
 	it('drops the reply when cancelled', async () => {
 		const { opponent, game } = setup();
-		const playing = opponent.play(game, cabinBoy);
+		const playing = opponent.play(game, beginner);
 		await vi.advanceTimersByTimeAsync(100);
 		opponent.cancel();
 		expect(opponent.status).toBe('idle');
@@ -50,7 +53,7 @@ describe('Opponent', () => {
 
 	it('drops the reply if the position changed meanwhile', async () => {
 		const { opponent, game } = setup();
-		const playing = opponent.play(game, cabinBoy);
+		const playing = opponent.play(game, beginner);
 		await vi.advanceTimersByTimeAsync(100);
 		game.undo();
 		await vi.advanceTimersByTimeAsync(2000);
@@ -58,7 +61,7 @@ describe('Opponent', () => {
 		expect(game.moves).toHaveLength(0);
 	});
 
-	it('configures the engine only when the difficulty changes', async () => {
+	it('scores every move for a weak player, and only the top few for a strong one', async () => {
 		const { worker, opponent, game } = setup();
 		const reply = async (difficulty: Parameters<Opponent['play']>[1]) => {
 			const playing = opponent.play(game, difficulty);
@@ -66,15 +69,26 @@ describe('Opponent', () => {
 			await playing;
 			game.undo();
 		};
-		await reply(cabinBoy);
-		await reply(cabinBoy);
-		await reply({ kind: 'custom', elo: 2000 });
+		await reply(beginner);
+		await reply(beginner);
+		await reply(master);
 		expect(worker.sent.filter((c) => c.startsWith('setoption'))).toEqual([
-			'setoption name UCI_LimitStrength value false',
-			'setoption name Skill Level value 0',
-			'setoption name UCI_LimitStrength value true',
-			'setoption name UCI_Elo value 2000'
+			'setoption name MultiPV value 20',
+			'setoption name MultiPV value 6'
 		]);
+	});
+
+	it('plays the move the human-like choice picks from the scored moves', async () => {
+		const { worker, opponent, game } = setup();
+		worker.bestMoves = ['g8f6'];
+		worker.lines = [
+			'info depth 12 multipv 1 score cp 10 nodes 9000 pv c7c5 g1f3',
+			'info depth 12 multipv 2 score cp -900 nodes 9000 pv f7f6 d1h5'
+		];
+		const playing = opponent.play(game, expert);
+		await vi.advanceTimersByTimeAsync(5000);
+		await playing;
+		expect(game.lastMove?.san).toBe('c5');
 	});
 
 	it('reports a failure to start', async () => {

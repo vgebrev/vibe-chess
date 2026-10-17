@@ -104,34 +104,34 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
 ### 4.6 Computer opponent (Stockfish)
 
 - Stockfish runs as WASM inside a dedicated **Web Worker** and communicates over **UCI**, the standard chess-engine protocol.
-- **Difficulty:** the player either picks a preset or chooses **Custom** and sets an Elo:
+- **Difficulty:** the player either picks a preset or chooses **Custom** and sets an Elo. Each is a **target Elo** on the human scale, played by the human-like move choice (§4.6.2). The presets are mostly for casual players, 450 Elo apart:
 
-  | Preset     | UCI config                              |
-  | ---------- | --------------------------------------- |
-  | Cabin Boy  | `Skill Level 0`                         |
-  | Deckhand   | `Skill Level 5`                         |
-  | Bosun      | `Skill Level 10`                        |
-  | First Mate | `Skill Level 15`                        |
-  | Captain    | `Skill Level 20`                        |
-  | **Custom** | `UCI_LimitStrength true`, `UCI_Elo <n>` |
+  | Preset (Pirate name) | Generic name | Target Elo |
+  | -------------------- | ------------ | ---------- |
+  | Cabin Boy            | Beginner     | 450        |
+  | Deckhand             | Easy         | 900        |
+  | Bosun                | Medium       | 1350       |
+  | First Mate           | Hard         | 1800       |
+  | Captain              | Expert       | 2250       |
+  | **Custom**           |              | 450–3000   |
 
   The search time for every difficulty comes from the think-time model in §4.6.1.
 
-  - The **Custom slider** has a **step of 50 Elo** and runs from **1350 to 3150**. These are the multiples of 50 inside Stockfish's supported `UCI_Elo` range of 1320–3190; read the exact range from the engine's `option name UCI_Elo … min … max` line at init and clamp to it.
-  - The default custom value is **1350**, and it is also the slider's lower bound. The UI shows a note that this is a solid club player, and points beginners to the presets.
-  - Switching to a preset sends `UCI_LimitStrength false`. Switching back to Custom sets it to `true`.
-  - Preset names and descriptions can be overridden by the skin (`labels.difficulty`). The fallbacks are generic names: Beginner / Easy / Medium / Hard / Max.
+  - The **Custom slider** has a **step of 50 Elo** and runs from **450 to 3000**, starting at 1350. A note under it says the ratings are approximate, on the human scale.
+  - Each preset shows its Elo in brackets ("Easy (900)"), and the computer's player strip shows the Elo it plays at under its name ("900 Elo"), following a mid-game change.
+  - Preset names can be overridden by the skin (`labels.difficulty`). The fallbacks are generic names: Beginner / Easy / Medium / Hard / Expert.
+  - **Until M9** the presets were Stockfish `Skill Level` 0/5/10/15/20 and Custom set `UCI_LimitStrength`/`UCI_Elo` (1350–3150). Skill Level 0 is itself about 1350 on Stockfish's scale, so even the weakest preset crushed casual players, and nothing went lower (§11 #31).
 
 - Engine flow:
   1. On init, check the WASM can be fetched (a `HEAD` request; a failed download never reaches the worker's error event), start the worker, send `uci`, wait for `uciok`, and record option ranges.
   2. Send `isready`, wait for `readyok`, then apply options.
-  3. On the engine's turn, compute a think budget `T` (§4.6.1), then send `position fen <fen>` → `go movetime T`.
-  4. Parse `bestmove e7e8q`. If it arrived before `T` elapsed (this can happen with mates or forced lines), wait out the remainder. Then apply the move through chess.js. The move animates.
+  3. On the engine's turn, compute a think budget `T` (§4.6.1), set `MultiPV` for the target Elo (§4.6.2), then send `position fen <fen>` → `go movetime T`.
+  4. Collect the scored moves from the `info … multipv` lines until `bestmove`. If it arrived before `T` elapsed (this can happen with mates or forced lines), wait out the remainder. Then pick the move (§4.6.2) and apply it through chess.js. The move animates.
 - **Stale replies:** a new game, an undo or a mode change sends `stop`. Every request carries a sequence id, and a `bestmove` for an outdated id is discarded.
 - **Load failure:** the app shows an error and falls back to hot-seat mode. A start that hasn't reached `readyok` within 30 s counts as a failure.
 - **Implementation (M6):**
-  - `engine/engine.ts` is the UCI client. It talks to anything shaped like a Worker, so tests drive it with a scripted fake (`engine/fakeWorker.ts`). Every `go` gets exactly one `bestmove`, so pending searches form a queue; `stop()` marks them all cancelled and their replies resolve to `null`. Options are only changed once no search is running.
-  - `engine/opponent.svelte.ts` owns the engine. It starts it when a vs-Computer game begins (not on first paint and not in hot-seat), applies the difficulty only when it changes, computes `T`, searches, waits out the rest of `T`, and plays the move if the request is still current and the position unchanged. Its `status` (`idle`, `thinking`, `failed`) drives the status line and the fallback.
+  - `engine/engine.ts` is the UCI client. It talks to anything shaped like a Worker, so tests drive it with a scripted fake (`engine/fakeWorker.ts`) and the calibration script with a Node child process; the browser Worker comes from `engine/worker.ts`. Every `go` gets exactly one `bestmove`, so pending searches form a queue; `stop()` marks them all cancelled and their replies resolve to `null`, including a search still waiting to start. Options are only sent when they change, and only once no search is running.
+  - `engine/opponent.svelte.ts` owns the engine. It starts it when a vs-Computer game begins (not on first paint and not in hot-seat), computes `T`, searches, waits out the rest of `T`, picks the move (§4.6.2), and plays it if the request is still current and the position unchanged. Its `status` (`idle`, `thinking`, `failed`) drives the status line and the fallback.
   - The page runs the opponent from an effect whenever it is the computer's turn; a new position, undo, resignation or new game cancels the pending reply. The player can only move their own pieces (`Board`'s `canMove`).
   - **New game** opens a form (`NewGameForm.svelte`): opponent (Computer / Two players), colour (the two side names or Random) and difficulty (the five presets or Custom with the Elo slider). It opens with the last game's choices, in a Drawer (§6.4). Playing Black orients the board to Black and the engine opens.
   - The first game is vs Computer, as White, at the middle preset (`p2`). The page also reads `?mode=hotseat` and `?color=b`, alongside `?fen=`.
@@ -161,16 +161,7 @@ else:
 T = clamp(T · personality, 500, 4500)   // applied to every branch above
 ```
 
-**Difficulty personality:** stronger opponents take a little longer on average. This is a pure presentation touch, because strength still comes from `Skill Level` / `UCI_Elo`.
-
-| Difficulty      | `personality`                                    |
-| --------------- | ------------------------------------------------ |
-| Cabin Boy (p0)  | 0.70                                             |
-| Deckhand (p1)   | 0.80                                             |
-| Bosun (p2)      | 0.90                                             |
-| First Mate (p3) | 1.00                                             |
-| Captain (p4)    | 1.15                                             |
-| Custom Elo      | linear from **0.85 at 1350** to **1.20 at 3150** |
+**Difficulty personality:** stronger opponents take a little longer on average: `personality` runs linearly with the target Elo from **0.70 at 450** to **1.20 at 2450** and above (Expert, 2250, is 1.15). Mostly a presentation touch: the budget is also the engine's search time, but even the shortest gives the analysis ample depth for the weaker tiers (§4.6.2).
 
 - All constants live in `engine/thinkTime.ts`, so they can be tuned by feel.
 - During milestone M6, log nodes/s and depth from the engine's `info` lines on a desktop and a phone, to confirm the budgets are comfortably above what each difficulty needs. In dev builds each reply logs `[engine] <T> ms, depth <d>, <n>k nodes/s` to the console.
@@ -180,6 +171,42 @@ T = clamp(T · personality, 500, 4500)   // applied to every branch above
 - **Possible v2:** use the engine's own signal for complexity, i.e. how much the best move and its score change between search depths in the `info` output. A position where the engine keeps changing its mind is "hard". This needs a short probe search first, so it is deferred.
 
 - **Bundle:** the `stockfish` npm package (pinned at 19.0.0, Stockfish 19), using its single-threaded "lite" WASM build: a 21 KB loader script and a 1.8 MB `.wasm`. Both are imported with Vite's `?url`, so the build emits them as hashed, cacheable assets and nothing is copied by hand; the loader finds the `.wasm` through the URL fragment the worker is started with. They are only fetched when a vs-Computer game starts, so hot-seat play and first paint stay light. Both are far inside Cloudflare Pages' 25 MiB per-file limit. Stockfish is GPLv3; the app runs it unmodified as a separate program over UCI.
+
+#### 4.6.2 Human-like play (M9)
+
+The engine always plays at full strength; the app chooses which of its scored moves to play, the way a player of the target Elo might. Weak play comes from **plausible mistakes**: a natural-looking move that misses something, never a random one.
+
+1. **Analysis.** Every turn the engine scores the candidate moves (`MultiPV`): **every legal move** below 2600 Elo, since a weaker player may play any of them, and the **top 6** from 2600 up, so the search goes deeper. (A cut-off at 2000 made 2250 play about 400 Elo too strong: leaving the weak moves out removed the mistakes it would make.) For each move, `analysis.ts` keeps the deepest exact score and the score when it was first reported, at the shallowest depth (how it looks at a glance). Bounded scores are ignored, and so are moves not scored in the last two iterations (their score is stale). Mate scores become ±(10000 − 10·N) centipawns.
+2. **Cost.** Scores become winning chances with lichess's curve, `W(cp) = 1 / (1 + e^(−0.00368208·cp))`. A move's cost is `loss = W(best) − W(move)`, so dropping 300 cp at +10 costs almost nothing and at 0.0 is a blunder.
+3. **Choice.** Each move gets a weight, and one is drawn in proportion to it:
+
+   ```
+   weight = e^(−loss / τ(E)) × (standsOut ? 1 : 0.4)^s(E)
+   standsOut = capture, check or promotion, or "natural": its shallow score is within
+               0.05 (in W) of the best shallow score
+   ```
+
+   - **τ(E), sloppiness:** large for a weak player, so a costly move is barely less likely than the best; tiny for a strong one, who nearly always finds the best or a good move.
+   - **s(E), salience:** how much moves that stand out are preferred. Weak players mostly see captures, checks and moves that look good at once; strong players also find quiet, deep moves.
+   - So a beginner often grabs a poisoned pawn (a capture that looks fine but loses to a deep reply), nearly always recaptures, and sometimes misses a quiet mate in two; an expert almost never does either.
+
+4. **Tuning.** `STYLE_ANCHORS` in `engine/humanize.ts` sets τ and s at 450, 900, 1350, 1800, 2250 and 3000 Elo; between anchors τ is interpolated geometrically and s linearly, so a custom Elo blends its two neighbours.
+
+   | Elo | 450  | 900   | 1350  | 1800  | 2250   | 3000  |
+   | --- | ---- | ----- | ----- | ----- | ------ | ----- |
+   | τ   | 0.23 | 0.107 | 0.062 | 0.039 | 0.0255 | 0.011 |
+   | s   | 1.15 | 1.07  | 0.83  | 0.55  | 0.26   | 0     |
+
+5. **Variation.** Each game gets a random seed, and each choice draws from a generator seeded by the game seed and the position. Within a game the choice follows from the analysis and the position; a new game plays differently. (Engine scores vary slightly with timing, so a replay isn't guaranteed to repeat.)
+6. **Calibration** (`scripts/calibrate.ts`, a manual tool run with `node`): plays games in parallel through Node child processes running the same WASM engine, using the app's own analysis and choice code, and reports each match's score and implied Elo difference with a 95% interval.
+   - **Anchors:** a tier should score about 50% against Stockfish with `UCI_LimitStrength` at the same Elo (1350 up, Stockfish's own calibrated range). Below 1350, tiers are tied to that anchor through each other.
+   - **Method:** single 450-point matches (expected score 7%) proved too noisy to tune from. The tool instead runs a **ladder** of tiers 225 apart (expected 21%), plus matches against `sf:1350` and `sf:1800`, and fits every tier's actual rating from all games at once (Bradley–Terry, Stockfish sides held at their nominal Elo). New anchors come from inverting that fit: each target takes the style that measured at that Elo.
+   - Calibration uses a fixed move time (200 ms on a desktop core, roughly the depth a phone reaches in the app) and adjudicates a game once one side's evaluation stays beyond 20 pawns for 10 plies.
+   - Stockfish's Elo is calibrated against engines (CCRL), not people, so the human-scale labels are approximate; the final check is playing the tiers.
+   - **Results (M9, 2026-10-17):** the verification ladder (1,040 games) fitted 900 → 920, 1125 → 1154, 1350 → 1358, 1575 → 1544, 1800 → 1756, 2025 → 1982, 2250 → 2222, each within about ±50 of target, which is the ladder's own uncertainty. Beginner then took two more runs (τ 0.208 measured ≈ 594, τ 0.245 ≈ 350) and was set to τ 0.23 by interpolation; expect ±70 there.
+   - **Above 2250 is less certain.** The 3000 anchor was checked once (60 games, level with `sf:3000`), and Stockfish's own limit appeared weaker than its label at 2250 and the short calibration move time (our 2250 scored about +200 against it while the ladder put it on target), so the ladder anchors only on `sf:1350` and `sf:1800`. Treat 2300–3000 as strong and ordered rather than precise.
+   - A full ladder takes about 85 minutes on 18 parallel games:
+     `node scripts/calibrate.ts --games 80 --parallel 18 --movetime 200 bot:450-bot:675 bot:675-bot:900 … bot:2025-bot:2250 bot:1125-sf:1350 bot:1350-sf:1350 bot:1575-sf:1350 bot:1800-sf:1800 bot:2025-sf:1800`
 
 ### 4.7 Game controls
 
@@ -558,6 +585,7 @@ On wide screens, New Game and Settings could be shown as a centred dialog instea
 - **Implementation (M8):**
   - The announcement includes the move that caused the status, e.g. "1… e5. White to move", so a screen reader hears the computer's reply. The visible status line is unchanged.
   - A global `:focus-visible` outline in `--accent`; board squares and the promotion picker draw theirs inside the square.
+  - Enabled buttons and sliders get the pointer cursor (Tailwind v4 resets buttons to the default), matching the option chips and toggles; disabled ones keep the arrow.
   - When the promotion picker closes with focus in it, focus goes back to the board: to the promotion square after a choice, to the pawn after a cancel.
   - Text colours meet WCAG AA contrast on the skin surfaces. Both skins' `danger` became `#f2766b`; `#b3261e` was about 2.2:1 on their dark surfaces.
   - `a11y.e2e.ts` runs axe (`@axe-core/playwright`) over each state of the screen in both skins, and plays moves with the keyboard alone.
@@ -600,9 +628,12 @@ src/
       geometry.ts           # square↔grid per orientation, sprite offsets, coordinate labels
       motion.ts             # animation durations (zeroed for reduced motion), auto-flip pause
     engine/
-      engine.ts             # Promise-based UCI client (init, setOptions, bestMove, stop)
+      engine.ts             # Promise-based UCI client (start, setOptions, search with MultiPV, stop)
+      worker.ts             # the Stockfish Web Worker (lazy-loaded WASM)
+      analysis.ts           # scored moves from the engine's MultiPV lines (§4.6.2)
+      humanize.ts           # human-like move choice for a target Elo (§4.6.2)
       uci.ts                # UCI line parsing
-      difficulty.ts         # presets + custom Elo config
+      difficulty.ts         # presets (target Elos) + custom Elo
       thinkTime.ts          # complexity estimate → think budget (§4.6.1)
       opponent.svelte.ts    # starts the engine, times and plays its replies, cancellation
       fakeWorker.ts         # scripted stand-in engine for tests
@@ -646,7 +677,7 @@ type Color = 'w' | 'b';
 type Mode = 'computer' | 'hotseat';
 
 type Difficulty =
-	{ kind: 'preset'; id: 'p0' | 'p1' | 'p2' | 'p3' | 'p4' } | { kind: 'custom'; elo: number }; // multiple of 50, clamped to engine range
+	{ kind: 'preset'; id: 'p0' | 'p1' | 'p2' | 'p3' | 'p4' } | { kind: 'custom'; elo: number }; // multiple of 50, 450–3000
 
 interface SavedGame {
 	// persisted (§4.9); everything else is replayed from it
@@ -701,11 +732,12 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
   - en passant
   - promotion
   - undo of each
-- UCI parsing: `bestmove`, promotion suffix, `option … UCI_Elo min/max`, `info` depth and nodes/s
-- UCI client (scripted fake worker): start-up handshake and Elo range, options, search, stale replies after `stop`, no option changes mid-search, load failure and timeout
-- Opponent: waits out the think budget, drops a cancelled or outdated reply, configures only on a difficulty change, reports a failed start
+- UCI parsing: `bestmove`, promotion suffix, `info` depth and nodes/s
+- UCI client (scripted fake worker): start-up handshake, options sent only when changed, search with scored moves (bounded scores ignored), stale replies after `stop` (including a search not yet started), no option changes mid-search, load failure and timeout
+- Opponent: waits out the think budget, drops a cancelled or outdated reply, scores every move for a weak tier and the top few for a strong one, plays the human-like choice, reports a failed start
+- Human-like choice: win-chance curve, style interpolation between anchors, MultiPV per tier, weights by cost and salience, a beginner often takes a poisoned pawn and an expert never, the same seed repeats a choice
 - Undo vs Computer takes back the move pair, or just the player's move while the engine thinks
-- Difficulty: Elo snapping to 50 and clamping to the engine range
+- Difficulty: Elo snapping to 50 and clamping to 450–3000, preset targets 450 apart, personality by target Elo
 - Think time (seeded RNG):
   - forced moves and opening positions fall in their ranges
   - a quiet endgame gets a shorter budget than a sharp middlegame
@@ -771,7 +803,8 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 6. **Engine:** lazy-loaded worker, UCI client, presets and custom Elo slider, think-time model and measuring nodes/s, vs-Computer mode
 7. **Layout:** mobile-first shell, the `lg` side panel, Drawer (move list, New Game, Settings)
 8. **Polish:** persistence, a11y pass, E2E suite, Cloudflare Pages deploy check
-9. **Sounds & haptics:** move, capture, check and game-end sounds, plus haptic feedback on supporting phones. Waiting on royalty-free or generated sound effects; scope and design to be specified once the assets are sourced.
+9. **Human-like opponent:** presets as target Elos for casual players (450–2250), full-strength analysis of every candidate move, a move choice that makes plausible mistakes for the target Elo, a calibration script, Elo shown on presets and the computer's strip (§4.6.2)
+10. **Sounds & haptics:** move, capture, check and game-end sounds, plus haptic feedback on supporting phones. Waiting on royalty-free or generated sound effects; scope and design to be specified once the assets are sourced.
 
 ## 10. Open questions
 
@@ -779,35 +812,36 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 
 ## 11. Decision log
 
-| #   | Question                    | Decision                                                                                                                                                                                                                                                                             |
-| --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Which pirate crew is White? | Red = White (`rowFor: { w: 0, b: 1 }`)                                                                                                                                                                                                                                               |
-| 2   | Status text                 | Optional skin `labels`, falling back to White/Black                                                                                                                                                                                                                                  |
-| 3   | Difficulty                  | Presets + **Custom** Elo slider in 50-point steps (`UCI_LimitStrength`/`UCI_Elo`)                                                                                                                                                                                                    |
-| 4   | Capture indicator           | Optional `captureIndicator`. Fallback is `moveIndicator` at `captureScale`                                                                                                                                                                                                           |
-| 5   | Animations                  | In v1: slide moves, fade captures, animated flip, reduced-motion respected                                                                                                                                                                                                           |
-| 6   | Hosting                     | Static build. Local preview first, then Cloudflare Pages. Single-threaded Stockfish, so no special headers                                                                                                                                                                           |
-| 7   | Classic skin                | User will create it with the same tool as the Pirate set. A fixture skin covers tests meanwhile                                                                                                                                                                                      |
-| 8   | Font delivery               | **Bundled in the skin folder** (woff2 + OFL), loaded through `FontFace`. A CDN `css` URL is allowed but not the default                                                                                                                                                              |
-| 9   | Coordinates                 | Skin font + theme colours. In the frame when inset > 0, otherwise in an outside gutter                                                                                                                                                                                               |
-| 10  | Layout                      | Mobile-first single column. At the breakpoint, controls move beside the board. On narrow screens the move list is in a bottom Drawer                                                                                                                                                 |
-| 11  | Breakpoints                 | Standard Tailwind v4 breakpoints, unchanged. Components use prefixes only. Side panel at `lg`                                                                                                                                                                                        |
-| 12  | Drawer usage                | Only composite UI goes in a Drawer (move list on narrow screens, New Game, Settings). Simple controls stay inline                                                                                                                                                                    |
-| 13  | Custom Elo floor            | 1350 confirmed, and it is the default custom value                                                                                                                                                                                                                                   |
-| 14  | Engine pacing               | Complexity-based think budget with log-normal jitter, passed to the engine as `movetime` (§4.6.1)                                                                                                                                                                                    |
-| 15  | Phones in landscape         | No special handling in v1. The single-column layout applies, and users can rotate to portrait                                                                                                                                                                                        |
-| 16  | Difficulty personality      | Think time is scaled per difficulty (0.70× Cabin Boy → 1.15× Captain; custom 0.85×–1.20× by Elo)                                                                                                                                                                                     |
-| 17  | Indicator rendering         | Move and capture indicators are both drawn above the pieces with skin-set opacity. Hovering or dragging over a target raises it to `hoverOpacity` (0.85 by default)                                                                                                                  |
-| 18  | Pirate capture indicator    | Crossed sabers (`-2`). Skull and flag kept as alternatives                                                                                                                                                                                                                           |
-| 19  | Default skin                | "Marble": white marble and black granite, no frame, Marcellus font                                                                                                                                                                                                                   |
-| 20  | Skin source vs served       | Source art in `scratchpad/skins/<id>/assets/` (local, not committed). Served assets and the only manifest in `static/skins/<id>/`. Conversion is a manual one-off run of `scripts/convert-skin.py`, not a build step                                                                 |
-| 21  | Manifest validation         | `manifestVersion: 1`, asset paths confined to the skin folder, optional fields filled with defaults, all errors reported with their paths (§5.1)                                                                                                                                     |
-| 22  | Captured pieces & material  | Shown in the player strips: each side's captures as small skin sprites, plus `+N` for the side ahead, computed from material on the board (§4.10)                                                                                                                                    |
-| 23  | Animation technique         | FLIP slides with the Web Animations API in `Piece` (not CSS transitions), Svelte fades for captures, durations in `board/motion.ts` zeroed by `prefers-reduced-motion` (§4.5)                                                                                                        |
-| 24  | Undo and game end           | Undo rebuilds pieces by replaying from the start FEN, so ids and animations come for free. Checkmates and draws can be taken back; a resignation is final. Hot-seat auto-flip waits for the move to land (§4.7)                                                                      |
-| 25  | Engine delivery             | The lite single-threaded build is imported with Vite `?url` (hashed assets, nothing copied to `static/`) and started when a vs-Computer game begins. A `HEAD` check catches a failed download, which falls back to hot-seat. vs Computer, Undo takes back the move pair (§4.6, §4.7) |
-| 26  | Shell and drawers           | Drawers are native modal `<dialog>`s with their own scrim and sheet. The status gets its own line under the strips rather than sitting in them, and the narrow control bar is at the bottom. Settings apply at once; difficulty can be changed mid-game vs Computer (§6.1, §6.4)     |
-| 27  | Persistence                 | Two versioned localStorage keys, game and settings. The game is saved as moves and replayed, with the resigning side, setup and orientation. Bad data falls back to a new game or default settings. URL parameters start a new game instead of resuming (§4.9)                       |
-| 28  | Accessibility pass          | Arrow-key board navigation is in v1, since the single tab stop needs it. The live region names the last move. Accent focus ring everywhere. `danger` lightened for contrast. axe runs in e2e (§6.5)                                                                                  |
-| 29  | Cloudflare Pages            | No `404.html`, so Pages serves the SPA fallback. `_headers` caches hashed assets for a year. Verified with `wrangler pages dev` and the e2e suite, without adding wrangler as a dependency (§7.1)                                                                                    |
-| 30  | Disabling skins             | Optional `"disabled": true` in `skin.json` leaves a registered skin out of the choices without code changes. The picker is hidden when only one skin is available. Marble is disabled for now, leaving Pirate as the only skin (§5.5)                                                |
+| #   | Question                    | Decision                                                                                                                                                                                                                                                                                                                                             |
+| --- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Which pirate crew is White? | Red = White (`rowFor: { w: 0, b: 1 }`)                                                                                                                                                                                                                                                                                                               |
+| 2   | Status text                 | Optional skin `labels`, falling back to White/Black                                                                                                                                                                                                                                                                                                  |
+| 3   | Difficulty                  | Presets + **Custom** Elo slider in 50-point steps (`UCI_LimitStrength`/`UCI_Elo`); superseded by #31                                                                                                                                                                                                                                                 |
+| 4   | Capture indicator           | Optional `captureIndicator`. Fallback is `moveIndicator` at `captureScale`                                                                                                                                                                                                                                                                           |
+| 5   | Animations                  | In v1: slide moves, fade captures, animated flip, reduced-motion respected                                                                                                                                                                                                                                                                           |
+| 6   | Hosting                     | Static build. Local preview first, then Cloudflare Pages. Single-threaded Stockfish, so no special headers                                                                                                                                                                                                                                           |
+| 7   | Classic skin                | User will create it with the same tool as the Pirate set. A fixture skin covers tests meanwhile                                                                                                                                                                                                                                                      |
+| 8   | Font delivery               | **Bundled in the skin folder** (woff2 + OFL), loaded through `FontFace`. A CDN `css` URL is allowed but not the default                                                                                                                                                                                                                              |
+| 9   | Coordinates                 | Skin font + theme colours. In the frame when inset > 0, otherwise in an outside gutter                                                                                                                                                                                                                                                               |
+| 10  | Layout                      | Mobile-first single column. At the breakpoint, controls move beside the board. On narrow screens the move list is in a bottom Drawer                                                                                                                                                                                                                 |
+| 11  | Breakpoints                 | Standard Tailwind v4 breakpoints, unchanged. Components use prefixes only. Side panel at `lg`                                                                                                                                                                                                                                                        |
+| 12  | Drawer usage                | Only composite UI goes in a Drawer (move list on narrow screens, New Game, Settings). Simple controls stay inline                                                                                                                                                                                                                                    |
+| 13  | Custom Elo floor            | 1350 confirmed, and it is the default custom value                                                                                                                                                                                                                                                                                                   |
+| 14  | Engine pacing               | Complexity-based think budget with log-normal jitter, passed to the engine as `movetime` (§4.6.1)                                                                                                                                                                                                                                                    |
+| 15  | Phones in landscape         | No special handling in v1. The single-column layout applies, and users can rotate to portrait                                                                                                                                                                                                                                                        |
+| 16  | Difficulty personality      | Think time is scaled per difficulty (0.70× Cabin Boy → 1.15× Captain; custom 0.85×–1.20× by Elo)                                                                                                                                                                                                                                                     |
+| 17  | Indicator rendering         | Move and capture indicators are both drawn above the pieces with skin-set opacity. Hovering or dragging over a target raises it to `hoverOpacity` (0.85 by default)                                                                                                                                                                                  |
+| 18  | Pirate capture indicator    | Crossed sabers (`-2`). Skull and flag kept as alternatives                                                                                                                                                                                                                                                                                           |
+| 19  | Default skin                | "Marble": white marble and black granite, no frame, Marcellus font                                                                                                                                                                                                                                                                                   |
+| 20  | Skin source vs served       | Source art in `scratchpad/skins/<id>/assets/` (local, not committed). Served assets and the only manifest in `static/skins/<id>/`. Conversion is a manual one-off run of `scripts/convert-skin.py`, not a build step                                                                                                                                 |
+| 21  | Manifest validation         | `manifestVersion: 1`, asset paths confined to the skin folder, optional fields filled with defaults, all errors reported with their paths (§5.1)                                                                                                                                                                                                     |
+| 22  | Captured pieces & material  | Shown in the player strips: each side's captures as small skin sprites, plus `+N` for the side ahead, computed from material on the board (§4.10)                                                                                                                                                                                                    |
+| 23  | Animation technique         | FLIP slides with the Web Animations API in `Piece` (not CSS transitions), Svelte fades for captures, durations in `board/motion.ts` zeroed by `prefers-reduced-motion` (§4.5)                                                                                                                                                                        |
+| 24  | Undo and game end           | Undo rebuilds pieces by replaying from the start FEN, so ids and animations come for free. Checkmates and draws can be taken back; a resignation is final. Hot-seat auto-flip waits for the move to land (§4.7)                                                                                                                                      |
+| 25  | Engine delivery             | The lite single-threaded build is imported with Vite `?url` (hashed assets, nothing copied to `static/`) and started when a vs-Computer game begins. A `HEAD` check catches a failed download, which falls back to hot-seat. vs Computer, Undo takes back the move pair (§4.6, §4.7)                                                                 |
+| 26  | Shell and drawers           | Drawers are native modal `<dialog>`s with their own scrim and sheet. The status gets its own line under the strips rather than sitting in them, and the narrow control bar is at the bottom. Settings apply at once; difficulty can be changed mid-game vs Computer (§6.1, §6.4)                                                                     |
+| 27  | Persistence                 | Two versioned localStorage keys, game and settings. The game is saved as moves and replayed, with the resigning side, setup and orientation. Bad data falls back to a new game or default settings. URL parameters start a new game instead of resuming (§4.9)                                                                                       |
+| 28  | Accessibility pass          | Arrow-key board navigation is in v1, since the single tab stop needs it. The live region names the last move. Accent focus ring everywhere. `danger` lightened for contrast. axe runs in e2e (§6.5)                                                                                                                                                  |
+| 29  | Cloudflare Pages            | No `404.html`, so Pages serves the SPA fallback. `_headers` caches hashed assets for a year. Verified with `wrangler pages dev` and the e2e suite, without adding wrangler as a dependency (§7.1)                                                                                                                                                    |
+| 30  | Disabling skins             | Optional `"disabled": true` in `skin.json` leaves a registered skin out of the choices without code changes. The picker is hidden when only one skin is available. Marble is disabled for now, leaving Pirate as the only skin (§5.5)                                                                                                                |
+| 31  | Human-like opponent         | Presets are target Elos 450/900/1350/1800/2250 (Custom 450–3000). Stockfish analyses at full strength and the app picks a move by cost in winning chances and salience, tuned per Elo by a calibration script against Stockfish's `UCI_Elo` and 450-point gaps. Replaces Skill Level, whose floor (~1350) was too strong for casual players (§4.6.2) |

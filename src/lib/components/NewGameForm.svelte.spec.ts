@@ -34,24 +34,20 @@ describe('NewGameForm', () => {
 		});
 	});
 
-	it('offers a custom Elo within the engine range, starting at its floor', async () => {
+	it('shows each preset with its Elo, and offers a custom Elo from 450 to 3000', async () => {
 		const onstart = vi.fn();
-		render(NewGameForm, {
-			initial: DEFAULT_SETUP,
-			labels: {},
-			eloRange: { min: 1400, max: 2850 },
-			onstart
-		});
+		render(NewGameForm, { initial: DEFAULT_SETUP, labels: {}, onstart });
+		await expect.element(page.getByRole('radio', { name: 'Easy (900)' })).toBeInTheDocument();
 		await page.getByText('Custom').click();
 		const slider = page.getByRole('slider', { name: 'Elo' });
-		await expect.element(slider).toHaveAttribute('min', '1400');
-		await expect.element(slider).toHaveAttribute('max', '2850');
+		await expect.element(slider).toHaveAttribute('min', '450');
+		await expect.element(slider).toHaveAttribute('max', '3000');
 		await expect.element(slider).toHaveAttribute('step', '50');
-		await expect.element(page.getByText('1400 is already a solid club player')).toBeVisible();
+		await expect.element(slider).toHaveValue('1350');
 		await page.getByRole('button', { name: 'Start' }).click();
 		expect(onstart).toHaveBeenCalledWith({
 			...DEFAULT_SETUP,
-			difficulty: { kind: 'custom', elo: 1400 }
+			difficulty: { kind: 'custom', elo: 1350 }
 		});
 	});
 

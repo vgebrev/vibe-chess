@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBestMove, parseInfo, parseSpinOption } from './uci.ts';
+import { parseBestMove, parseInfo } from './uci.ts';
 
 describe('parseBestMove', () => {
 	it('reads the move, ignoring the ponder move', () => {
@@ -19,21 +19,6 @@ describe('parseBestMove', () => {
 	it('is null when there is no move', () => {
 		expect(parseBestMove('bestmove (none)')).toBeNull();
 		expect(parseBestMove('info depth 1')).toBeNull();
-	});
-});
-
-describe('parseSpinOption', () => {
-	it('reads the UCI_Elo range', () => {
-		expect(parseSpinOption('option name UCI_Elo type spin default 1320 min 1320 max 3190')).toEqual(
-			{ name: 'UCI_Elo', default: 1320, min: 1320, max: 3190 }
-		);
-	});
-
-	it('handles names with spaces and ignores other option types', () => {
-		expect(parseSpinOption('option name Skill Level type spin default 20 min 0 max 20')?.name).toBe(
-			'Skill Level'
-		);
-		expect(parseSpinOption('option name UCI_LimitStrength type check default false')).toBeNull();
 	});
 });
 

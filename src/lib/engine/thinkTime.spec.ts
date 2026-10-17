@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Difficulty } from './difficulty.ts';
 import { complexity, seeded, thinkTime, type ThinkInput } from './thinkTime.ts';
 
-const firstMate: Difficulty = { kind: 'preset', id: 'p3' }; // personality 1
+const firstMate: Difficulty = { kind: 'custom', elo: 1650 }; // personality 1
 const budgets = (input: ThinkInput, difficulty: Difficulty = firstMate, n = 200) => {
 	const random = seeded(42);
 	return Array.from({ length: n }, () => thinkTime(input, difficulty, random));

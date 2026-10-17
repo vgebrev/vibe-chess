@@ -1,10 +1,9 @@
-// A Promise-based UCI client for Stockfish in a Web Worker (§4.6). The single-threaded lite WASM
-// build is emitted as hashed assets and only fetched when the first engine starts.
-import scriptUrl from 'stockfish/bin/stockfish-19-lite-single.js?url';
-import wasmUrl from 'stockfish/bin/stockfish-19-lite-single.wasm?url';
+// A Promise-based UCI client for Stockfish (§4.6): in the app a Web Worker (worker.ts), in
+// the calibration script a Node child process. It plays at full strength and reports every
+// scored move, for the human-like move choice (§4.6.2).
 import type { MoveInput } from '#lib/game/game.svelte.ts';
-import { ELO_RANGE, eloRange, uciOptions, type Difficulty } from './difficulty.ts';
-import { parseBestMove, parseInfo, parseSpinOption, type SearchInfo } from './uci.ts';
+import { Analysis, type Candidate } from './analysis.ts';
+import { parseBestMove, parseInfo, type SearchInfo } from './uci.ts';
 
 /** The part of a Worker the client uses, so tests can stand in a fake engine. */
 export interface EngineWorker {
@@ -14,27 +13,20 @@ export interface EngineWorker {
 	terminate(): void;
 }
 
-export async function createWorker(): Promise<EngineWorker> {
-	const wasm = new URL(wasmUrl, location.href).href;
-	// A failed WASM download never reaches the worker's error event, so check it can be
-	// fetched before relying on the start timeout.
-	const head = await fetch(wasm, { method: 'HEAD' });
-	if (!head.ok) throw new Error(`The engine could not be downloaded (${head.status})`);
-	// The script finds its WASM through the URL fragment.
-	return new Worker(`${scriptUrl}#${encodeURIComponent(wasm)}`);
-}
-
 export interface SearchResult {
 	/** Null if the engine has no legal move. */
 	move: MoveInput | null;
 	/** The deepest search statistics reported. */
 	info: SearchInfo | null;
+	/** The moves scored (`MultiPV`), best first. */
+	candidates: Candidate[];
 }
 
 interface Search {
 	resolve: (result: SearchResult | null) => void;
 	cancelled: boolean;
 	info: SearchInfo | null;
+	analysis: Analysis;
 }
 
 export class Engine {
@@ -42,8 +34,10 @@ export class Engine {
 	#listeners = new Set<(line: string) => void>();
 	/** Searches waiting for their `bestmove`, oldest first. Each `go` gets exactly one. */
 	#searches: Search[] = [];
-	/** The custom Elo range the engine supports (§4.6). */
-	eloRange = ELO_RANGE;
+	/** Option values last sent, so unchanged ones aren't sent again. */
+	#options = new Map<string, string>();
+	/** Bumped by `stop()`, so a search still waiting to start is dropped too. */
+	#stops = 0;
 
 	private constructor(worker: EngineWorker) {
 		this.#worker = worker;
@@ -54,9 +48,8 @@ export class Engine {
 		};
 	}
 
-	/** Start an engine: `uci` → `uciok` (recording the Elo range) → `isready` → `readyok`. */
-	static async start(worker?: EngineWorker, timeoutMs = 30_000): Promise<Engine> {
-		worker ??= await createWorker();
+	/** Start an engine: `uci` → `uciok` → `isready` → `readyok`. */
+	static async start(worker: EngineWorker, timeoutMs = 30_000): Promise<Engine> {
 		const engine = new Engine(worker);
 		const failed = new Promise<never>((_, reject) => {
 			const timer = setTimeout(() => reject(new Error('The engine did not start')), timeoutMs);
@@ -68,10 +61,7 @@ export class Engine {
 		try {
 			const options = engine.#collect((line) => line === 'uciok');
 			engine.#send('uci');
-			for (const line of await Promise.race([options, failed])) {
-				const option = parseSpinOption(line);
-				if (option?.name === 'UCI_Elo') engine.eloRange = eloRange(option);
-			}
+			await Promise.race([options, failed]);
 			await Promise.race([engine.#ready(), failed]);
 			return engine;
 		} catch (error) {
@@ -80,20 +70,33 @@ export class Engine {
 		}
 	}
 
-	/** Apply a difficulty. Waits for any search to finish first, since UCI forbids changing
-	 *  options mid-search. */
-	async configure(difficulty: Difficulty): Promise<void> {
+	/**
+	 * Set UCI options, sending only those that changed. Waits for any search to finish first,
+	 * since UCI forbids changing options mid-search.
+	 */
+	async setOptions(options: Record<string, string | number>): Promise<void> {
+		const changed = Object.entries(options)
+			.map(([name, value]) => [name, String(value)] as const)
+			.filter(([name, value]) => this.#options.get(name) !== value);
+		if (!changed.length) return;
 		await this.#idle();
-		for (const [name, value] of uciOptions(difficulty, this.eloRange)) {
+		for (const [name, value] of changed) {
+			this.#options.set(name, value);
 			this.#send(`setoption name ${name} value ${value}`);
 		}
 		await this.#ready();
 	}
 
-	/** Search `fen` for `movetime` ms. Resolves null if stopped by `stop()` meanwhile. */
-	search(fen: string, movetime: number): Promise<SearchResult | null> {
+	/**
+	 * Search `fen` for `movetime` ms, scoring the best `lines` moves (`MultiPV`). Resolves null
+	 * if stopped by `stop()` meanwhile.
+	 */
+	async search(fen: string, movetime: number, lines = 1): Promise<SearchResult | null> {
+		const stops = this.#stops;
+		await this.setOptions({ MultiPV: lines });
+		if (stops !== this.#stops) return null;
 		return new Promise((resolve) => {
-			this.#searches.push({ resolve, cancelled: false, info: null });
+			this.#searches.push({ resolve, cancelled: false, info: null, analysis: new Analysis() });
 			this.#send(`position fen ${fen}`);
 			this.#send(`go movetime ${Math.round(movetime)}`);
 		});
@@ -101,6 +104,7 @@ export class Engine {
 
 	/** Abandon every pending search: their replies are discarded (§4.6). */
 	stop() {
+		this.#stops++;
 		if (!this.#searches.length) return;
 		for (const search of this.#searches) search.cancelled = true;
 		this.#send('stop');
@@ -116,9 +120,12 @@ export class Engine {
 		if (!search) return;
 		if (line.startsWith('bestmove')) {
 			this.#searches.shift();
-			search.resolve(search.cancelled ? null : { move: parseBestMove(line), info: search.info });
+			const { info, analysis } = search;
+			const result = { move: parseBestMove(line), info, candidates: analysis.candidates };
+			search.resolve(search.cancelled ? null : result);
 			return;
 		}
+		search.analysis.add(line);
 		const info = parseInfo(line);
 		if (info && info.depth >= (search.info?.depth ?? 0)) search.info = info;
 	}

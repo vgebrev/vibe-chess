@@ -16,32 +16,41 @@
 	interface Props {
 		value: Difficulty;
 		labels: Labels;
-		/** The engine's custom Elo range, once known (§4.6). */
-		eloRange?: { min: number; max: number };
 	}
 
-	let { value = $bindable(), labels, eloRange = ELO_RANGE }: Props = $props();
+	let { value = $bindable(), labels }: Props = $props();
 
 	const name = $props.id();
 	const level = $derived<PresetId | 'custom'>(value.kind === 'preset' ? value.id : 'custom');
 	// The slider remembers its value while a preset is picked.
 	let elo = $state(untrack(() => (value.kind === 'custom' ? value.elo : DEFAULT_ELO)));
-	const shown = $derived(clampElo(elo, eloRange));
+	const shown = $derived(clampElo(elo));
 
 	function pick(next: PresetId | 'custom') {
 		value = next === 'custom' ? { kind: 'custom', elo: shown } : { kind: 'preset', id: next };
 	}
 </script>
 
-<!-- Presets plus Custom with an Elo slider in steps of 50 (§4.6). -->
+<!-- Presets, each with the Elo it plays at, plus Custom with an Elo slider in steps of 50 (§4.6). -->
 <fieldset class="flex flex-wrap gap-2">
 	<legend class="mb-1 text-sm text-muted">Difficulty</legend>
-	{#each [...PRESETS.map((p) => p.id), 'custom' as const] as id (id)}
+	{#each PRESETS as { id, elo } (id)}
 		<label class={option}>
 			<input class="sr-only" type="radio" {name} checked={level === id} onchange={() => pick(id)} />
-			{id === 'custom' ? 'Custom' : presetName(id, labels)}
+			{presetName(id, labels)}
+			<span class="text-sm text-muted tabular-nums">({elo})</span>
 		</label>
 	{/each}
+	<label class={option}>
+		<input
+			class="sr-only"
+			type="radio"
+			{name}
+			checked={level === 'custom'}
+			onchange={() => pick('custom')}
+		/>
+		Custom
+	</label>
 </fieldset>
 
 {#if level === 'custom'}
@@ -51,8 +60,8 @@
 			<input
 				class="min-w-0 flex-1 accent-(--accent)"
 				type="range"
-				min={eloRange.min}
-				max={eloRange.max}
+				min={ELO_RANGE.min}
+				max={ELO_RANGE.max}
 				step={ELO_STEP}
 				value={shown}
 				oninput={(e) => {
@@ -64,7 +73,7 @@
 			<output class="w-12 text-right tabular-nums">{shown}</output>
 		</label>
 		<p class="text-sm text-muted">
-			{eloRange.min} is already a solid club player. New to chess? Try a preset.
+			Ratings are approximate, on the human scale: about 1350 is a casual club player.
 		</p>
 	</div>
 {/if}

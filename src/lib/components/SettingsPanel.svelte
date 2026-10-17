@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ELO_RANGE, type Difficulty } from '#lib/engine/difficulty.ts';
+	import type { Difficulty } from '#lib/engine/difficulty.ts';
 	import type { SkinId, SkinInfo } from '#lib/skins/index.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
 	import DifficultyPicker from './DifficultyPicker.svelte';
@@ -17,7 +17,6 @@
 		vsComputer: boolean;
 		difficulty: Difficulty;
 		labels: Labels;
-		eloRange?: { min: number; max: number };
 	}
 
 	let {
@@ -29,8 +28,7 @@
 		autoFlip = $bindable(),
 		vsComputer,
 		difficulty = $bindable(),
-		labels,
-		eloRange = ELO_RANGE
+		labels
 	}: Props = $props();
 
 	const toggle = 'flex cursor-pointer items-center gap-3 py-1';
@@ -76,7 +74,7 @@
 
 	{#if vsComputer}
 		<div class="flex flex-col gap-3">
-			<DifficultyPicker bind:value={difficulty} {labels} {eloRange} />
+			<DifficultyPicker bind:value={difficulty} {labels} />
 			<p class="text-sm text-muted">Applies from the computer's next move.</p>
 		</div>
 	{/if}

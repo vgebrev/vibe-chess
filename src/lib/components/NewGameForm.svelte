@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { ELO_RANGE } from '#lib/engine/difficulty.ts';
 	import type { ColorChoice, GameSetup, Mode } from '#lib/game/setup.ts';
 	import { sideName } from '#lib/labels.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
@@ -11,12 +10,10 @@
 		/** The choices the form opens with: the last game's. */
 		initial: GameSetup;
 		labels: Labels;
-		/** The engine's custom Elo range, once known (§4.6). */
-		eloRange?: { min: number; max: number };
 		onstart: (setup: GameSetup) => void;
 	}
 
-	let { initial, labels, eloRange = ELO_RANGE, onstart }: Props = $props();
+	let { initial, labels, onstart }: Props = $props();
 
 	// The form is mounted fresh each time its drawer opens, so it starts from `initial` once.
 	const start = untrack(() => initial);
@@ -52,7 +49,7 @@
 			{/each}
 		</fieldset>
 
-		<DifficultyPicker bind:value={difficulty} {labels} {eloRange} />
+		<DifficultyPicker bind:value={difficulty} {labels} />
 	{/if}
 
 	<button class="mt-1 rounded bg-accent px-3 py-2 text-bg">Start</button>

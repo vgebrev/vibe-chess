@@ -11,12 +11,13 @@ export class FakeWorker implements EngineWorker {
 	bestMoves = ['e7e5', 'g8f6', 'b8c6'];
 	/** Answer each `go` straight away instead of waiting for `finish()`. */
 	instant = false;
+	/** `info` lines (e.g. scored moves) sent before each `bestmove`. */
+	lines: string[] = [];
 
 	postMessage(command: string) {
 		this.sent.push(command);
 		if (command === 'uci') {
-			this.reply('id name Fake', 'option name UCI_Elo type spin default 1320 min 1320 max 3190');
-			this.reply('uciok');
+			this.reply('id name Fake', 'uciok');
 		} else if (command === 'isready') this.reply('readyok');
 		else if (command.startsWith('go')) {
 			this.searching.push(this.bestMoves.shift()!);
@@ -27,7 +28,7 @@ export class FakeWorker implements EngineWorker {
 	/** End the current searches, as the engine does on `stop` or when time is up. */
 	finish() {
 		for (const move of this.searching.splice(0)) {
-			this.reply('info depth 9 nodes 5000 nps 250000 time 20', `bestmove ${move}`);
+			this.reply(...this.lines, 'info depth 9 nodes 5000 nps 250000 time 20', `bestmove ${move}`);
 		}
 	}
 

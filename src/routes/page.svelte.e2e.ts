@@ -324,7 +324,11 @@ test.describe('vs Computer', () => {
 		const drawer = await settings(page);
 		await expect(drawer.getByRole('group', { name: 'Difficulty' })).toBeVisible();
 		await expect(drawer.getByLabel('Auto-flip')).toHaveCount(0);
-		await drawer.getByText('Hard', { exact: true }).click();
+		// The computer's strip shows the Elo it plays at, and follows the setting.
+		await expect(page.locator('[data-strip="b"] [data-elo-label]')).toHaveText('1350 Elo');
+		await expect(page.locator('[data-strip="w"] [data-elo-label]')).toHaveCount(0);
+		await drawer.getByText('Hard (1800)').click();
+		await expect(page.locator('[data-strip="b"] [data-elo-label]')).toHaveText('1800 Elo');
 		await page.keyboard.press('Escape');
 		await page.getByRole('button', { name: 'New game' }).click();
 		await expect(page.getByRole('radio', { name: 'Hard' })).toBeChecked();
@@ -339,7 +343,7 @@ test.describe('vs Computer', () => {
 		await page.keyboard.press('ArrowRight');
 		await expect(slider).toHaveValue('1400');
 		await page.keyboard.press('End');
-		await expect(slider).toHaveValue('3150');
+		await expect(slider).toHaveValue('3000');
 		await page.keyboard.press('Escape');
 		await expect(page.getByRole('dialog')).toBeHidden();
 	});

@@ -13,6 +13,7 @@
 	import NewGameForm from '#lib/components/NewGameForm.svelte';
 	import SettingsPanel from '#lib/components/SettingsPanel.svelte';
 	import StatusBar from '#lib/components/StatusBar.svelte';
+	import { targetElo } from '#lib/engine/difficulty.ts';
 	import { Opponent } from '#lib/engine/opponent.svelte.ts';
 	import { Game, type PromotionPiece } from '#lib/game/game.svelte.ts';
 	import { numberedMove } from '#lib/game/notation.ts';
@@ -137,6 +138,9 @@
 	const bottom = $derived<Color>(orientation === 'white' ? 'w' : 'b');
 	const top = $derived<Color>(bottom === 'w' ? 'b' : 'w');
 	const advantage = (color: Color) => (color === 'w' ? game.material : -game.material);
+	/** The computer's strip shows the Elo it plays at (§4.6). */
+	const eloOf = (color: Color) =>
+		vsComputer && color !== human ? targetElo(setup.difficulty) : null;
 
 	// Hot-seat auto-flip (§3): once a move has landed, turn the board to the side to move.
 	$effect(() => {
@@ -232,6 +236,7 @@
 					skin={skin.current}
 					captured={game.captured[top]}
 					advantage={advantage(top)}
+					elo={eloOf(top)}
 					active={!game.isGameOver && game.turn === top}
 				/>
 				<Board
@@ -248,6 +253,7 @@
 					skin={skin.current}
 					captured={game.captured[bottom]}
 					advantage={advantage(bottom)}
+					elo={eloOf(bottom)}
 					active={!game.isGameOver && game.turn === bottom}
 				/>
 			</div>
@@ -282,12 +288,7 @@
 </div>
 
 <Drawer open={drawer === 'new'} title="New game" onclose={closeDrawer}>
-	<NewGameForm
-		initial={setup}
-		{labels}
-		eloRange={opponent.eloRange ?? undefined}
-		onstart={startGame}
-	/>
+	<NewGameForm initial={setup} {labels} onstart={startGame} />
 </Drawer>
 
 <Drawer open={drawer === 'settings'} title="Settings" onclose={closeDrawer}>
@@ -301,7 +302,6 @@
 		{vsComputer}
 		bind:difficulty={setup.difficulty}
 		{labels}
-		eloRange={opponent.eloRange ?? undefined}
 	/>
 </Drawer>
 

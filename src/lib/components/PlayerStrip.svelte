@@ -13,9 +13,11 @@
 		advantage: number;
 		/** It is this side's turn. */
 		active: boolean;
+		/** The computer's Elo, shown under its name; null for a human player. */
+		elo?: number | null;
 	}
 
-	let { color, skin, captured, advantage, active }: Props = $props();
+	let { color, skin, captured, advantage, active, elo = null }: Props = $props();
 
 	const labels = $derived(skin.manifest.labels);
 	const sheet = $derived(skin.manifest.pieces);
@@ -47,7 +49,12 @@
 		]}
 		aria-hidden="true"
 	></span>
-	<span class="shrink-0">{sideName(color, labels)}</span>
+	<span class="flex shrink-0 flex-col leading-none">
+		{sideName(color, labels)}
+		{#if elo !== null}
+			<span class="mt-0.5 text-xs text-muted tabular-nums" data-elo-label>{elo} Elo</span>
+		{/if}
+	</span>
 	<span
 		class="flex min-w-0 items-center gap-0.5"
 		role="img"

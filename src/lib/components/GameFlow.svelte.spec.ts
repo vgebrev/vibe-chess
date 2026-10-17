@@ -44,7 +44,9 @@ describe('PlayerStrip', () => {
 			skin: pirate,
 			captured: [...all],
 			advantage: 39,
-			active: true
+			active: true,
+			// The computer's Elo makes the name column widest.
+			elo: 3000
 		});
 		screen.container.style.width = '328px'; // 360 px minus the page gutters
 		const strip = screen.container.querySelector<HTMLElement>('[data-strip]')!;
@@ -55,6 +57,20 @@ describe('PlayerStrip', () => {
 		// Every piece still peeks out, and the last of each group is whole.
 		for (const el of boxes) expect(el.getBoundingClientRect().width).toBeGreaterThanOrEqual(6);
 		expect(boxes.at(-1)!.getBoundingClientRect().width).toBe(30);
+	});
+
+	it("shows the computer's Elo under its name, and none for a person", async () => {
+		const screen = render(PlayerStrip, {
+			color: 'b',
+			skin: pirate,
+			captured: [],
+			advantage: 0,
+			active: false,
+			elo: 900
+		});
+		expect(screen.container.querySelector('[data-elo-label]')?.textContent).toBe('900 Elo');
+		await screen.rerender({ elo: null });
+		expect(screen.container.querySelector('[data-elo-label]')).toBeNull();
 	});
 
 	it('shows no lead when behind or level', () => {
