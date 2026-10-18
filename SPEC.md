@@ -684,6 +684,8 @@ On wide screens, New Game and Settings could be shown as a centred dialog instea
   - The announcement includes the move that caused the status, e.g. "1… e5. White to move", so a screen reader hears the computer's reply. The visible status line is unchanged.
   - A global `:focus-visible` outline in `--accent`; board squares and the promotion picker draw theirs inside the square.
   - Enabled buttons and sliders get the pointer cursor (Tailwind v4 resets buttons to the default), matching the option chips and toggles; disabled ones keep the arrow.
+  - The promotion picker only accepts a click whose press started on it, or one from the keyboard. On a phone the move happens on touch-down, so the picker opens under the finger and the tap's click lands on the queen; without this, every tap-move promotion became a queen.
+  - The promotion picker focuses the queen only when the move was made with the keyboard (the square had a visible focus ring). After a tap or click nothing in it is focused, so no ring shows.
   - When the promotion picker closes with focus in it, focus goes back to the board: to the promotion square after a choice, to the pawn after a cancel.
   - Text colours meet WCAG AA contrast on the skin surfaces. Both skins' `danger` became `#f2766b`; `#b3261e` was about 2.2:1 on their dark surfaces.
   - `a11y.e2e.ts` runs axe (`@axe-core/playwright`) over each state of the screen in both skins, and plays moves with the keyboard alone.

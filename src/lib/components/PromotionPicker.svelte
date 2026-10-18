@@ -20,6 +20,22 @@
 
 	const CHOICES: PromotionPiece[] = ['q', 'n', 'r', 'b'];
 
+	/**
+	 * Focus the first choice only when the move came from the keyboard (the square had a visible
+	 * focus ring): a tap or click would otherwise leave the queen ringed as if keyboard-selected.
+	 */
+	function focusIfKeyboard(el: HTMLButtonElement) {
+		if (document.activeElement?.matches(':focus-visible')) el.focus();
+	}
+
+	/**
+	 * Whether a press started in the picker. A tap that opens it (touch-down on the promotion
+	 * square) ends in a click that phones deliver to whatever is now under the finger, the queen,
+	 * so only clicks pressed here, or from the keyboard (`detail` 0), count.
+	 */
+	let pressed = false;
+	const accepts = (e: MouseEvent) => pressed || e.detail === 0;
+
 	// Options stack from the promotion square towards the middle of the board.
 	const pos = $derived(cellPosition(square, orientation));
 	const down = $derived(squareToGrid(square, orientation).row === 0);
@@ -30,12 +46,15 @@
 <div
 	class="scrim"
 	data-promotion-picker
-	onclick={oncancel}
-	onpointerdown={(e) => e.stopPropagation()}
+	onclick={(e) => accepts(e) && oncancel()}
+	onpointerdown={(e) => {
+		e.stopPropagation();
+		pressed = true;
+	}}
 >
 	{#each CHOICES as piece, i (piece)}
 		<button
-			{@attach i === 0 && ((el: HTMLButtonElement) => el.focus())}
+			{@attach i === 0 && focusIfKeyboard}
 			class="choice"
 			data-promote={piece}
 			aria-label="Promote to {PIECE_NAMES[piece]}"
@@ -43,7 +62,7 @@
 			style:top="{pos.top + (down ? i : -i) * 12.5}%"
 			onclick={(e) => {
 				e.stopPropagation();
-				onpick(piece);
+				if (accepts(e)) onpick(piece);
 			}}
 		>
 			<Sprite type={piece} {color} {sheet} />

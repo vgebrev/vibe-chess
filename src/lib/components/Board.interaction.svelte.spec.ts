@@ -291,6 +291,26 @@ describe('keyboard', () => {
 		expect(document.activeElement).toBe(b.cell('a8'));
 	});
 
+	it("doesn't focus the promotion picker after a click", async () => {
+		const b = setup({ fen: '4k3/P7/8/8/8/8/8/4K3 w - - 0 1' });
+		await b.click('a7');
+		await b.click('a8');
+		expect(b.root.querySelector('[data-promotion-picker]')).not.toBeNull();
+		expect(document.activeElement?.closest('[data-promotion-picker]')).toBeNull();
+	});
+
+	it('ignores the click of the tap that opened the promotion picker', async () => {
+		const b = setup({ fen: '4k3/P7/8/8/8/8/8/4K3 w - - 0 1' });
+		await b.click('a7');
+		await b.click('a8');
+		// A phone delivers the tap's click to what is now under the finger: the queen.
+		const queen = b.root.querySelector<HTMLElement>('[data-promote="q"]')!;
+		queen.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+		expect(b.root.querySelector('[data-promotion-picker]')).not.toBeNull();
+		await userEvent.click(b.root.querySelector<HTMLElement>('[data-promote="n"]')!);
+		expect(b.piece('a8')).toBe('wn');
+	});
+
 	it('names each square and its piece', () => {
 		const b = setup();
 		expect(b.cell('e1').getAttribute('aria-label')).toBe('e1, White king');
