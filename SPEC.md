@@ -1,6 +1,6 @@
 # Vibe Chess — Product & Technical Spec (Draft 3)
 
-_Status: ready for implementation · 2026-10-16 · Draft 3 incorporates decisions from three review rounds (see §11)._
+_Status: **v1 complete** · 2026-10-18 · Draft 3 incorporated decisions from three review rounds; later changes are in the decision log (§11)._
 
 ## 1. Summary
 
@@ -933,10 +933,10 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 
 - [ ] A full game can be played to checkmate against Stockfish at every preset and at custom Elo
 - [ ] Castling, en passant and promotion all work through both click and drag, with correct animations
-- [ ] The board flips correctly (and animates) at any point
+- [x] The board flips correctly (and animates) at any point
 - [ ] With guidance on, indicators exactly match chess.js legal moves, and captures use the capture indicator or the fallback
-- [ ] Coordinates render in the frame on Pirate and in the gutter on the fixture skin, in the skin font
-- [ ] Status text uses skin labels, with "White"/"Black" fallbacks
+- [x] Coordinates render in the frame on Pirate and in the gutter on the fixture skin, in the skin font
+- [x] Status text uses skin labels, with "White"/"Black" fallbacks
 - [x] Reloading resumes the in-progress game
 - [x] Fully playable on a 360 px-wide phone in portrait with no page scroll
 - [ ] Works in current Chrome, Firefox and Safari (including iOS)
@@ -959,6 +959,9 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 9. **Human-like opponent:** presets as target Elos for casual players (450–2250), full-strength analysis of every candidate move, a move choice that makes plausible mistakes for the target Elo, a calibration script, Elo shown on presets and the computer's strip (§4.6.2). Later removed for Skill Levels 0–5 (§11 #43); the Elo display stayed
 10. **Sound:** music, SFX and character voices from the skin, with a volume slider for each (§4.11); converting the Pirate audio, including splitting the recorded voice lines (§5.6)
 11. **Haptics:** vibration on game events on supporting phones: patterns on Android, a tick on iPhone, a Settings toggle (§4.12)
+12. **Game-over overlay:** a picture, headline and reason when a game ends, from the skin's `results` pictures (§4.7.1)
+
+**v1 is complete** (2026-10-18, §11 #45). Next, **v1.1:** many more Pirate voice lines, so each pool has more variations and repeats less often (§4.11).
 
 ## 10. Open questions
 
@@ -1012,3 +1015,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 42  | App icons                        | A purple-to-pink gradient with a white pawn: SVG, ICO and PNG favicons, an Apple touch icon, and a web manifest (192/512 px and a maskable icon, standalone display, theme colour `#7C3AED`). Served from `static/`, with sources in `scratchpad/` (§7.2)                                                                                                                                                                                                                                                                                               |
 | 43  | Skill Level presets              | Six presets on Stockfish `Skill Level` 0–5 (about 1320, 1444, 1566, 1729, 1953 and 2197 Elo, from Stockfish's own Elo↔level formula), Custom `UCI_Elo` 1350–3150, default the weakest. Replaces the human-like opponent (#31), whose mistakes felt unnatural (hanging pieces, aimless openings, unconverted endgames). Nothing plays below ~1320 (§4.6)                                                                                                                                                                                                 |
 | 44  | Game-over overlay                | A modal over the screen when a game ends in play, after a 1 s pause: a big picture, a headline from the player's side (Victory!/Defeat/Draw, or the winner in hot-seat), the reason, New game and View board. The inline result stays. Pictures come from an optional skin `results` block, in the winning side's colours, so Pirate's flag and skull match the crews; resignation gets its own (a white flag) and draws a neutral one. Replaces "no modal" for game over (§4.7.1)                                                                      |
+| 45  | v1 complete                      | v1 is called done on 2026-10-18, at the end of the weekend it was built in. The README introduces Vibe Chess as that weekend project and lists the credits. More Pirate voice lines are planned for v1.1 (§9)                                                                                                                                                                                                                                                                                                                                           |
