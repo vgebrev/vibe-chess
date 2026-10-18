@@ -2,6 +2,8 @@
 
 A weekend project to see how polished a chess game I could vibe code in a single weekend. Play against Stockfish or a friend on the same device, in a pirate skin with music, sound effects, character voices and speech bubbles. It is built with SvelteKit, runs entirely in the browser, and is playable on a phone. See [SPEC.md](SPEC.md) for the full specification and the decisions made along the way.
 
+https://github.com/user-attachments/assets/a7c37bb7-ddcc-47ad-8b64-30934f32a641
+
 ## Credits
 
 - **Meat Proxy:** [Veli Gebrev](https://veli.gebrev.com)
