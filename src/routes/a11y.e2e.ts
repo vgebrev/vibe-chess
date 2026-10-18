@@ -29,6 +29,10 @@ for (const skin of ['Marble', 'Pirate']) {
 		await page.keyboard.press('Escape');
 		await scan(page, 'start');
 
+		await page.getByRole('button', { name: 'Credits' }).click();
+		await scan(page, 'credits');
+		await page.keyboard.press('Escape');
+
 		await page.locator('[data-cell="e2"]').click();
 		await scan(page, 'piece selected');
 		await page.locator('[data-cell="e4"]').click();

@@ -17,7 +17,7 @@ const settle = (page: Page) =>
 test.beforeEach(async ({ page }) => {
 	await enableAllSkins(page);
 	await page.goto('/?mode=hotseat');
-	await expect(page).toHaveTitle('Chess');
+	await expect(page).toHaveTitle('Vibe Chess');
 });
 
 test('renders the start position in the default skin', async ({ page }) => {
@@ -444,4 +444,15 @@ test.describe('skins', () => {
 		await page.goto('/');
 		await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
 	});
+});
+
+test('credits open from the header, with links that open in a new tab', async ({ page }) => {
+	await page.getByRole('button', { name: 'Credits' }).click();
+	const drawer = page.getByRole('dialog', { name: 'Credits' });
+	const link = drawer.getByRole('link', { name: 'stockfish.js' });
+	await expect(link).toHaveAttribute('href', 'https://github.com/nmrugg/stockfish.js');
+	await expect(link).toHaveAttribute('target', '_blank');
+	await expect(drawer.getByRole('link')).toHaveCount(7);
+	await page.keyboard.press('Escape');
+	await expect(drawer).toBeHidden();
 });

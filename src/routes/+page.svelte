@@ -7,6 +7,7 @@
 	import { AUTO_FLIP_DELAY_MS } from '#lib/board/motion.ts';
 	import Board from '#lib/components/Board.svelte';
 	import Controls from '#lib/components/Controls.svelte';
+	import Credits from '#lib/components/Credits.svelte';
 	import Drawer from '#lib/components/Drawer.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import MoveList from '#lib/components/MoveList.svelte';
@@ -49,7 +50,7 @@
 		untrack(() => resumed?.orientation ?? (human === 'w' ? 'white' : 'black'))
 	);
 	/** The open drawer, if any (§6.3). */
-	let drawer = $state<'new' | 'settings' | 'moves' | null>(null);
+	let drawer = $state<'new' | 'settings' | 'moves' | 'credits' | null>(null);
 	/** Why the game isn't what was asked for, e.g. the engine failed to load. */
 	let notice = $state<string | null>(null);
 	let showCoordinates = $state(settings.showCoordinates);
@@ -250,21 +251,30 @@
 </script>
 
 <svelte:head>
-	<title>Chess</title>
+	<title>Vibe Chess</title>
 </svelte:head>
 
 <svelte:window {onkeydown} />
 
 <div class="flex min-h-dvh flex-col">
 	<header class="flex h-12 shrink-0 items-center justify-between px-4">
-		<h1 class="text-xl">Chess</h1>
-		<button
-			class="-mr-2 rounded p-2 hover:text-accent"
-			aria-label="Settings"
-			onclick={() => (drawer = 'settings')}
-		>
-			<Icon name="settings" class="size-6" />
-		</button>
+		<h1 class="text-xl">Vibe Chess</h1>
+		<div class="-mr-2 flex">
+			<button
+				class="rounded p-2 hover:text-accent"
+				aria-label="Credits"
+				onclick={() => (drawer = 'credits')}
+			>
+				<Icon name="info" class="size-6" />
+			</button>
+			<button
+				class="rounded p-2 hover:text-accent"
+				aria-label="Settings"
+				onclick={() => (drawer = 'settings')}
+			>
+				<Icon name="settings" class="size-6" />
+			</button>
+		</div>
 	</header>
 
 	<!-- Below lg: one column, the control bar at the bottom. From lg: board + side panel (§6.2). -->
@@ -361,4 +371,8 @@
 
 <Drawer open={drawer === 'moves'} title="Moves" onclose={closeDrawer}>
 	<MoveList startFen={game.startFen} moves={game.moves.map((m) => m.san)} class="" />
+</Drawer>
+
+<Drawer open={drawer === 'credits'} title="Credits" onclose={closeDrawer}>
+	<Credits />
 </Drawer>

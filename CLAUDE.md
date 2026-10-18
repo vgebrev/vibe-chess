@@ -25,6 +25,8 @@ node scripts/calibrate.ts --games 60 --parallel 18 bot:1350-sf:1350   # tune the
 
 The ports are deliberate (24377 spells CHESS on a keypad) so localStorage doesn't collide with other projects; don't change them or drop `strictPort`.
 
+The dev and preview servers also listen on the network, for testing on phones: `http://vibe-chess.test:24377` (dev) and `:24378` (preview). The name resolves to this machine's LAN IP through the local dnsmasq (`/etc/dnsmasq.d/dev.conf`, as for leagr), with the phone using this machine as its DNS server; Vite answers only hosts in `allowedHosts`.
+
 ## Stack and configuration
 
 - SvelteKit 3 + Svelte 5 **runes only** (forced in `vite.config.ts`), TypeScript, Tailwind v4 via `@tailwindcss/vite` (imported in `src/app.css`, no `tailwind.config`). SvelteKit config lives in `vite.config.ts` (no `svelte.config.js`).
