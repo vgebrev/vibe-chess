@@ -1,6 +1,6 @@
 // Skin loading (§5.5): fetch + validate the manifest, preload images and fonts in parallel,
 // and compute the CSS variables the theme sets. Applying it is the store's job (skin.svelte.ts).
-import { validateSkin, type SkinManifest, type Theme } from './schema.ts';
+import { validateSkin, type ResultImages, type SkinManifest, type Theme } from './schema.ts';
 
 export interface LoadedSkin {
 	manifest: SkinManifest;
@@ -12,6 +12,8 @@ export interface LoadedSkin {
 		moveIndicator: string;
 		captureIndicator: string | null;
 		emotes: string | null;
+		/** The game-over pictures (§4.7.1), as absolute URLs. */
+		results: ResultImages | null;
 	};
 }
 
@@ -55,14 +57,18 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Lo
 			pieces: url(manifest.pieces.image),
 			moveIndicator: url(manifest.moveIndicator.image),
 			captureIndicator: manifest.captureIndicator && url(manifest.captureIndicator.image),
-			emotes: manifest.emotes && url(manifest.emotes.image)
+			emotes: manifest.emotes && url(manifest.emotes.image),
+			results: manifest.results && resultUrls(manifest.results, url)
 		}
 	};
 
-	// Speech bubbles are only needed once someone speaks, so they load without holding up the skin.
-	if (skin.urls.emotes) void preloadImage(skin.urls.emotes).catch(() => {});
-	const images = Object.values(skin.urls).filter(
-		(u): u is string => u !== null && u !== skin.urls.emotes
+	// Speech bubbles and game-over pictures are only needed later, so they load without holding
+	// up the skin.
+	const later = [skin.urls.emotes, ...resultImageList(skin.urls.results)];
+	for (const src of new Set(later)) if (src) void preloadImage(src).catch(() => {});
+	const { board, pieces, moveIndicator, captureIndicator } = skin.urls;
+	const images = [board, pieces, moveIndicator, captureIndicator].filter(
+		(u): u is string => u !== null
 	);
 	const fonts = manifest.font.css
 		? [loadFontCss(manifest.font.family, manifest.font.css)]
@@ -76,6 +82,23 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Lo
 	if (failures.length > 0) throw fail(...failures);
 
 	return skin;
+}
+
+function resultUrls(results: ResultImages, url: (path: string) => string): ResultImages {
+	const bySide = (r: Record<'w' | 'b', string> | null) => r && { w: url(r.w), b: url(r.b) };
+	return {
+		win: bySide(results.win),
+		loss: bySide(results.loss),
+		resign: bySide(results.resign),
+		draw: results.draw && url(results.draw),
+		stalemate: results.stalemate && url(results.stalemate)
+	};
+}
+
+function resultImageList(results: ResultImages | null): (string | null)[] {
+	if (!results) return [];
+	const { win, loss, resign, draw, stalemate } = results;
+	return [...[win, loss, resign].flatMap((r) => (r ? [r.w, r.b] : [])), draw, stalemate];
 }
 
 async function preloadImage(src: string): Promise<void> {

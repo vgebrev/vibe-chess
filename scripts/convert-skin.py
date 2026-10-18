@@ -13,6 +13,8 @@ the hand-maintained manifest in static/skins/<id>/:
   indicator-capture.png  -> indicator-capture.webp (optional)
   emotes.png             -> emotes.webp (optional; speech bubbles on white, on an even
                             grid: background cut out, repacked into square cells)
+  result-*.png           -> result-*.webp (optional; game-over pictures: cropped to the art,
+                            centred in a square, RESULT_PX)
   font/*.ttf             -> font/*.woff2, font/OFL.txt copied
   audio/music/*.mp3      -> audio/music/*.mp3 (stereo, levelled)
   audio/sfx/*.mp3        -> audio/sfx/<event>.mp3 (mono, trimmed, levelled)
@@ -52,6 +54,8 @@ CELL_PAD = 0.03  # padding around the largest sprite, fraction of the cell
 BASE_FRACTION = 0.15  # bottom part of a sprite treated as its base when centring
 GRID_SEARCH = 0.18  # how far from the even grid to look for a drawn line, fraction of a square
 INDICATOR_PX = 320
+RESULT_PX = 512  # output size of a game-over picture
+RESULT_PAD = 0.04  # padding around a game-over picture's art, fraction of its size
 EMOTE_PX = 256  # output size of one speech-bubble cell
 EMOTE_WHITE = 232  # every channel at least this counts as the white background around emotes
 EMOTE_INK = 40  # luminance of the outline the background is un-blended against
@@ -240,6 +244,16 @@ def cut_out(im):
     colour = np.where(rim[..., None], (rgb - 255 * (1 - a)) / a, rgb)
     out = np.dstack([np.clip(colour, 0, 255), alpha * 255]).round().astype(np.uint8)
     return Image.fromarray(out, "RGBA")
+
+
+def result_picture(path):
+    """A game-over picture: cropped to its art, centred in a padded square, RESULT_PX."""
+    im = Image.open(path).convert("RGBA")
+    art = im.crop(im.getchannel("A").point(lambda a: 255 if a > CROP_ALPHA else 0).getbbox())
+    side = round(max(art.size) * (1 + 2 * RESULT_PAD))
+    square = Image.new("RGBA", (side, side))
+    square.paste(art, ((side - art.width) // 2, (side - art.height) // 2))
+    return resize_rgba(square, (RESULT_PX, RESULT_PX))
 
 
 def emote_sheet(path, columns, rows):
@@ -473,6 +487,9 @@ def convert_images(src, out, pieces, inset, emotes):
         if (src / f"{name}.png").exists():
             im = Image.open(src / f"{name}.png").convert("RGBA")
             save_webp(resize_rgba(im, (INDICATOR_PX, INDICATOR_PX)), out / f"{name}.webp")
+
+    for picture in sorted(src.glob("result-*.png")):
+        save_webp(result_picture(picture), out / f"{picture.stem}.webp")
 
     if (src / "emotes.png").exists():
         save_webp(emote_sheet(src / "emotes.png", emotes.get("columns", 4), emotes.get("rows", 2)), out / "emotes.webp")

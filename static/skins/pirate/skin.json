@@ -75,6 +75,12 @@
       "taunt": [0, 1, 2, 6]
     }
   },
+  "results": {
+    "win": { "w": "result-win-blue.webp", "b": "result-win-red.webp" },
+    "loss": { "w": "result-loss-blue.webp", "b": "result-loss-red.webp" },
+    "resign": "result-resign.webp",
+    "draw": "result-draw.webp"
+  },
   "audio": {
     "music": ["audio/music/battle-alt.mp3", "audio/music/battle.mp3", "audio/music/midnight.mp3", "audio/music/sailing.mp3", "audio/music/shanty.mp3", "audio/music/tavern-alt.mp3", "audio/music/tavern.mp3"],
     "sfx": {

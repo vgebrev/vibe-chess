@@ -52,7 +52,10 @@ for (const skin of ['Marble', 'Pirate']) {
 		await page.getByRole('button', { name: 'Resign' }).click();
 		await scan(page, 'resign confirmation');
 		await page.getByRole('button', { name: 'Yes, resign' }).click();
+		await expect(page.locator('[data-game-over]')).toBeVisible();
 		await scan(page, 'game over');
+		await page.getByRole('button', { name: 'View board' }).click();
+		await scan(page, 'game over, board');
 
 		await page.goto('/?mode=hotseat&fen=' + encodeURIComponent('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
 		await page.locator('[data-cell="a7"]').click();

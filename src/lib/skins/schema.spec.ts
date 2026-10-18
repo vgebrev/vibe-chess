@@ -271,6 +271,43 @@ describe('validateSkin emotes (§4.11)', () => {
 	});
 });
 
+describe('validateSkin results (§4.7.1)', () => {
+	const resultsOf = (raw: unknown) => {
+		const result = validateSkin(raw);
+		if (!result.ok) throw new Error(result.errors.join('\n'));
+		return result.skin.results;
+	};
+
+	it('reads one picture for both sides, or one per winning side', () => {
+		expect(resultsOf(fixture())).toBeNull();
+		expect(
+			resultsOf({
+				...fixture(),
+				results: { win: { w: 'win-w.webp', b: 'win-b.webp' }, loss: 'loss.webp', draw: 'd.webp' }
+			})
+		).toEqual({
+			win: { w: 'win-w.webp', b: 'win-b.webp' },
+			loss: { w: 'loss.webp', b: 'loss.webp' },
+			resign: null,
+			draw: 'd.webp',
+			stalemate: null
+		});
+	});
+
+	it('reports bad paths and unknown results', () => {
+		expect(
+			errorsOf({
+				...fixture(),
+				results: { win: { w: 'win.webp' }, draw: '../d.webp', tie: 't.webp' }
+			})
+		).toEqual([
+			'results.tie: unknown result',
+			'results.win.b: expected a relative path inside the skin folder, got undefined',
+			'results.draw: expected a relative path inside the skin folder, got "../d.webp"'
+		]);
+	});
+});
+
 describe('isSkinPath', () => {
 	it.each(['board.webp', 'font/PirataOne-Regular.woff2', 'a/b/c_d-e.png'])('accepts %s', (p) => {
 		expect(isSkinPath(p)).toBe(true);

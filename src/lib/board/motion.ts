@@ -10,6 +10,11 @@ export const DRAWER_MS = 250;
  * board turns. It is a pause rather than motion, so reduced motion keeps it.
  */
 export const AUTO_FLIP_DELAY_MS = MOVE_MS + 400;
+/**
+ * The game-over overlay (§4.7.1) waits this long after the game ends, so the last move is seen
+ * landing first. A pause, so reduced motion keeps it too.
+ */
+export const GAME_OVER_DELAY_MS = MOVE_MS + 800;
 
 export const motion = {
 	/** Slides: moves, castling rooks, flips, a piece returning from an illegal drop. */

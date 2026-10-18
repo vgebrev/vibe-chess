@@ -2,6 +2,7 @@
 // which fall back to generic text (§4.8).
 import type { Color, PieceSymbol, Square } from 'chess.js';
 import type { Result } from '#lib/game/game.svelte.ts';
+import type { Outcome } from '#lib/game/outcome.ts';
 import type { Labels } from '#lib/skins/schema.ts';
 
 export const PIECE_NAMES: Record<PieceSymbol, string> = {
@@ -28,23 +29,37 @@ export function squareLabel(
 
 const other = (color: Color): Color => (color === 'w' ? 'b' : 'w');
 
-/** How a finished game ended, e.g. "Checkmate — Blue Crew wins". */
-export function resultText(result: Result, labels: Labels): string {
-	const winner = result.winner === 'draw' ? '' : sideName(result.winner, labels);
+/** Why a finished game ended, e.g. "Checkmate" or "Red Crew resigns". */
+export function reasonText(result: Result, labels: Labels): string {
 	switch (result.reason) {
 		case 'checkmate':
-			return `Checkmate — ${winner} wins`;
+			return 'Checkmate';
 		case 'resignation':
-			return `${sideName(other(result.winner as Color), labels)} resigns — ${winner} wins`;
+			return `${sideName(other(result.winner as Color), labels)} resigns`;
 		case 'stalemate':
-			return 'Stalemate — draw';
+			return 'Stalemate';
 		case 'repetition':
-			return 'Threefold repetition — draw';
+			return 'Threefold repetition';
 		case 'fifty-move':
-			return '50-move rule — draw';
+			return '50-move rule';
 		case 'insufficient-material':
-			return 'Insufficient material — draw';
+			return 'Insufficient material';
 	}
+}
+
+/** How a finished game ended, e.g. "Checkmate — Blue Crew wins". */
+export function resultText(result: Result, labels: Labels): string {
+	const reason = reasonText(result, labels);
+	return result.winner === 'draw'
+		? `${reason} — draw`
+		: `${reason} — ${sideName(result.winner, labels)} wins`;
+}
+
+/** The game-over overlay's headline (§4.7.1): the player's view vs the computer, else the winner. */
+export function outcomeTitle(o: Outcome, labels: Labels): string {
+	if (o.winner === null) return 'Draw';
+	if (o.human === null) return `${sideName(o.winner, labels)} wins!`;
+	return o.winner === o.human ? 'Victory!' : 'Defeat';
 }
 
 /** The status line: whose turn it is, check, the engine thinking, or the result (§4.7). */

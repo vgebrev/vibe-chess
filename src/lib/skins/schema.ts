@@ -111,6 +111,18 @@ export interface Emotes {
 /** The events whose speaker is on the board, so can have a bubble. */
 export type BubbleEvent = Exclude<VoiceEvent, 'captured'>;
 
+/**
+ * Pictures for the game-over overlay (§4.7.1). Win, loss and resignation pictures are per winning
+ * side; a single path in the manifest serves both. Stalemate falls back to the draw picture.
+ */
+export interface ResultImages {
+	win: Record<Color, string> | null;
+	loss: Record<Color, string> | null;
+	resign: Record<Color, string> | null;
+	draw: string | null;
+	stalemate: string | null;
+}
+
 export interface Labels {
 	white?: string;
 	black?: string;
@@ -159,6 +171,8 @@ export interface SkinManifest {
 	audio: SkinAudio | null;
 	/** Null for no speech bubbles. */
 	emotes: Emotes | null;
+	/** Null for a text-only game-over overlay. */
+	results: ResultImages | null;
 }
 
 export const DEFAULTS = {
@@ -472,6 +486,32 @@ export function validateSkin(raw: unknown): ValidationResult {
 		}
 	}
 
+	// results (optional): game-over pictures, each either one path or one per winning side
+	const resultsRaw = optObj(root.results, 'results');
+	let results: ResultImages | null = null;
+	if (resultsRaw) {
+		const bySide = (v: unknown, path: string): Record<Color, string> | null => {
+			if (v === undefined) return null;
+			if (typeof v === 'string') {
+				const f = file(v, path);
+				return { w: f, b: f };
+			}
+			const o = obj(v, path) ?? {};
+			return { w: file(o.w, `${path}.w`), b: file(o.b, `${path}.b`) };
+		};
+		const single = (v: unknown, path: string) => (v === undefined ? null : file(v, path));
+		for (const key of Object.keys(resultsRaw))
+			if (!['win', 'loss', 'resign', 'draw', 'stalemate'].includes(key))
+				err(`results.${key}`, 'unknown result');
+		results = {
+			win: bySide(resultsRaw.win, 'results.win'),
+			loss: bySide(resultsRaw.loss, 'results.loss'),
+			resign: bySide(resultsRaw.resign, 'results.resign'),
+			draw: single(resultsRaw.draw, 'results.draw'),
+			stalemate: single(resultsRaw.stalemate, 'results.stalemate')
+		};
+	}
+
 	if (errors.length > 0) return { ok: false, errors };
 	return {
 		ok: true,
@@ -489,7 +529,8 @@ export function validateSkin(raw: unknown): ValidationResult {
 			theme,
 			labels,
 			audio,
-			emotes
+			emotes,
+			results
 		}
 	};
 }

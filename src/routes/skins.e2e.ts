@@ -35,3 +35,23 @@ test('a saved skin that has since been disabled falls back to an enabled one', a
 	await page.goto('/');
 	await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
 });
+
+test("Pirate's game-over overlay shows its picture for the result", async ({ page }) => {
+	// Fool's mate: Red Crew wins.
+	for (const [from, to] of [
+		['f2', 'f3'],
+		['e7', 'e5'],
+		['g2', 'g4'],
+		['d8', 'h4']
+	]) {
+		await page.locator(`[data-cell="${from}"]`).click();
+		await page.locator(`[data-cell="${to}"]`).click();
+	}
+	const over = page.getByRole('dialog', { name: 'Red Crew wins!' });
+	await expect(over.locator('[data-result-image]')).toHaveAttribute('src', /result-win-red\.webp$/);
+	await expect
+		.poll(() =>
+			over.locator('[data-result-image]').evaluate((img: HTMLImageElement) => img.naturalWidth)
+		)
+		.toBe(512);
+});

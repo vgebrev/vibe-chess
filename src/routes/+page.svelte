@@ -4,11 +4,12 @@
 	import { page } from '$app/state';
 	import { Sound, type Bubble } from '#lib/audio/sound.ts';
 	import type { Orientation } from '#lib/board/geometry.ts';
-	import { AUTO_FLIP_DELAY_MS } from '#lib/board/motion.ts';
+	import { AUTO_FLIP_DELAY_MS, GAME_OVER_DELAY_MS } from '#lib/board/motion.ts';
 	import Board from '#lib/components/Board.svelte';
 	import Controls from '#lib/components/Controls.svelte';
 	import Credits from '#lib/components/Credits.svelte';
 	import Drawer from '#lib/components/Drawer.svelte';
+	import GameOver from '#lib/components/GameOver.svelte';
 	import Icon from '#lib/components/Icon.svelte';
 	import MoveList from '#lib/components/MoveList.svelte';
 	import PlayerStrip from '#lib/components/PlayerStrip.svelte';
@@ -19,8 +20,9 @@
 	import { Opponent } from '#lib/engine/opponent.svelte.ts';
 	import { Game, type PromotionPiece } from '#lib/game/game.svelte.ts';
 	import { numberedMove } from '#lib/game/notation.ts';
+	import { outcome, resultImage } from '#lib/game/outcome.ts';
 	import { DEFAULT_SETUP, pickColor, type GameSetup } from '#lib/game/setup.ts';
-	import { statusText } from '#lib/labels.ts';
+	import { outcomeTitle, reasonText, statusText } from '#lib/labels.ts';
 	import { loadGame, loadSettings, saveGame, saveSettings } from '#lib/persistence.ts';
 	import { availableSkins, skinBaseUrl, type SkinId, type SkinInfo } from '#lib/skins/index.ts';
 	import { skin } from '#lib/skins/skin.svelte.ts';
@@ -174,6 +176,21 @@
 			labels
 		)
 	);
+	// The game-over overlay (§4.7.1): shown when a game ends in play, not when a finished game is
+	// resumed. An undo or a new game takes it away.
+	let showResult = $state(false);
+	let ended = untrack(() => ({ game, over: game.isGameOver }));
+	$effect(() => {
+		const now = { game, over: game.isGameOver };
+		const was = ended;
+		ended = now;
+		showResult = false;
+		if (now.game !== was.game || !now.over || was.over) return;
+		const timer = setTimeout(() => (showResult = true), GAME_OVER_DELAY_MS);
+		return () => clearTimeout(timer);
+	});
+	const ending = $derived(game.result && outcome(game.result, vsComputer ? human : null));
+
 	const lastMove = $derived(
 		game.lastMove ? numberedMove(game.startFen, game.moves.length - 1, game.lastMove.san) : null
 	);
@@ -345,6 +362,20 @@
 		</div>
 	</main>
 </div>
+
+{#if ending && game.result}
+	<GameOver
+		open={showResult}
+		title={outcomeTitle(ending, labels)}
+		reason={reasonText(game.result, labels)}
+		image={resultImage(skin.current?.urls.results ?? null, ending)}
+		onnew={() => {
+			showResult = false;
+			drawer = 'new';
+		}}
+		onclose={() => (showResult = false)}
+	/>
+{/if}
 
 <Drawer open={drawer === 'new'} title="New game" onclose={closeDrawer}>
 	<NewGameForm initial={setup} {labels} onstart={startGame} />

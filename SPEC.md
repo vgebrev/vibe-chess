@@ -198,6 +198,28 @@ M9 had the engine score every legal move at full strength and pick one the way a
   - Keyboard: `Ctrl/Cmd+Z` undoes (§6.5).
   - **Layout (M7):** the page is laid out as in §6.1/§6.2. New game, Settings and (below `lg`) the move list open in Drawers (§6.4). New game is a form that starts the game on **Start**; Settings apply as they change, with no save button. In Settings, auto-flip shows only in hot-seat games and the difficulty only vs Computer, where a change applies from the computer's next move. The difficulty picker (presets + custom Elo) is shared by both drawers.
 
+#### 4.7.1 Game-over overlay
+
+When a game ends in play, an overlay appears over the screen with a big picture, a headline and the reason, plus **New game** (opens the New game drawer) and **View board** (closes it to look at the final position). The result line under the board, with its own "New game" button, stays as it was.
+
+- **When:** `GAME_OVER_DELAY_MS` (1 s: the 200 ms slide plus a beat, in `board/motion.ts`) after the game ends, so the last move is seen landing and its sound starts first. It is a pause, so reduced motion keeps it. Undo or a new game takes it away. A finished game resumed after a reload doesn't show it again, and neither does a `?fen=` that starts finished.
+- **Closing:** View board, Esc or tapping the scrim. It is a modal dialog, like the drawers (§6.4). New game takes focus only when the game ended from the keyboard; after a tap the dialog itself takes it, so no focus ring shows. Focus goes back to where it was.
+- **Headline:** vs Computer, from the player's side: "Victory!", "Defeat" (checkmated or resigned) or "Draw". In hot-seat, "{side} wins!" or "Draw". The reason line is "Checkmate", "{side} resigns", "Stalemate", "Threefold repetition", "50-move rule" or "Insufficient material".
+- **Picture:** from the skin's optional `results` block (§5.1), in the winning side's colours:
+
+  | Outcome                                                        | Picture                                                                                  |
+  | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+  | Checkmate: the player's win vs Computer, or either in hot-seat | `win`, the winner's                                                                      |
+  | Checkmated by the computer                                     | `loss`, the winner's (the computer's)                                                    |
+  | Resignation                                                    | `resign`, the winner's; else `loss` vs Computer (the player resigned), `win` in hot-seat |
+  | Stalemate                                                      | `stalemate`, else `draw`                                                                 |
+  | Any other draw                                                 | `draw`                                                                                   |
+
+  Without a picture the overlay is text only. The picture sits on a soft glow in the skin's `accent`, so dark art stands out from the surface. Pictures load in the background once the skin has loaded.
+
+- **Pirate:** a Jolly Roger in the winning crew's colour for a win, the skull and crossbones with a bandana in the winning crew's colour for a loss, a torn white flag for a resignation and crossed cutlasses (one red, one blue) for a draw. It has no stalemate picture, so a stalemate shows the draw one.
+- The overlay adds no sound: the game's end already has its SFX and voice lines (§4.11).
+
 ### 4.8 Side labels & status text
 
 - Status strings use side labels from `skin.labels.white` / `skin.labels.black`. Fallbacks are **"White"** / **"Black"**.
@@ -424,6 +446,16 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 		"events": { "taunt": [0, 1, 2, 6] }
 	},
 
+	// Optional game-over pictures (§4.7.1). win, loss and resign take one path, or one per winning
+	// side; stalemate falls back to draw. Any may be left out.
+	"results": {
+		"win": { "w": "result-win-blue.webp", "b": "result-win-red.webp" },
+		"loss": { "w": "result-loss-blue.webp", "b": "result-loss-red.webp" },
+		"resign": "result-resign.webp",
+		"draw": "result-draw.webp",
+		"stalemate": "result-stalemate.webp"
+	},
+
 	// Optional. Every part is optional; a skin without audio is silent (§4.11).
 	"audio": {
 		"music": ["audio/music/sailing.mp3", "audio/music/shanty.mp3"], // shuffled per session
@@ -454,6 +486,7 @@ Validation rules (`src/lib/skins/schema.ts`):
 - `board.inset` sides are fractions in [0, 0.45]. `pieces.order` must list each of `k q b n r p` exactly once. `pieces.rowFor` rows must exist in the sheet.
 - Optional fields get defaults: `pieces.scale` 1, `pieces.anchorY` 0, `pieces.anchorYFor` each type at `anchorY`, indicator `scale` 1, `moveIndicator.opacity` 0.75, `moveIndicator.captureScale` 1.1, `captureIndicator.opacity` 0.6, indicator `hoverOpacity` 0.85, `disabled` false, font file `weight` 400 and `style` normal, `font.fallback` serif, `coordinates.fontScale` 0.55, `coordinates.gutter` 0.35, `theme.coordShadow` none, `theme.dragScale` 1.15, `theme.pieceShadow` a firm dark outline plus a soft drop shadow, `theme.pieceShadowWhite`/`pieceShadowBlack` the value of `pieceShadow`, `labels` empty, `audio` none. Every other `theme` key is required.
 - `emotes` cells are integers within the sheet, per event a non-empty array; `captured` and unknown events are errors. The art is expected to draw each bubble's tail at its bottom left. The sheet loads in the background, not holding up the skin.
+- `results` keys are `win loss resign draw stalemate`; unknown ones are errors. A per-side value needs both `w` and `b`.
 - `audio.voices` sides are `w`/`b`, piece types `k q b n r p`, events `move capture captured check defeat taunt`; pools are non-empty arrays of asset paths. Unknown `sfx` names are errors, so a typo doesn't silently drop a sound.
 
 ### 5.2 Fonts: bundled with the skin (decision)
@@ -542,6 +575,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
   - `indicator-move.webp`
   - `indicator-capture.webp`
   - `emotes.webp`: speech bubbles drawn on white, on an even grid (the manifest's `emotes.columns` × `rows`). The white connected to the edges is cut out and the rim un-blended from white, so no pale halo; each cell keeps only the bubble around its centre (neighbours' edges can cross the grid lines); the bubbles are repacked at one shared scale into centred 256 px cells. Pirate's 8 bubbles: 113 KB.
+  - `result-*.webp`, from any `result-*.png`: game-over pictures (§4.7.1), cropped to the art, centred in a square with a little padding, 512 px. About 50 KB each.
   - `font/*.woff2` and `font/OFL.txt`
 
   It never writes `skin.json`.
@@ -616,7 +650,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 
 - Board size is `min(100vw − 32px, 100dvh − header − strips − control bar)`. The board is always fully visible without scrolling, on any phone in portrait.
 - **Implementation (M7):** the status sits on its own line under the player strip, rather than inside it, so a full row of captures still fits on a 360 px phone. The line shows the status (whose turn, check, thinking, result) and the last move in SAN, so the drawer is optional during play. The control bar sits at the bottom of the screen, in reach of a thumb. Its buttons are icons with short labels (New, Undo, Flip, Resign, Moves), and their accessible names are the full names (e.g. "Flip board").
-- **Game over:** the result and a "New game" button replace the status inline. No modal is used.
+- **Game over:** the result and a "New game" button replace the status inline, and the game-over overlay (§4.7.1) shows the result with the skin's picture.
 - **Resign** (⚑) sits in the control bar. Its confirmation is an inline two-tap ("Resign?" ✓/✕) that takes over the bar, rather than a dialog. "No" puts focus back on Resign.
 
 ### 6.2 Wide layout (`lg` and up): board + side panel
@@ -654,7 +688,8 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 | Settings (skin, guidance, coordinates, auto-flip)      | **Drawer** (⚙)        | Drawer                              |
 | Credits                                                | **Drawer** (ⓘ)        | Drawer                              |
 | Promotion picker                                       | Overlay on the board  | Overlay on the board                |
-| Resign confirm, game-over                              | Inline                | Inline                              |
+| Resign confirm, game-over status                       | Inline                | Inline                              |
+| Game-over overlay (§4.7.1)                             | Modal over the screen | Modal over the screen               |
 
 The game is called **Vibe Chess** (the header and the page title). The ⓘ button beside Settings opens the **Credits** drawer: Meat Proxy (Veli Gebrev), Code (Claude), Graphics (ChatGPT), Music (Suno), Sound Effects (ElevenLabs), and the chess.js and stockfish.js libraries, each linking to its site or repository in a new tab.
 
@@ -723,10 +758,11 @@ src/
       material.ts           # captured pieces + material balance (§4.10)
       notation.ts           # move list rows, numbered SAN
       setup.ts              # new-game setup: mode, colour choice, difficulty
+      outcome.ts            # a result as win/loss/resign/draw/stalemate, and its picture (§4.7.1)
       types.ts
     board/
       geometry.ts           # square↔grid per orientation, sprite offsets, coordinate labels
-      motion.ts             # animation durations (zeroed for reduced motion), auto-flip pause
+      motion.ts             # animation durations (zeroed for reduced motion), auto-flip and game-over pauses
     engine/
       engine.ts             # Promise-based UCI client (start, setOptions, search, stop)
       worker.ts             # the Stockfish Web Worker (lazy-loaded WASM)
@@ -753,6 +789,7 @@ src/
       MoveList.svelte
       Controls.svelte
       Drawer.svelte
+      GameOver.svelte       # game-over overlay: picture, headline, New game / View board
       NewGameForm.svelte    # mode, colour, difficulty (in a Drawer)
       DifficultyPicker.svelte  # presets + custom Elo slider, shared by New game and Settings
       SettingsPanel.svelte  # skin, guidance, coordinates, auto-flip, difficulty
@@ -861,6 +898,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Label fallbacks
 - Captured pieces and material balance: captures (including en passant), a promotion (+8 for a queen), a captured promoted piece, and undo
 - Game results: each end reason, resignation (final, no undo), taking back a checkmate
+- Game-over outcome: win, loss, resignation, stalemate and draw; the picture in the winner's colours and its fallbacks; the headline from the player's side or the winner's; the `results` manifest block and its errors
 - Move list numbering, including games that start with Black to move
 - Persistence round-trip (replay restores undo history, a promotion, a custom start and a resignation); missing, throwing or malformed storage falls back to defaults
 - Keyboard: arrow keys move between squares as seen on screen (also when flipped), one tab stop, focus back to the board when the promotion picker closes
@@ -875,7 +913,8 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 
 **E2E (Playwright, run at both 390×844 and 1280×800)**
 
-- Scholar's mate in hot-seat mode: the game ends with a checkmate status
+- Scholar's mate in hot-seat mode: the game ends with a checkmate status, and the game-over overlay, closed by View board
+- Game-over overlay: New game opens the New game drawer, Esc and the scrim close it, undo takes it away, a stalemate shows a draw, a resumed finished game doesn't show it; as shipped, Pirate's picture for the result
 - Promotion flow shows the picker, and the chosen piece appears on the board
 - Flip: after flipping, h8 is at the bottom-left, and the coordinate labels mirror
 - vs Computer: after the human's first move, the engine replies within 5 s, and the player can't move the computer's pieces meanwhile
@@ -888,7 +927,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Skins as shipped: Pirate only, with no picker; a saved skin that has since been disabled falls back to an enabled one. With every skin enabled, the picker switches skin and the choice survives a reload
 - Sound, with the browser's Web Audio and media calls recorded: a move plays its SFX and the piece's line, a capture by the capturing piece alone, check by the checked king; two quick moves' lines overlap, neither stopped; music waits for the first press; volumes are kept across a reload, and 0 plays (and downloads) nothing in that category; a mute toggle sets 0 and, after a reload, brings the level back; the computer's opening taunt shows a speech bubble over one of its pieces while the line plays; UI controls click once (a label and its checkbox too), the board and sliders don't
 - Haptics, on a browser made to look like a phone that vibrates: picking up and moving a piece vibrate their patterns, and turning Vibration off (kept across a reload) stops them
-- Accessibility: no axe violations in each state of the screen (settings, start, selection, new game, move drawer, resign confirmation, game over, promotion picker) in both skins; a move played with the keyboard alone
+- Accessibility: no axe violations in each state of the screen (settings, start, selection, new game, move drawer, resign confirmation, game-over overlay, game over, promotion picker) in both skins; a move played with the keyboard alone
 
 **Acceptance checklist (v1 done)**
 
@@ -972,3 +1011,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 41  | Name and credits                 | Called Vibe Chess. A Credits drawer, opened from an ⓘ button in the header, links to the people, tools and libraries behind the game (§6.3)                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 42  | App icons                        | A purple-to-pink gradient with a white pawn: SVG, ICO and PNG favicons, an Apple touch icon, and a web manifest (192/512 px and a maskable icon, standalone display, theme colour `#7C3AED`). Served from `static/`, with sources in `scratchpad/` (§7.2)                                                                                                                                                                                                                                                                                               |
 | 43  | Skill Level presets              | Six presets on Stockfish `Skill Level` 0–5 (about 1320, 1444, 1566, 1729, 1953 and 2197 Elo, from Stockfish's own Elo↔level formula), Custom `UCI_Elo` 1350–3150, default the weakest. Replaces the human-like opponent (#31), whose mistakes felt unnatural (hanging pieces, aimless openings, unconverted endgames). Nothing plays below ~1320 (§4.6)                                                                                                                                                                                                 |
+| 44  | Game-over overlay                | A modal over the screen when a game ends in play, after a 1 s pause: a big picture, a headline from the player's side (Victory!/Defeat/Draw, or the winner in hot-seat), the reason, New game and View board. The inline result stays. Pictures come from an optional skin `results` block, in the winning side's colours, so Pirate's flag and skull match the crews; resignation gets its own (a white flag) and draws a neutral one. Replaces "no modal" for game over (§4.7.1)                                                                      |

@@ -133,6 +133,14 @@ test("scholar's mate ends the game", async ({ page }) => {
 		await cell(page, to).click();
 	}
 	await expect(page.locator('[data-status]')).toHaveText('Checkmate — White wins');
+
+	// The game-over overlay follows; "View board" closes it (§4.7.1).
+	const over = page.getByRole('dialog', { name: 'White wins!' });
+	await expect(over).toBeVisible();
+	await expect(over).toContainText('Checkmate');
+	await over.getByRole('button', { name: 'View board' }).click();
+	await expect(over).toBeHidden();
+
 	await expect(page.locator('[data-highlight="check"]')).toHaveAttribute('data-square', 'e8');
 	await expect(page.locator('[data-moves] [aria-current]')).toHaveText('Qxf7#');
 	await cell(page, 'e8').click();
@@ -194,6 +202,38 @@ test('resigning takes a second tap and ends the game', async ({ page }) => {
 	await expect(page.locator('[data-status]')).toHaveText('Black resigns — White wins');
 	await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
 	await expect(page.getByRole('button', { name: 'Resign' })).toBeDisabled();
+
+	// The overlay's New game opens the New game drawer.
+	const over = page.getByRole('dialog', { name: 'White wins!' });
+	await expect(over).toContainText('Black resigns');
+	await over.getByRole('button', { name: 'New game' }).click();
+	await expect(over).toBeHidden();
+	await expect(page.getByRole('dialog', { name: 'New game' })).toBeVisible();
+});
+
+test('the game-over overlay closes on Esc, and goes on undo', async ({ page }) => {
+	// Fool's mate.
+	await play(page, ['f2', 'f3'], ['e7', 'e5'], ['g2', 'g4'], ['d8', 'h4']);
+	const over = page.getByRole('dialog', { name: 'Black wins!' });
+	await expect(over).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(over).toBeHidden();
+
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await play(page, ['d8', 'h4']);
+	await expect(over).toBeVisible();
+	await page
+		.getByRole('dialog')
+		.locator('[data-scrim]')
+		.click({ position: { x: 5, y: 5 } });
+	await expect(over).toBeHidden();
+});
+
+test('a stalemate shows a draw', async ({ page }) => {
+	await page.goto('/?mode=hotseat&fen=' + encodeURIComponent('7k/8/6Q1/8/8/8/8/K7 w - - 0 1'));
+	await play(page, ['g6', 'f7']);
+	const over = page.getByRole('dialog', { name: 'Draw' });
+	await expect(over).toContainText('Stalemate');
 });
 
 test('auto-flip turns the board to the side to move', async ({ page }) => {
@@ -399,9 +439,13 @@ test.describe('resuming after a reload (§4.9)', () => {
 		await play(page, ['e2', 'e4']);
 		await page.getByRole('button', { name: 'Resign' }).click();
 		await page.getByRole('button', { name: 'Yes, resign' }).click();
+		await page.getByRole('button', { name: 'View board' }).click();
 		await page.goto('/');
 		await expect(page.locator('[data-status]')).toHaveText('Black resigns — White wins');
 		await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+		// A finished game resumes without the game-over overlay.
+		await page.waitForTimeout(1500);
+		await expect(page.locator('[data-game-over]')).toHaveCount(0);
 	});
 
 	test('starts afresh from a saved game that no longer replays', async ({ page }) => {

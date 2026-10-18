@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { capturesLabel, resultText, sideName, squareLabel, statusText } from './labels.ts';
+import { outcome } from '#lib/game/outcome.ts';
+import {
+	capturesLabel,
+	outcomeTitle,
+	resultText,
+	sideName,
+	squareLabel,
+	statusText
+} from './labels.ts';
 
 describe('labels', () => {
 	it('uses skin side names and falls back to White/Black', () => {
@@ -54,5 +62,19 @@ describe('labels', () => {
 		);
 		expect(capturesLabel('b', [], 0, labels)).toBe('Black captured: nothing');
 		expect(capturesLabel('b', ['n'], -2, labels)).toBe('Black captured: knight');
+	});
+
+	it("heads the game-over overlay from the player's side, or with the winner in hot-seat", () => {
+		const labels = { white: 'Blue Crew' };
+		const mate = { winner: 'w', reason: 'checkmate' } as const;
+		expect(outcomeTitle(outcome(mate, 'w'), labels)).toBe('Victory!');
+		expect(outcomeTitle(outcome(mate, 'b'), labels)).toBe('Defeat');
+		expect(outcomeTitle(outcome({ winner: 'w', reason: 'resignation' }, 'b'), labels)).toBe(
+			'Defeat'
+		);
+		expect(outcomeTitle(outcome(mate, null), labels)).toBe('Blue Crew wins!');
+		expect(outcomeTitle(outcome({ winner: 'draw', reason: 'stalemate' }, null), labels)).toBe(
+			'Draw'
+		);
 	});
 });
