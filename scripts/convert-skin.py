@@ -11,6 +11,8 @@ the hand-maintained manifest in static/skins/<id>/:
                             common baseline)
   indicator-move.png     -> indicator-move.webp
   indicator-capture.png  -> indicator-capture.webp (optional)
+  emotes.png             -> emotes.webp (optional; speech bubbles on white, on an even
+                            grid: background cut out, repacked into square cells)
   font/*.ttf             -> font/*.woff2, font/OFL.txt copied
   audio/music/*.mp3      -> audio/music/*.mp3 (stereo, levelled)
   audio/sfx/*.mp3        -> audio/sfx/<event>.mp3 (mono, trimmed, levelled)
@@ -36,7 +38,7 @@ from pathlib import Path
 import imageio_ffmpeg
 import numpy as np
 from fontTools.ttLib import TTFont
-from PIL import Image
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT / "scratchpad" / "skins"  # source art, not committed
@@ -50,6 +52,9 @@ CELL_PAD = 0.03  # padding around the largest sprite, fraction of the cell
 BASE_FRACTION = 0.15  # bottom part of a sprite treated as its base when centring
 GRID_SEARCH = 0.18  # how far from the even grid to look for a drawn line, fraction of a square
 INDICATOR_PX = 320
+EMOTE_PX = 256  # output size of one speech-bubble cell
+EMOTE_WHITE = 232  # every channel at least this counts as the white background around emotes
+EMOTE_INK = 40  # luminance of the outline the background is un-blended against
 WEBP_QUALITY = 88
 
 CLIP_RATE = 44100  # SFX and voices: mono MP3 at CLIP_BITRATE
@@ -64,7 +69,7 @@ TAIL = 0.10  # and after its last, for decay
 FADE_IN = 0.005
 FADE_OUT = 0.04
 SFX_EVENTS = {"game-start": "start", "castling": "castle", "illegal-move": "illegal", "stalemate": "draw"}
-SFX_KNOWN = {"start", "select", "move", "capture", "castle", "promotion", "check", "checkmate", "draw", "illegal"}
+SFX_KNOWN = {"start", "select", "move", "capture", "castle", "promotion", "check", "checkmate", "draw", "illegal", "click"}
 SIDES = {"white": "w", "black": "b"}
 PIECES = {"king": "k", "queen": "q", "bishop": "b", "knight": "n", "rook": "r", "pawn": "p"}
 VOICE_FILE = re.compile(r"(white|black)-(king|queen|bishop|knight|rook|pawn)-(move|capture|captured|check|defeat|taunt)(-alt)?\.mp3")
@@ -211,6 +216,54 @@ def normalise_sheet(path, columns, rows):
             x = c * CELL_PX + round(CELL_PX / 2 - centres[r][c] * scale)
             y = (r + 1) * CELL_PX - pad - h  # common baseline
             out.alpha_composite(scaled, (x, y))
+    return out
+
+
+def cut_out(im):
+    """An image drawn on a white background, with the background made transparent: the near-white
+    area connected to the edges goes, and the anti-aliased rim around it is un-blended from white
+    so it doesn't leave a pale halo."""
+    rgb = np.asarray(im.convert("RGB"), dtype=np.float32)
+    light = Image.fromarray(((rgb.min(axis=2) >= EMOTE_WHITE) * 255).astype(np.uint8))
+    framed = Image.new("L", (light.width + 2, light.height + 2), 255)  # one fill reaches every edge
+    framed.paste(light, (1, 1))
+    ImageDraw.floodfill(framed, (0, 0), 128, thresh=0)
+    background = np.asarray(framed)[1:-1, 1:-1] == 128
+    near = Image.fromarray((background * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(5))
+    rim = (np.asarray(near) > 0) & ~background
+
+    alpha = np.ones(background.shape, np.float32)
+    alpha[background] = 0
+    lum = rgb.mean(axis=2)
+    alpha[rim] = np.clip((255 - lum[rim]) / (255 - EMOTE_INK), 0, 1)
+    a = np.maximum(alpha[..., None], 1e-3)
+    colour = np.where(rim[..., None], (rgb - 255 * (1 - a)) / a, rgb)
+    out = np.dstack([np.clip(colour, 0, 255), alpha * 255]).round().astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
+
+
+def emote_sheet(path, columns, rows):
+    """Speech bubbles on an even grid, cut out and repacked into cells of EMOTE_PX at one
+    shared scale, each centred in its cell."""
+    sheet = cut_out(Image.open(path))
+    cw, ch = sheet.width / columns, sheet.height / rows
+    sprites = []
+    for r in range(rows):
+        for c in range(columns):
+            cell = sheet.crop((round(c * cw), round(r * ch), round((c + 1) * cw), round((r + 1) * ch)))
+            # Only the bubble around the cell's centre: neighbours' edges can cross the grid lines.
+            mask = cell.getchannel("A").point(lambda v: 255 if v > 0 else 0)
+            ImageDraw.floodfill(mask, (cell.width // 2, cell.height // 2), 128, thresh=0)
+            own = mask.point(lambda v: 255 if v == 128 else 0)
+            cell.putalpha(ImageChops.multiply(cell.getchannel("A"), own))
+            sprites.append(cell.crop(own.getbbox()))
+    scale = EMOTE_PX * (1 - 2 * CELL_PAD) / max(max(s.size) for s in sprites)
+    out = Image.new("RGBA", (EMOTE_PX * columns, EMOTE_PX * rows), (0, 0, 0, 0))
+    for i, sprite in enumerate(sprites):
+        w, h = round(sprite.width * scale), round(sprite.height * scale)
+        x = (i % columns) * EMOTE_PX + (EMOTE_PX - w) // 2
+        y = (i // columns) * EMOTE_PX + (EMOTE_PX - h) // 2
+        out.alpha_composite(resize_rgba(sprite, (w, h)), (x, y))
     return out
 
 
@@ -383,7 +436,7 @@ def convert(skin_id, parts):
     out.mkdir(parents=True, exist_ok=True)
 
     # The served manifest is hand-edited and never written by this script;
-    # only the sheet grid size and board inset are read from it.
+    # only the sheet grid sizes and board inset are read from it.
     manifest_path = out / "skin.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     pieces = manifest.get("pieces", {})
@@ -391,7 +444,7 @@ def convert(skin_id, parts):
 
     print(f"{skin_id}:")
     if "images" in parts:
-        convert_images(src, out, pieces, inset)
+        convert_images(src, out, pieces, inset, manifest.get("emotes", {}))
     if "fonts" in parts:
         convert_fonts(src, out)
     block = convert_audio(src / "audio", out) if "audio" in parts and (src / "audio").is_dir() else None
@@ -407,7 +460,7 @@ def convert(skin_id, parts):
         print(text)
 
 
-def convert_images(src, out, pieces, inset):
+def convert_images(src, out, pieces, inset, emotes):
     board = Image.open(src / "board.png").convert("RGB")
     if any(inset.get(side, 0) > 0 for side in ("top", "right", "bottom", "left")):
         board = fit_grid(board, inset)
@@ -420,6 +473,9 @@ def convert_images(src, out, pieces, inset):
         if (src / f"{name}.png").exists():
             im = Image.open(src / f"{name}.png").convert("RGBA")
             save_webp(resize_rgba(im, (INDICATOR_PX, INDICATOR_PX)), out / f"{name}.webp")
+
+    if (src / "emotes.png").exists():
+        save_webp(emote_sheet(src / "emotes.png", emotes.get("columns", 4), emotes.get("rows", 2)), out / "emotes.webp")
 
 
 def convert_fonts(src, out):

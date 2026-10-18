@@ -80,6 +80,16 @@ describe('persistence (§4.9)', () => {
 		expect(loadSettings().sound).toEqual({ music: 0, sfx: 0.8, voices: 1 });
 	});
 
+	it('keeps the volumes to unmute to above 0', () => {
+		const storage = memoryStorage();
+		vi.stubGlobal('localStorage', storage);
+		storage.setItem(
+			'chess:settings:v1',
+			JSON.stringify({ unmuted: { music: 0.25, sfx: 0, voices: 2 } })
+		);
+		expect(loadSettings().unmuted).toEqual({ music: 0.25, sfx: 0.8, voices: 1 });
+	});
+
 	it('drops a malformed game', () => {
 		const storage = memoryStorage();
 		vi.stubGlobal('localStorage', storage);

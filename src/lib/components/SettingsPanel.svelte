@@ -4,6 +4,7 @@
 	import type { SkinId, SkinInfo } from '#lib/skins/index.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
 	import DifficultyPicker from './DifficultyPicker.svelte';
+	import Icon from './Icon.svelte';
 	import { option } from './options.ts';
 
 	interface Props {
@@ -20,7 +21,9 @@
 		labels: Labels;
 		/** Volume per sound category, 0–1 (§4.11). */
 		sound: Volumes;
-		/** The categories the skin has sounds for; each gets a slider. */
+		/** The volume each category goes back to when unmuted (its last above 0). */
+		unmuted: Volumes;
+		/** The categories the skin has sounds for; each gets a slider and a mute toggle. */
 		soundCategories: Category[];
 	}
 
@@ -35,6 +38,7 @@
 		difficulty = $bindable(),
 		labels,
 		sound = $bindable(),
+		unmuted = $bindable(),
 		soundCategories
 	}: Props = $props();
 
@@ -44,6 +48,11 @@
 		sfx: 'Effects',
 		voices: 'Voices'
 	};
+
+	function setVolume(category: Category, volume: number) {
+		sound = { ...sound, [category]: volume };
+		if (volume > 0) unmuted = { ...unmuted, [category]: volume };
+	}
 </script>
 
 <!-- Settings apply as they change: skin (when there is a choice), guidance, coordinates, auto-flip,
@@ -89,22 +98,38 @@
 		<fieldset class="flex flex-col gap-1">
 			<legend class="mb-1 text-sm text-muted">Sound</legend>
 			{#each soundCategories as category (category)}
-				<label class="flex items-center gap-3">
-					<span class="w-16 shrink-0">{SOUND_NAMES[category]}</span>
+				{@const muted = sound[category] === 0}
+				<div class="flex items-center gap-3">
+					<label class="w-16 shrink-0" for="volume-{category}">{SOUND_NAMES[category]}</label>
+					<!-- Muting sets the volume to 0; unmuting brings back the last level above 0. -->
+					<label
+						class="-m-1 flex cursor-pointer rounded p-1 text-accent has-checked:text-muted has-focus-visible:outline-2 has-focus-visible:outline-accent"
+					>
+						<input
+							class="sr-only"
+							type="checkbox"
+							aria-label="Mute {SOUND_NAMES[category]}"
+							checked={muted}
+							onchange={(e) => setVolume(category, e.currentTarget.checked ? 0 : unmuted[category])}
+							data-mute={category}
+						/>
+						<Icon name={muted ? 'muted' : 'sound'} />
+					</label>
 					<input
+						id="volume-{category}"
 						class="min-w-0 flex-1 accent-(--accent)"
 						type="range"
 						min="0"
 						max="100"
 						step="5"
 						value={Math.round(sound[category] * 100)}
-						oninput={(e) => (sound = { ...sound, [category]: e.currentTarget.valueAsNumber / 100 })}
+						oninput={(e) => setVolume(category, e.currentTarget.valueAsNumber / 100)}
 						data-volume={category}
 					/>
-					<output class="w-12 text-right tabular-nums">
-						{sound[category] === 0 ? 'Off' : `${Math.round(sound[category] * 100)}%`}
+					<output class="w-12 text-right tabular-nums" for="volume-{category}">
+						{muted ? 'Off' : `${Math.round(sound[category] * 100)}%`}
 					</output>
-				</label>
+				</div>
 			{/each}
 		</fieldset>
 	{/if}

@@ -16,6 +16,7 @@
 	import Indicators from './Indicators.svelte';
 	import Piece from './Piece.svelte';
 	import PromotionPicker from './PromotionPicker.svelte';
+	import SpeechBubble from './SpeechBubble.svelte';
 	import Sprite from './Sprite.svelte';
 
 	interface Props {
@@ -32,6 +33,8 @@
 		onselect?: () => void;
 		/** A dragged piece was dropped where it can't go and slides back. */
 		onillegal?: () => void;
+		/** A speech bubble over the piece that is speaking (§4.11). */
+		bubble?: { square: Square; emote: number } | null;
 	}
 
 	let {
@@ -43,7 +46,8 @@
 		locked = false,
 		canMove = () => true,
 		onselect,
-		onillegal
+		onillegal,
+		bubble = null
 	}: Props = $props();
 
 	// Gutter labels are sized relative to the gutter strip they sit in.
@@ -277,7 +281,7 @@
 		style:background-image="url({JSON.stringify(skin.urls.board)})"
 	>
 		<!-- Layers bottom to top (§5.4): highlights, pieces, indicators, squares (input),
-		     dragged piece, promotion picker. -->
+		     speech bubble, dragged piece, promotion picker. -->
 		<!-- Pointer input is handled here; the square buttons give keyboard access. -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
@@ -332,6 +336,12 @@
 					onkeydown={(e) => navigate(e, square)}
 				></button>
 			{/each}
+
+			{#if bubble && manifest.emotes && skin.urls.emotes}
+				{#key bubble}
+					<SpeechBubble {...bubble} emotes={manifest.emotes} url={skin.urls.emotes} {orientation} />
+				{/key}
+			{/if}
 
 			{#if drag?.active}
 				{@const piece = game.pieces.find((p) => p.id === drag?.id)}

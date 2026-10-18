@@ -11,6 +11,7 @@ export interface LoadedSkin {
 		pieces: string;
 		moveIndicator: string;
 		captureIndicator: string | null;
+		emotes: string | null;
 	};
 }
 
@@ -53,11 +54,16 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Lo
 			board: url(manifest.board.image),
 			pieces: url(manifest.pieces.image),
 			moveIndicator: url(manifest.moveIndicator.image),
-			captureIndicator: manifest.captureIndicator && url(manifest.captureIndicator.image)
+			captureIndicator: manifest.captureIndicator && url(manifest.captureIndicator.image),
+			emotes: manifest.emotes && url(manifest.emotes.image)
 		}
 	};
 
-	const images = Object.values(skin.urls).filter((u) => u !== null);
+	// Speech bubbles are only needed once someone speaks, so they load without holding up the skin.
+	if (skin.urls.emotes) void preloadImage(skin.urls.emotes).catch(() => {});
+	const images = Object.values(skin.urls).filter(
+		(u): u is string => u !== null && u !== skin.urls.emotes
+	);
 	const fonts = manifest.font.css
 		? [loadFontCss(manifest.font.family, manifest.font.css)]
 		: manifest.font.files.map((f) =>

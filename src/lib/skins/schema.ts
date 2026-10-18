@@ -55,7 +55,8 @@ export type SfxName =
 	| 'check'
 	| 'checkmate'
 	| 'draw'
-	| 'illegal';
+	| 'illegal'
+	| 'click';
 export const SFX_NAMES: readonly SfxName[] = [
 	'start',
 	'select',
@@ -66,7 +67,8 @@ export const SFX_NAMES: readonly SfxName[] = [
 	'check',
 	'checkmate',
 	'draw',
-	'illegal'
+	'illegal',
+	'click'
 ];
 
 /** What a piece's voice line is about (§4.11). */
@@ -92,6 +94,22 @@ export interface SkinAudio {
 	sfx: Partial<Record<SfxName, string>>;
 	voices: Voices;
 }
+
+/**
+ * Speech bubbles shown over a piece while it speaks (§4.11): a sprite sheet, and for each voice
+ * event the cells (numbered across, then down) to choose from. An event left out has no bubble.
+ */
+export interface Emotes {
+	image: string;
+	columns: number;
+	rows: number;
+	/** A bubble's width, in squares. */
+	scale: number;
+	events: Partial<Record<BubbleEvent, number[]>>;
+}
+
+/** The events whose speaker is on the board, so can have a bubble. */
+export type BubbleEvent = Exclude<VoiceEvent, 'captured'>;
 
 export interface Labels {
 	white?: string;
@@ -139,6 +157,8 @@ export interface SkinManifest {
 	labels: Labels;
 	/** Null for a silent skin. */
 	audio: SkinAudio | null;
+	/** Null for no speech bubbles. */
+	emotes: Emotes | null;
 }
 
 export const DEFAULTS = {
@@ -425,6 +445,33 @@ export function validateSkin(raw: unknown): ValidationResult {
 		}
 	}
 
+	// emotes (optional): speech bubbles for voice lines
+	const emotesRaw = optObj(root.emotes, 'emotes');
+	let emotes: Emotes | null = null;
+	if (emotesRaw) {
+		const columns = int(emotesRaw.columns, 'emotes.columns', 1, 16);
+		const rows = int(emotesRaw.rows, 'emotes.rows', 1, 16);
+		const events = obj(emotesRaw.events, 'emotes.events') ?? {};
+		emotes = {
+			image: file(emotesRaw.image, 'emotes.image'),
+			columns,
+			rows,
+			scale: num(emotesRaw.scale, 'emotes.scale', 0.25, 2, 1),
+			events: {}
+		};
+		for (const [event, cells] of Object.entries(events)) {
+			const path = `emotes.events.${event}`;
+			if (event === 'captured') err(path, 'a captured piece has left the board, so has no bubble');
+			else if (!VOICE_EVENTS.includes(event as VoiceEvent)) err(path, 'unknown event');
+			else if (!Array.isArray(cells) || cells.length === 0)
+				err(path, 'expected a non-empty array of cell numbers');
+			else
+				emotes.events[event as BubbleEvent] = cells.map((c, i) =>
+					int(c, `${path}[${i}]`, 0, columns * rows - 1)
+				);
+		}
+	}
+
 	if (errors.length > 0) return { ok: false, errors };
 	return {
 		ok: true,
@@ -441,7 +488,8 @@ export function validateSkin(raw: unknown): ValidationResult {
 			coordinates,
 			theme,
 			labels,
-			audio
+			audio,
+			emotes
 		}
 	};
 }

@@ -23,6 +23,7 @@ function setup(vsComputer: boolean, skins = BOTH, soundCategories: Category[] = 
 		difficulty: { kind: 'preset', id: 'p2' } as Difficulty,
 		labels: { difficulty: { p3: 'First Mate' } },
 		sound: { music: 0.5, sfx: 0.8, voices: 1 },
+		unmuted: { music: 0.5, sfx: 0.8, voices: 1 },
 		soundCategories
 	};
 	render(SettingsPanel, props);
@@ -67,6 +68,29 @@ describe('SettingsPanel', () => {
 		music.value = '0';
 		music.dispatchEvent(new Event('input', { bubbles: true }));
 		await expect.element(page.getByText('Off')).toBeInTheDocument();
+	});
+
+	it('mutes a category, and unmuting brings back its last level above 0', async () => {
+		setup(false, BOTH, ['music']);
+		const slider = page.getByRole('slider', { name: 'Music' });
+		const mute = page.getByRole('checkbox', { name: 'Mute Music' });
+		const music = slider.element() as HTMLInputElement;
+		music.value = '30';
+		music.dispatchEvent(new Event('input', { bubbles: true }));
+		await expect.element(mute).not.toBeChecked();
+
+		await mute.click();
+		await expect.element(slider).toHaveValue('0');
+		await expect.element(page.getByText('Off')).toBeInTheDocument();
+		await mute.click();
+		await expect.element(slider).toHaveValue('30');
+
+		// Turned down to 0 by the slider, it shows as muted, and unmuting still brings back 30%.
+		music.value = '0';
+		music.dispatchEvent(new Event('input', { bubbles: true }));
+		await expect.element(mute).toBeChecked();
+		await mute.click();
+		await expect.element(slider).toHaveValue('30');
 	});
 
 	it('has no sound settings for a silent skin', async () => {

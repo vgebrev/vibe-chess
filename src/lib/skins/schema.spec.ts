@@ -183,6 +183,7 @@ describe('validateSkin: audio (§4.11)', () => {
 			'castle',
 			'check',
 			'checkmate',
+			'click',
 			'draw',
 			'illegal',
 			'move',
@@ -228,6 +229,44 @@ describe('validateSkin: audio (§4.11)', () => {
 			'audio.voices.w.x: unknown piece type',
 			'audio.voices.w.k.shout: unknown event',
 			'audio.voices.w.k.move: expected a non-empty array of paths'
+		]);
+	});
+});
+
+describe('validateSkin emotes (§4.11)', () => {
+	const emotesOf = (raw: unknown) => {
+		const result = validateSkin(raw);
+		if (!result.ok) throw new Error(result.errors.join('\n'));
+		return result.skin.emotes;
+	};
+
+	it("reads Pirate's speech bubbles", () => {
+		expect(emotesOf(read('static/skins/pirate/skin.json'))).toEqual({
+			image: 'emotes.webp',
+			columns: 4,
+			rows: 2,
+			scale: 1.3,
+			events: { taunt: [0, 1, 2, 6] }
+		});
+	});
+
+	it('is null without bubbles, and reports bad events and cells', () => {
+		expect(emotesOf(fixture())).toBeNull();
+		expect(
+			errorsOf({
+				...fixture(),
+				emotes: {
+					image: 'e.webp',
+					columns: 2,
+					rows: 1,
+					events: { captured: [0], shout: [0], move: [], taunt: [1, 2] }
+				}
+			})
+		).toEqual([
+			'emotes.events.captured: a captured piece has left the board, so has no bubble',
+			'emotes.events.shout: unknown event',
+			'emotes.events.move: expected a non-empty array of cell numbers',
+			'emotes.events.taunt[1]: expected an integer in [0, 1]'
 		]);
 	});
 });

@@ -39,6 +39,8 @@ export interface Settings {
 	lastDifficulty: Difficulty;
 	/** Volume per sound category, 0 (off) to 1 (§4.11). */
 	sound: Volumes;
+	/** The volume each category goes back to when unmuted: its last above 0. */
+	unmuted: Volumes;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -48,7 +50,8 @@ export const DEFAULT_SETTINGS: Settings = {
 	autoFlip: false,
 	lastDifficulty: DEFAULT_DIFFICULTY,
 	// The music sits under the game; voices are the loudest (§4.11).
-	sound: { music: 0.5, sfx: 0.8, voices: 1 }
+	sound: { music: 0.5, sfx: 0.8, voices: 1 },
+	unmuted: { music: 0.5, sfx: 0.8, voices: 1 }
 };
 
 function storage(): Storage | null {
@@ -145,16 +148,17 @@ export function parseSettings(v: unknown): Settings {
 		showCoordinates: bool('showCoordinates'),
 		autoFlip: bool('autoFlip'),
 		lastDifficulty: parseDifficulty(s.lastDifficulty) ?? DEFAULT_SETTINGS.lastDifficulty,
-		sound: parseVolumes(s.sound)
+		sound: parseVolumes(s.sound, 0, DEFAULT_SETTINGS.sound),
+		unmuted: parseVolumes(s.unmuted, Number.MIN_VALUE, DEFAULT_SETTINGS.unmuted)
 	};
 }
 
-/** Each volume on its own: a bad one falls back to its default. */
-function parseVolumes(v: unknown): Volumes {
+/** Each volume on its own: one outside [min, 1] falls back to its default. */
+function parseVolumes(v: unknown, min: number, defaults: Volumes): Volumes {
 	const o = isObj(v) ? v : {};
 	const volume = (key: keyof Volumes) => {
 		const x = o[key];
-		return typeof x === 'number' && x >= 0 && x <= 1 ? x : DEFAULT_SETTINGS.sound[key];
+		return typeof x === 'number' && x >= min && x <= 1 ? x : defaults[key];
 	};
 	return { music: volume('music'), sfx: volume('sfx'), voices: volume('voices') };
 }

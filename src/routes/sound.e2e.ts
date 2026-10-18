@@ -6,6 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 declare global {
 	interface Window {
 		played: string[];
+		stopped: string[];
 		music: string[];
 	}
 }
@@ -14,6 +15,7 @@ test.beforeEach(async ({ page }) => {
 	await page.addInitScript(() => {
 		Math.random = () => 0; // every chance hits, and the first variation is chosen
 		window.played = [];
+		window.stopped = [];
 		window.music = [];
 		const source = new WeakMap<object, string>();
 		const short = (url: string) => url.replace(/^.*\/skins\/[^/]+\/audio\//, '');
@@ -40,6 +42,11 @@ test.beforeEach(async ({ page }) => {
 		AudioBufferSourceNode.prototype.start = function (...args) {
 			if (this.buffer) window.played.push(source.get(this.buffer) ?? '?');
 			return start.apply(this, args);
+		};
+		const stop = AudioBufferSourceNode.prototype.stop;
+		AudioBufferSourceNode.prototype.stop = function (...args) {
+			if (this.buffer) window.stopped.push(source.get(this.buffer) ?? '?');
+			return stop.apply(this, args);
 		};
 		const play = HTMLMediaElement.prototype.play;
 		HTMLMediaElement.prototype.play = function () {
@@ -68,7 +75,17 @@ test('a move plays its sound and a line from the piece that moved', async ({ pag
 		.toEqual(['sfx/select.mp3', 'sfx/move.mp3', 'voices/w-pawn-move-1.mp3']);
 });
 
-test("a capture is followed by the captured piece's answer", async ({ page }) => {
+test('lines overlap rather than cut each other off', async ({ page }) => {
+	await cell(page, 'e2').click();
+	await cell(page, 'e4').click();
+	await expect.poll(() => played(page)).toContain('voices/w-pawn-move-1.mp3');
+	await cell(page, 'e7').click();
+	await cell(page, 'e5').click();
+	await expect.poll(() => played(page)).toContain('voices/b-pawn-move-1.mp3');
+	expect(await page.evaluate(() => window.stopped)).toEqual([]);
+});
+
+test('a capture is voiced by the capturing piece alone', async ({ page }) => {
 	await page.goto(
 		'/?mode=hotseat&fen=rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2'
 	);
@@ -76,12 +93,7 @@ test("a capture is followed by the captured piece's answer", async ({ page }) =>
 	await cell(page, 'd5').click();
 	await expect
 		.poll(() => played(page))
-		.toEqual([
-			'sfx/select.mp3',
-			'sfx/capture.mp3',
-			'voices/w-pawn-capture-1.mp3',
-			'voices/b-pawn-captured-1.mp3'
-		]);
+		.toEqual(['sfx/select.mp3', 'sfx/capture.mp3', 'voices/w-pawn-capture-1.mp3']);
 });
 
 test('check is answered by the king in check', async ({ page }) => {
@@ -116,4 +128,45 @@ test('volumes are set in Settings and kept, and 0 silences a category', async ({
 	const again = await settings(page);
 	await expect(again.getByRole('slider', { name: 'Voices' })).toHaveValue('0');
 	await expect(again.getByRole('slider', { name: 'Effects' })).toHaveValue('80');
+});
+
+test('a mute toggle silences a category and brings its level back', async ({ page }) => {
+	const drawer = await settings(page);
+	const slider = drawer.getByRole('slider', { name: 'Effects' });
+	await slider.fill('40');
+	// The checkbox is hidden behind its icon, so the click lands on the label around them.
+	const mute = drawer.getByRole('checkbox', { name: 'Mute Effects' });
+	await drawer.locator('label:has([data-mute="sfx"])').click();
+	await expect(mute).toBeChecked();
+	await expect(slider).toHaveValue('0');
+	await page.reload();
+	const again = await settings(page);
+	const unmute = again.getByRole('checkbox', { name: 'Mute Effects' });
+	await expect(unmute).toBeChecked();
+	await again.locator('label:has([data-mute="sfx"])').click();
+	await expect(again.getByRole('slider', { name: 'Effects' })).toHaveValue('40');
+});
+
+test("a taunt shows a speech bubble over the computer's piece while it is said", async ({
+	page
+}) => {
+	// The computer has White, so it moves first, and with every chance hitting it taunts.
+	await page.goto('/?mode=computer&color=b');
+	await page.locator('[data-cell="e7"]').click(); // unlocks audio, so the line can play
+	const bubble = page.locator('[data-bubble]');
+	await expect(bubble).toBeVisible({ timeout: 8000 });
+	expect(await played(page)).toContainEqual(expect.stringMatching(/^voices\/w-\w+-taunt-\d\.mp3$/));
+	const square = await bubble.getAttribute('data-bubble');
+	await expect(page.locator(`[data-square="${square}"]`)).toHaveAttribute('data-piece', /^w/);
+	await expect(bubble).toBeHidden({ timeout: 8000 });
+});
+
+test('UI controls click, and the board and sliders do not', async ({ page }) => {
+	await cell(page, 'e2').click(); // the board: its own select sound
+	const drawer = await settings(page); // a button
+	await drawer.getByRole('slider', { name: 'Music' }).fill('20');
+	await drawer.locator('label:has([data-mute="sfx"])').click(); // a label and its checkbox: once
+	await expect
+		.poll(() => played(page))
+		.toEqual(['sfx/select.mp3', 'sfx/click.mp3', 'sfx/click.mp3']);
 });

@@ -1,22 +1,53 @@
 // The game's sound (§4.11): turns game events into SFX and voice lines from the active skin,
 // and keeps the mixer's volumes, playlist and unlock in step with the page.
-import type { Color, Move } from 'chess.js';
+import type { Color, Move, Square } from 'chess.js';
 import type { LoadedSkin } from '#lib/skins/loader.ts';
-import type { SfxName, SkinAudio } from '#lib/skins/schema.ts';
-import { Mixer, type Category, type Volumes } from './mixer.ts';
+import type { BubbleEvent, Emotes, SfxName, SkinAudio } from '#lib/skins/schema.ts';
+import { Mixer, type Category, type Timing, type Volumes } from './mixer.ts';
 import { moveSfx } from './sfx.ts';
-import { pickVariation, VoiceDirector, type Line, type MoveContext } from './voices.ts';
+import { pickVariation, pieceOn, VoiceDirector, type Line, type MoveContext } from './voices.ts';
 
 export type { Volumes };
+
+/** A speech bubble over the piece that is speaking: a cell of the skin's emote sheet. */
+export interface Bubble {
+	square: Square;
+	emote: number;
+}
+
+/**
+ * Whether a click was on a UI control (by pointer or keyboard), which gets the `click` sound:
+ * buttons, links and option chips and toggles, but not the board (its moves have their own
+ * sounds) or sliders.
+ */
+function isControl(target: EventTarget | null): boolean {
+	if (!(target instanceof Element) || target.closest('[data-skin]')) return false;
+	const control = target.closest('button, a[href], summary, label, input');
+	if (!control) return false;
+	const input = control instanceof HTMLLabelElement ? control.control : control;
+	return !(input instanceof HTMLInputElement && input.type === 'range');
+}
+
+/** A bubble stays up this long after its line ends, in ms. */
+const BUBBLE_LINGER_MS = 300;
 
 export class Sound {
 	#mixer = new Mixer();
 	#audio: SkinAudio | null = null;
+	#emotes: Emotes | null = null;
+	/** Shows or hides the speech bubble. */
+	readonly onbubble: (bubble: Bubble | null) => void;
+	#shown: Bubble | null = null;
+	#bubbleTimers: ReturnType<typeof setTimeout>[] = [];
 	#base = '';
 	#volumes: Volumes = { music: 0, sfx: 0, voices: 0 };
 	/** The variation played last per pool, so a line doesn't repeat straight away. */
 	#lastVariation: Record<string, number> = {};
 	#director = new VoiceDirector((line) => this.#pool(line).length > 0);
+
+	constructor(onbubble: (bubble: Bubble | null) => void = () => {}) {
+		this.onbubble = onbubble;
+	}
 
 	/** Which categories the skin has sounds for (Settings shows a slider for each, §4.11). */
 	static categories(audio: SkinAudio | null): Category[] {
@@ -31,8 +62,9 @@ export class Sound {
 
 	/** Use a skin's sounds: whatever is playing stops, and the new music starts. */
 	setSkin(skin: LoadedSkin) {
-		this.#mixer.stopVoices();
+		this.#hush();
 		this.#audio = skin.manifest.audio;
+		this.#emotes = skin.manifest.emotes;
 		this.#base = skin.baseUrl;
 		this.#lastVariation = {};
 		this.#mixer.setMusic(this.#audio?.music.map((p) => this.#url(p)) ?? null);
@@ -42,6 +74,7 @@ export class Sound {
 	setVolumes(volumes: Volumes) {
 		for (const category of ['music', 'sfx', 'voices'] as const)
 			this.#mixer.setVolume(category, volumes[category]);
+		if (volumes.voices === 0) this.#hush();
 		this.#volumes = { ...volumes };
 		this.#prefetch();
 	}
@@ -58,41 +91,57 @@ export class Sound {
 			if (first) this.#prefetch();
 		};
 		const visibility = () => this.#mixer.setHidden(document.hidden);
+		// A label's click also clicks its input, in the same task: one sound for the two.
+		let clicked = false;
+		const click = (e: MouseEvent) => {
+			if (clicked || !isControl(e.target)) return;
+			clicked = true;
+			setTimeout(() => (clicked = false));
+			this.#sfx('click');
+		};
 		const options = { capture: true, passive: true };
 		window.addEventListener('pointerdown', unlock, options);
 		window.addEventListener('keydown', unlock, options);
+		window.addEventListener('click', click, options);
 		document.addEventListener('visibilitychange', visibility);
 		visibility();
 		return () => {
 			window.removeEventListener('pointerdown', unlock, options);
 			window.removeEventListener('keydown', unlock, options);
+			window.removeEventListener('click', click, options);
 			document.removeEventListener('visibilitychange', visibility);
-			this.#mixer.stopVoices();
+			this.#hush();
 			this.#mixer.setMusic(null);
 		};
 	}
 
-	/** A move was played: its SFX, and perhaps a voice line (or a capture and its answer). */
+	/**
+	 * A move was played: its SFX, and perhaps a voice line. A line still being said plays on; its
+	 * bubble goes if its speaker moved or was taken.
+	 */
 	move(move: Move, context: MoveContext) {
+		const shown = this.#shown?.square;
+		if (shown && pieceOn(move.before, shown) !== pieceOn(move.after, shown)) this.#hideBubble();
 		this.#sfx(moveSfx(move, context.result));
-		if (this.#volumes.voices === 0) return; // a muted line shouldn't start the cooldown
+		if (this.#volumes.voices === 0) return; // a muted taunt shouldn't start its wait
 		const lines = this.#director.move(move, context);
 		if (lines.length > 0) this.#say(lines);
 	}
 
-	/** A side resigned: the game-end SFX and that side's king conceding. */
-	resign(side: Color) {
+	/** A side resigned: the game-end SFX and that side's king (on `square`) conceding. */
+	resign(side: Color, square?: Square) {
+		this.#hideBubble();
 		this.#sfx('checkmate');
-		if (this.#volumes.voices > 0) this.#say(this.#director.resign(side));
+		if (this.#volumes.voices > 0) this.#say(this.#director.resign(side, square));
 	}
 
 	undo() {
-		this.#mixer.stopVoices();
+		this.#hush();
 		this.#sfx('move');
 	}
 
 	newGame() {
-		this.#mixer.stopVoices();
+		this.#hush();
 		this.#sfx('start');
 	}
 
@@ -109,15 +158,49 @@ export class Sound {
 		if (path) void this.#mixer.playSfx(this.#url(path));
 	}
 
-	#say(lines: Line[]) {
+	async #say(lines: Line[]) {
 		const urls = lines.map((line) => {
 			const pool = this.#pool(line);
-			const key = `${line.side}${line.piece}-${line.event}`;
-			const i = pickVariation(pool.length, this.#lastVariation[key], Math.random);
-			this.#lastVariation[key] = i;
-			return this.#url(pool[i]);
+			return this.#url(pool[this.#vary(`${line.side}${line.piece}-${line.event}`, pool.length)]);
 		});
-		void this.#mixer.playVoices(urls);
+		const timings = await this.#mixer.playVoices(urls);
+		timings.forEach((timing, i) => this.#bubble(lines[i], timing));
+	}
+
+	/** A variation for a pool of `size`, not the one it gave last time if there is a choice. */
+	#vary(key: string, size: number): number {
+		const i = pickVariation(size, this.#lastVariation[key], Math.random);
+		this.#lastVariation[key] = i;
+		return i;
+	}
+
+	/** Show a bubble over a line's speaker while it is said, if the skin has one for it. */
+	#bubble({ square, event }: Line, { start, duration }: Timing) {
+		const cells = this.#emotes?.events[event as BubbleEvent];
+		if (!square || !cells) return;
+		const bubble: Bubble = { square, emote: cells[this.#vary(`emote-${event}`, cells.length)] };
+		const at = (seconds: number, then: () => void) =>
+			this.#bubbleTimers.push(setTimeout(then, seconds * 1000));
+		at(start, () => this.onbubble((this.#shown = bubble)));
+		// Unless the next line's bubble has taken its place.
+		at(start + duration + BUBBLE_LINGER_MS / 1000, () => {
+			if (this.#shown !== bubble) return;
+			this.#shown = null;
+			this.onbubble(null);
+		});
+	}
+
+	#hideBubble() {
+		this.#bubbleTimers.forEach(clearTimeout);
+		this.#bubbleTimers = [];
+		this.#shown = null;
+		this.onbubble(null);
+	}
+
+	/** Stop speaking, bubble and all. */
+	#hush() {
+		this.#mixer.stopVoices();
+		this.#hideBubble();
 	}
 
 	#pool({ side, piece, event }: Line): string[] {

@@ -13,7 +13,7 @@ const RAMP = 0.015;
 const DUCK = 0.5;
 /** Pause between a capture line and its answer, in seconds. */
 const ANSWER_GAP = 0.15;
-/** A voice cut off by a newer one fades over this long, in seconds. */
+/** A voice cut off (undo, a new game, …) fades over this long, in seconds. */
 const VOICE_FADE = 0.08;
 /** A sound still loading after this long (ms) is dropped rather than played late. */
 const MAX_LATE_MS = { sfx: 250, voices: 1000 }; // a line is commentary, so it can wait a little
@@ -24,6 +24,12 @@ const MUSIC_PAUSE_MS = 300;
 
 /** Slider position to gain: squared, so the slider feels even to the ear. */
 const gainOf = (volume: number) => volume * volume;
+
+/** When a line plays, in seconds from when it was asked for. */
+export interface Timing {
+	start: number;
+	duration: number;
+}
 
 interface Utterance {
 	sources: AudioBufferSourceNode[];
@@ -41,7 +47,8 @@ export class Mixer {
 	#queue = new Set<string>();
 	#fetching = 0;
 	#buffers = new Map<string, Promise<AudioBuffer | null>>();
-	#voice: Utterance | null = null;
+	/** The lines being said: they overlap rather than cut each other off. */
+	#voices = new Set<Utterance>();
 	#voiceSeq = 0;
 	#music: HTMLAudioElement | null = null;
 	#playlist: Playlist | null = null;
@@ -123,46 +130,51 @@ export class Mixer {
 	}
 
 	/**
-	 * Say these lines in order, cutting off whatever is being said. The music dips while
-	 * they play.
+	 * Say these lines in order, over whatever is already being said (which plays on to its end).
+	 * The music dips while any line plays. Resolves to when each line that plays starts and how long it lasts, in seconds
+	 * from now (fewer than asked, or none, if some can't play).
 	 */
-	async playVoices(urls: string[]) {
-		const seq = ++this.#voiceSeq;
-		this.stopVoices();
-		if (!this.#ctx || this.#volumes.voices === 0 || urls.length === 0) return;
+	async playVoices(urls: string[]): Promise<Timing[]> {
+		const seq = this.#voiceSeq;
+		if (!this.#ctx || this.#volumes.voices === 0 || urls.length === 0) return [];
 		const asked = performance.now();
 		const buffers = await Promise.all(urls.map((u) => this.#buffer(u)));
-		if (seq !== this.#voiceSeq || performance.now() - asked > MAX_LATE_MS.voices) return;
+		if (seq !== this.#voiceSeq || performance.now() - asked > MAX_LATE_MS.voices) return [];
 		const ctx = this.#ctx;
 		const gain = ctx.createGain();
 		gain.connect(this.#gains.voices!);
 		const sources: AudioBufferSourceNode[] = [];
-		let at = ctx.currentTime;
+		const timings: Timing[] = [];
+		const now = ctx.currentTime;
+		let at = now;
 		for (const buffer of buffers) {
 			if (!buffer) break; // an answer without its line makes no sense
 			const source = this.#source(buffer, gain);
 			source.start(at);
 			sources.push(source);
+			timings.push({ start: at - now, duration: buffer.duration });
 			at += buffer.duration + ANSWER_GAP;
 		}
-		if (sources.length === 0) return;
-		const end = at - ANSWER_GAP;
-		this.#voice = { sources, gain, end };
-		this.#duckMusic(ctx.currentTime, end);
-		sources.at(-1)!.onended = () => {
-			if (this.#voice?.gain === gain) this.#voice = null;
-		};
+		if (sources.length === 0) return [];
+		const voice = { sources, gain, end: at - ANSWER_GAP };
+		this.#voices.add(voice);
+		this.#duckMusic(now, Math.max(...[...this.#voices].map((v) => v.end)));
+		sources.at(-1)!.onended = () => this.#voices.delete(voice);
+		return timings;
 	}
 
-	/** Cut off the current voice with a short fade. */
+	/** Cut off every line being said with a short fade, and any still loading. */
 	stopVoices() {
-		const voice = this.#voice;
+		this.#voiceSeq++;
 		const ctx = this.#ctx;
-		this.#voice = null;
-		if (!voice || !ctx) return;
+		const voices = [...this.#voices];
+		this.#voices.clear();
+		if (voices.length === 0 || !ctx) return;
 		const now = ctx.currentTime;
-		voice.gain.gain.setTargetAtTime(0, now, VOICE_FADE / 3);
-		for (const s of voice.sources) s.stop(now + VOICE_FADE);
+		for (const voice of voices) {
+			voice.gain.gain.setTargetAtTime(0, now, VOICE_FADE / 3);
+			for (const s of voice.sources) s.stop(now + VOICE_FADE);
+		}
 		this.#duckMusic(now, now);
 	}
 
