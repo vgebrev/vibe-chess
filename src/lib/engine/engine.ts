@@ -1,8 +1,5 @@
-// A Promise-based UCI client for Stockfish (§4.6): in the app a Web Worker (worker.ts), in
-// the calibration script a Node child process. It plays at full strength and reports every
-// scored move, for the human-like move choice (§4.6.2).
+// A Promise-based UCI client for Stockfish in a Web Worker (worker.ts) (§4.6).
 import type { MoveInput } from '#lib/game/game.svelte.ts';
-import { Analysis, type Candidate } from './analysis.ts';
 import { parseBestMove, parseInfo, type SearchInfo } from './uci.ts';
 
 /** The part of a Worker the client uses, so tests can stand in a fake engine. */
@@ -18,15 +15,12 @@ export interface SearchResult {
 	move: MoveInput | null;
 	/** The deepest search statistics reported. */
 	info: SearchInfo | null;
-	/** The moves scored (`MultiPV`), best first. */
-	candidates: Candidate[];
 }
 
 interface Search {
 	resolve: (result: SearchResult | null) => void;
 	cancelled: boolean;
 	info: SearchInfo | null;
-	analysis: Analysis;
 }
 
 export class Engine {
@@ -88,15 +82,19 @@ export class Engine {
 	}
 
 	/**
-	 * Search `fen` for `movetime` ms, scoring the best `lines` moves (`MultiPV`). Resolves null
-	 * if stopped by `stop()` meanwhile.
+	 * Search `fen` for `movetime` ms with `options` set first. Resolves null if stopped by
+	 * `stop()` meanwhile.
 	 */
-	async search(fen: string, movetime: number, lines = 1): Promise<SearchResult | null> {
+	async search(
+		fen: string,
+		movetime: number,
+		options: Record<string, string | number> = {}
+	): Promise<SearchResult | null> {
 		const stops = this.#stops;
-		await this.setOptions({ MultiPV: lines });
+		await this.setOptions(options);
 		if (stops !== this.#stops) return null;
 		return new Promise((resolve) => {
-			this.#searches.push({ resolve, cancelled: false, info: null, analysis: new Analysis() });
+			this.#searches.push({ resolve, cancelled: false, info: null });
 			this.#send(`position fen ${fen}`);
 			this.#send(`go movetime ${Math.round(movetime)}`);
 		});
@@ -120,12 +118,10 @@ export class Engine {
 		if (!search) return;
 		if (line.startsWith('bestmove')) {
 			this.#searches.shift();
-			const { info, analysis } = search;
-			const result = { move: parseBestMove(line), info, candidates: analysis.candidates };
+			const result = { move: parseBestMove(line), info: search.info };
 			search.resolve(search.cancelled ? null : result);
 			return;
 		}
-		search.analysis.add(line);
 		const info = parseInfo(line);
 		if (info && info.depth >= (search.info?.depth ?? 0)) search.info = info;
 	}

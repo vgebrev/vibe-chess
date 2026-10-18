@@ -114,7 +114,7 @@ export type BubbleEvent = Exclude<VoiceEvent, 'captured'>;
 export interface Labels {
 	white?: string;
 	black?: string;
-	difficulty?: Partial<Record<'p0' | 'p1' | 'p2' | 'p3' | 'p4', string>>;
+	difficulty?: Partial<Record<'p0' | 'p1' | 'p2' | 'p3' | 'p4' | 'p5', string>>;
 }
 
 /** A validated manifest with every optional field filled with its default. */
@@ -401,7 +401,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 	const diff = optObj(labelsRaw.difficulty, 'labels.difficulty');
 	if (diff) {
 		labels.difficulty = {};
-		for (const key of ['p0', 'p1', 'p2', 'p3', 'p4'] as const) {
+		for (const key of ['p0', 'p1', 'p2', 'p3', 'p4', 'p5'] as const) {
 			const v = optStr(diff[key], `labels.difficulty.${key}`);
 			if (v !== undefined) labels.difficulty[key] = v;
 		}

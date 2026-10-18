@@ -73,7 +73,7 @@
 			<output class="w-12 text-right tabular-nums">{shown}</output>
 		</label>
 		<p class="text-sm text-muted">
-			Ratings are approximate, on the human scale: about 1350 is a casual club player.
+			Stockfish's own ratings, from games against other engines, so only a rough guide for people.
 		</p>
 	</div>
 {/if}

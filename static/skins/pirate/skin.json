@@ -61,8 +61,9 @@
       "p0": "Cabin Boy",
       "p1": "Deckhand",
       "p2": "Bosun",
-      "p3": "First Mate",
-      "p4": "Captain"
+      "p3": "Quartermaster",
+      "p4": "First Mate",
+      "p5": "Captain"
     }
   },
   "emotes": {

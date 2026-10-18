@@ -20,7 +20,6 @@ npx vitest --run path/to/file.spec.ts   # single file; add -t "name" for a singl
 npx playwright test          # e2e; builds + previews automatically
 npx playwright test --project=phone     # one viewport (phone 390×844 | desktop 1280×800)
 npm test                     # unit (single run) + e2e
-node scripts/calibrate.ts --games 60 --parallel 18 bot:1350-sf:1350   # tune the human-like opponent (SPEC §4.6.2); slow
 ```
 
 The ports are deliberate (24377 spells CHESS on a keypad) so localStorage doesn't collide with other projects; don't change them or drop `strictPort`.
@@ -36,7 +35,7 @@ The dev and preview servers also listen on the network, for testing on phones: `
 - Keep non-reactive code out of `.svelte.ts` files: `svelte/prefer-svelte-reactivity` flags plain `Map`/`URL` there (hence `skins/loader.ts` vs the `skins/skin.svelte.ts` store).
 - Mobile-first layout using **standard Tailwind breakpoints only**; the side panel appears at `lg`. Skin theme colours are exposed as CSS variables mapped through `@theme inline` (SPEC §6.0).
 - Sound (SPEC §4.11) lives in `src/lib/audio/`: the rules (`voices.ts`, `sfx.ts`) are pure and unit-tested with a fake clock and random source; `mixer.ts` is the Web Audio side, and nothing plays before the first press. `sound.e2e.ts` sees what plays by instrumenting the browser's Web Audio and media calls, not the app. Haptics (SPEC §4.12, `src/lib/haptics.ts`) ride on the same events: `Sound` vibrates for every SFX it plays; iPhones only get a tick during a tap.
-- Rules come from chess.js; the engine is the `stockfish` npm package's single-threaded lite WASM build in a Web Worker over UCI, lazy-loaded on the first vs-Computer game (SPEC §4.6, §7). The engine always plays at full strength and scores every candidate move; `engine/humanize.ts` picks a human-like move for the target Elo, with constants tuned by `scripts/calibrate.ts` (SPEC §4.6.2).
+- Rules come from chess.js; the engine is the `stockfish` npm package's single-threaded lite WASM build in a Web Worker over UCI, lazy-loaded on the first vs-Computer game (SPEC §4.6, §7). Difficulty is Stockfish's own: presets are `Skill Level` 0–5, Custom sets `UCI_LimitStrength`/`UCI_Elo` (`engine/difficulty.ts`).
 
 ## Skins
 

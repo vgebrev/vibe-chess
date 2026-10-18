@@ -25,32 +25,21 @@ describe('Engine', () => {
 		]);
 	});
 
-	it('searches for the given time and returns the moves it scored', async () => {
+	it('searches for the given time, with its options set first, and returns the best move', async () => {
 		const worker = new FakeWorker();
 		const engine = await Engine.start(worker);
-		const search = engine.search(START, 750, 2);
+		const search = engine.search(START, 750, { 'Skill Level': 2 });
 		await vi.waitFor(() => expect(worker.sent.at(-1)).toBe('go movetime 750'));
 		expect(worker.sent.slice(2)).toEqual([
-			'setoption name MultiPV value 2',
+			'setoption name Skill Level value 2',
 			'isready',
 			`position fen ${START}`,
 			'go movetime 750'
 		]);
-		worker.reply(
-			'info depth 1 multipv 1 score cp 20 nodes 20 pv e7e5',
-			'info depth 1 multipv 2 score cp 10 nodes 20 pv c7c5',
-			'info depth 2 multipv 1 score cp 15 nodes 90 pv c7c5 g1f3',
-			'info depth 2 multipv 2 score cp 5 upperbound nodes 90 pv e7e5'
-		);
 		worker.finish();
 		const result = await search;
 		expect(result?.move).toEqual({ from: 'e7', to: 'e5' });
 		expect(result?.info).toEqual({ depth: 9, nodes: 5000, nps: 250000, time: 20 });
-		// e7e5's depth-2 score was only a bound, so its exact depth-1 score stands.
-		expect(result?.candidates.map((c) => [c.uci, c.cp, c.depth, c.shallowCp])).toEqual([
-			['e7e5', 20, 1, 20],
-			['c7c5', 15, 2, 10]
-		]);
 	});
 
 	it('discards the reply to a stopped search, and drops one still waiting to start', async () => {
@@ -75,7 +64,7 @@ describe('Engine', () => {
 		const engine = await Engine.start(worker);
 		void engine.search(START, 2000);
 		await vi.waitFor(() => expect(worker.searching).toHaveLength(1));
-		const searching = engine.search(START, 2000, 3);
+		const searching = engine.search(START, 2000, { MultiPV: 3 });
 		await new Promise((resolve) => setTimeout(resolve));
 		expect(worker.sent).not.toContain('setoption name MultiPV value 3');
 		worker.finish();

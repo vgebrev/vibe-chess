@@ -33,35 +33,3 @@ export function parseInfo(line: string): SearchInfo | null {
 	const field = (name: string) => Number(new RegExp(` ${name} (\\d+)`).exec(line)?.[1] ?? 0);
 	return { depth: field('depth'), nodes: field('nodes'), nps: field('nps'), time: field('time') };
 }
-
-/** A score from the side to move's point of view: centipawns, or mate in N moves (negative: mated). */
-export type Score = { cp: number } | { mate: number };
-
-/** One principal variation from an `info … multipv … score … pv …` line (§4.6.2). */
-export interface PvLine {
-	depth: number;
-	/** 1 for the best line, 2 for the next, … */
-	multipv: number;
-	score: Score;
-	/** A bound means the search of this line was cut short and the score isn't exact. */
-	bound: 'lower' | 'upper' | null;
-	/** The line's first move, in UCI notation. */
-	move: string;
-}
-
-/** The principal variation in an `info` line, or null for lines without one. */
-export function parsePv(line: string): PvLine | null {
-	if (!line.startsWith('info ')) return null;
-	const depth = / depth (\d+)/.exec(line);
-	const score = / score (cp|mate) (-?\d+)(?: (lowerbound|upperbound))?/.exec(line);
-	const pv = / pv (\S+)/.exec(line);
-	if (!depth || !score || !pv) return null;
-	const multipv = / multipv (\d+)/.exec(line);
-	return {
-		depth: Number(depth[1]),
-		multipv: multipv ? Number(multipv[1]) : 1,
-		score: score[1] === 'cp' ? { cp: Number(score[2]) } : { mate: Number(score[2]) },
-		bound: score[3] === 'lowerbound' ? 'lower' : score[3] === 'upperbound' ? 'upper' : null,
-		move: pv[1]
-	};
-}

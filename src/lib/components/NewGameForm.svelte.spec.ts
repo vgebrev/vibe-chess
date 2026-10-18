@@ -7,14 +7,14 @@ import NewGameForm from './NewGameForm.svelte';
 const pirate = {
 	white: 'Blue Crew',
 	black: 'Red Crew',
-	difficulty: { p0: 'Cabin Boy', p4: 'Captain' }
+	difficulty: { p0: 'Cabin Boy', p5: 'Captain' }
 };
 
 describe('NewGameForm', () => {
 	it('opens with the last setup and starts the chosen game', async () => {
 		const onstart = vi.fn();
 		render(NewGameForm, {
-			initial: { mode: 'computer', color: 'b', difficulty: { kind: 'preset', id: 'p4' } },
+			initial: { mode: 'computer', color: 'b', difficulty: { kind: 'preset', id: 'p5' } },
 			labels: pirate,
 			onstart
 		});
@@ -34,14 +34,14 @@ describe('NewGameForm', () => {
 		});
 	});
 
-	it('shows each preset with its Elo, and offers a custom Elo from 450 to 3000', async () => {
+	it('shows each preset with its Elo, and offers a custom Elo from 1350 to 3150', async () => {
 		const onstart = vi.fn();
 		render(NewGameForm, { initial: DEFAULT_SETUP, labels: {}, onstart });
-		await expect.element(page.getByRole('radio', { name: 'Easy (900)' })).toBeInTheDocument();
+		await expect.element(page.getByRole('radio', { name: 'Easy (1444)' })).toBeInTheDocument();
 		await page.getByText('Custom').click();
 		const slider = page.getByRole('slider', { name: 'Elo' });
-		await expect.element(slider).toHaveAttribute('min', '450');
-		await expect.element(slider).toHaveAttribute('max', '3000');
+		await expect.element(slider).toHaveAttribute('min', '1350');
+		await expect.element(slider).toHaveAttribute('max', '3150');
 		await expect.element(slider).toHaveAttribute('step', '50');
 		await expect.element(slider).toHaveValue('1350');
 		await page.getByRole('button', { name: 'Start' }).click();

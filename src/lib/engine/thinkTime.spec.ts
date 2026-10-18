@@ -47,7 +47,7 @@ describe('thinkTime', () => {
 
 	it('gives stronger opponents a longer median budget', () => {
 		const cabinBoy = median(budgets({ fen: SHARP }, { kind: 'preset', id: 'p0' }));
-		const captain = median(budgets({ fen: SHARP }, { kind: 'preset', id: 'p4' }));
+		const captain = median(budgets({ fen: SHARP }, { kind: 'preset', id: 'p5' }));
 		const low = median(budgets({ fen: SHARP }, { kind: 'custom', elo: 1350 }));
 		const high = median(budgets({ fen: SHARP }, { kind: 'custom', elo: 3150 }));
 		expect(captain).toBeGreaterThan(cabinBoy);
@@ -58,7 +58,7 @@ describe('thinkTime', () => {
 		const fens = [SHARP, QUIET_ENDGAME, new Chess().fen(), '7k/8/8/8/8/8/5q2/7K w - - 0 40'];
 		const levels: Difficulty[] = [
 			{ kind: 'preset', id: 'p0' },
-			{ kind: 'preset', id: 'p4' },
+			{ kind: 'preset', id: 'p5' },
 			{ kind: 'custom', elo: 3150 }
 		];
 		for (const fen of fens) {

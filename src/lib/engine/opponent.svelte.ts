@@ -1,11 +1,9 @@
 // The computer opponent: starts the engine on first use, times each reply with the think-time
-// model, picks a human-like move for the target Elo and plays it into the game (§4.6).
-import { Chess } from 'chess.js';
+// model, searches at the chosen difficulty and plays the reply into the game (§4.6).
 import type { Game } from '#lib/game/game.svelte.ts';
-import { targetElo, type Difficulty } from './difficulty.ts';
+import { uciOptions, type Difficulty } from './difficulty.ts';
 import { Engine } from './engine.ts';
-import { chooseMove, hash, multiPv } from './humanize.ts';
-import { seeded, thinkTime } from './thinkTime.ts';
+import { thinkTime } from './thinkTime.ts';
 import { createWorker } from './worker.ts';
 
 export type OpponentStatus = 'idle' | 'thinking' | 'failed';
@@ -16,8 +14,6 @@ export class Opponent {
 	#engine: Promise<Engine | null> | null = null;
 	/** Bumped by every request and cancel; replies for an older one are dropped (§4.6). */
 	#request = 0;
-	/** A seed per game, so its choices come from the game and the position (§4.6.2). */
-	#seeds = new WeakMap<Game, number>();
 
 	constructor(start: () => Promise<Engine> = async () => Engine.start(await createWorker())) {
 		this.#start = start;
@@ -38,35 +34,28 @@ export class Opponent {
 		const request = ++this.#request;
 		const current = () => request === this.#request;
 		const fen = game.fen;
-		const elo = targetElo(difficulty);
 		const budget = thinkTime({ fen, lastMove: game.lastMove }, difficulty);
 		this.status = 'thinking';
 
 		const engine = await this.load();
 		if (!engine || !current()) return;
 		const started = performance.now();
-		const lines = multiPv(elo, new Chess(fen).moves().length);
-		const result = await engine.search(fen, budget, lines);
+		const result = await engine.search(fen, budget, uciOptions(difficulty));
 		if (!result || !current()) return;
 		// A forced line can come back early; the pause stays as long as planned.
 		const remaining = budget - (performance.now() - started);
 		if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
 		if (!current() || game.fen !== fen) return;
 
-		let seed = this.#seeds.get(game);
-		if (seed === undefined) this.#seeds.set(game, (seed = (Math.random() * 2 ** 32) >>> 0));
-		const choice = chooseMove(fen, result.candidates, elo, seeded(hash(fen, seed)));
 		this.status = 'idle';
 		if (import.meta.env?.DEV && result.info) {
 			const { depth, nps } = result.info;
-			const picked = choice ? `${choice.uci}, −${(choice.loss * 100).toFixed(1)}%` : 'bestmove';
 			console.debug(
 				`[engine] ${budget} ms, depth ${depth}, ${Math.round(nps / 1000)}k nodes/s, ` +
-					`${result.candidates.length} lines, ${elo} Elo plays ${picked}`
+					JSON.stringify(uciOptions(difficulty))
 			);
 		}
-		const move = choice?.move ?? result.move;
-		if (move) game.move(move);
+		if (result.move) game.move(result.move);
 	}
 
 	/** Drop the pending reply, if any. */

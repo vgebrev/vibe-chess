@@ -5,8 +5,7 @@ import { FakeWorker } from './fakeWorker.ts';
 import { Opponent } from './opponent.svelte.ts';
 
 const beginner = { kind: 'preset', id: 'p0' } as const;
-const expert = { kind: 'preset', id: 'p4' } as const;
-const master = { kind: 'custom', elo: 3000 } as const;
+const custom = { kind: 'custom', elo: 2500 } as const;
 
 function setup() {
 	const worker = new FakeWorker();
@@ -31,8 +30,7 @@ describe('Opponent', () => {
 		expect(opponent.status).toBe('thinking');
 		await vi.advanceTimersByTimeAsync(400);
 		// The engine has answered, but the reply waits out the opening budget (≥ 500 ms).
-		// A beginner might play any move, so every one is scored.
-		expect(worker.sent).toContain('setoption name MultiPV value 20');
+		expect(worker.sent).toContain('setoption name Skill Level value 0');
 		expect(game.moves).toHaveLength(1);
 		await vi.advanceTimersByTimeAsync(1000);
 		await playing;
@@ -61,7 +59,7 @@ describe('Opponent', () => {
 		expect(game.moves).toHaveLength(0);
 	});
 
-	it('scores every move for a weak player, and only the top few for a strong one', async () => {
+	it('sets a Skill Level for a preset and a limited Elo for custom, only when they change', async () => {
 		const { worker, opponent, game } = setup();
 		const reply = async (difficulty: Parameters<Opponent['play']>[1]) => {
 			const playing = opponent.play(game, difficulty);
@@ -71,24 +69,15 @@ describe('Opponent', () => {
 		};
 		await reply(beginner);
 		await reply(beginner);
-		await reply(master);
+		await reply(custom);
+		await reply(beginner);
 		expect(worker.sent.filter((c) => c.startsWith('setoption'))).toEqual([
-			'setoption name MultiPV value 20',
-			'setoption name MultiPV value 6'
+			'setoption name UCI_LimitStrength value false',
+			'setoption name Skill Level value 0',
+			'setoption name UCI_LimitStrength value true',
+			'setoption name UCI_Elo value 2500',
+			'setoption name UCI_LimitStrength value false'
 		]);
-	});
-
-	it('plays the move the human-like choice picks from the scored moves', async () => {
-		const { worker, opponent, game } = setup();
-		worker.bestMoves = ['g8f6'];
-		worker.lines = [
-			'info depth 12 multipv 1 score cp 10 nodes 9000 pv c7c5 g1f3',
-			'info depth 12 multipv 2 score cp -900 nodes 9000 pv f7f6 d1h5'
-		];
-		const playing = opponent.play(game, expert);
-		await vi.advanceTimersByTimeAsync(5000);
-		await playing;
-		expect(game.lastMove?.san).toBe('c5');
 	});
 
 	it('reports a failure to start', async () => {
