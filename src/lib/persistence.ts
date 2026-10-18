@@ -41,6 +41,8 @@ export interface Settings {
 	sound: Volumes;
 	/** The volume each category goes back to when unmuted: its last above 0. */
 	unmuted: Volumes;
+	/** Vibration on events, where the device can (§4.12). */
+	haptics: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -51,7 +53,8 @@ export const DEFAULT_SETTINGS: Settings = {
 	lastDifficulty: DEFAULT_DIFFICULTY,
 	// The music sits under the game; voices are the loudest (§4.11).
 	sound: { music: 0.5, sfx: 0.8, voices: 1 },
-	unmuted: { music: 0.5, sfx: 0.8, voices: 1 }
+	unmuted: { music: 0.5, sfx: 0.8, voices: 1 },
+	haptics: true
 };
 
 function storage(): Storage | null {
@@ -147,6 +150,7 @@ export function parseSettings(v: unknown): Settings {
 		showLegalMoves: bool('showLegalMoves'),
 		showCoordinates: bool('showCoordinates'),
 		autoFlip: bool('autoFlip'),
+		haptics: bool('haptics'),
 		lastDifficulty: parseDifficulty(s.lastDifficulty) ?? DEFAULT_SETTINGS.lastDifficulty,
 		sound: parseVolumes(s.sound, 0, DEFAULT_SETTINGS.sound),
 		unmuted: parseVolumes(s.unmuted, Number.MIN_VALUE, DEFAULT_SETTINGS.unmuted)

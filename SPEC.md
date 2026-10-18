@@ -1,4 +1,4 @@
-# Chess — Product & Technical Spec (Draft 3)
+# Vibe Chess — Product & Technical Spec (Draft 3)
 
 _Status: ready for implementation · 2026-10-16 · Draft 3 incorporates decisions from three review rounds (see §11)._
 
@@ -305,16 +305,17 @@ A move is **voiced from the side of the player who made it**. The rules, in orde
 3. **A player's capture:** the capturing piece's `capture` (chance `P_CAPTURE`). The captured piece doesn't answer: by the time the line ends it has left the board, so an answer didn't flow.
 4. **A player's other move:** the moved piece's `move` (chance `P_MOVE`). Castling is the king's move and promotion the pawn's; en passant is a capture.
 5. **The computer's capture:** the computer stays silent, and **your** captured piece reacts with its `captured` line (chance `P_REACTION`).
-6. **The computer's other moves:** silent, except for an occasional **taunt** (chance `P_TAUNT`, at most one per 30 s) from one of the computer's pieces still on the board: each kind of piece that has taunt lines is as likely, then one piece of that kind. No taunts in hot-seat.
+6. **The computer's other moves:** silent, except for a **taunt** (chance `P_TAUNT`, at most one per 30 s) from one of the computer's pieces still on the board: each kind of piece that has taunt lines is as likely, then one piece of that kind. No taunts in hot-seat.
 
-Starting values, tuned by ear in M10 (`TUNED_ODDS` and the taunt wait in `audio/voices.ts`). **For now every chance is 1** (`ODDS`), so playback can be checked by ear with every line playing; the tuned values come back afterwards:
+**Every chance is 1** (`ODDS` in `audio/voices.ts`): every move gets its line, which played better than lines by chance. Taunts are still spaced out, at most one per 30 s. The values first tuned by ear are kept as `TUNED_ODDS`, should the lines grow repetitive before the skin has more of them:
 
-| Constant     | Value | Effect                                  |
-| ------------ | ----- | --------------------------------------- |
-| `P_MOVE`     | 0.35  |                                         |
-| `P_CAPTURE`  | 0.8   |                                         |
-| `P_REACTION` | 0.5   |                                         |
-| `P_TAUNT`    | 0.07  | Per computer move, with a 30 s cooldown |
+| Constant     | In use | First tuned | Effect                    |
+| ------------ | ------ | ----------- | ------------------------- |
+| `P_MOVE`     | 1      | 0.35        |                           |
+| `P_CAPTURE`  | 1      | 0.8         |                           |
+| `P_REACTION` | 1      | 0.5         |                           |
+| `P_TAUNT`    | 1      | 0.07        | Per computer move         |
+| Taunt wait   | 30 s   | 30 s        | At most one taunt in 30 s |
 
 - **Lines overlap.** Every line plays to its end: a newer move's line starts over one still playing rather than cutting it off (a cut-off taunt felt unnatural). The music stays dipped until the last one ends. Undo, a new game, a skin change and setting Voices to 0 stop every line, with a short fade.
 - A draw has no voice line. Victory and castling lines are possible additions; they would follow the same rules (a castle line replacing the king's `move`).
@@ -325,6 +326,31 @@ Starting values, tuned by ear in M10 (`TUNED_ODDS` and the taunt wait in `audio/
 **Playback.** SFX and voices are short, so they are fetched in the background, at most 4 at a time: the SFX when the skin is applied, the voice lines once the first press unlocks audio (nothing can play before, and a sound needed at once jumps the queue). They are decoded into Web Audio buffers and played through one gain node per category; a slider's position is squared into the gain, so it feels even to the ear. A sound still loading when it is due is dropped if it would be late: after 250 ms for SFX, 1 s for a voice line. Music streams through an `<audio>` element routed into the music gain, so only the playing track is downloaded. A missing or undecodable file is logged and skipped. Changing skin stops everything and loads the new skin's sounds.
 
 - **Implementation (M10):** `audio/sfx.ts` and `audio/voices.ts` are the rules, pure apart from an injected clock and random source; `audio/playlist.ts` the shuffle; `audio/mixer.ts` the Web Audio graph and music element; `audio/sound.ts` turns game events into sounds. Speech bubbles come back from `Sound` through a callback, as timed by the mixer from when each line actually starts, and `Board` draws them (`SpeechBubble.svelte`). The page hears moves from the game's changes (a move more, fewer moves, a resignation, a new game object), so the player's and the computer's moves take the same path and a resumed game starts silently. `Board` reports selections and illegal drops through `onselect` and `onillegal`.
+
+### 4.12 Haptics (M11)
+
+On phones that can, game events give a short vibration alongside their sound: the same events as the SFX (§4.11), classified the same way, so the two never disagree. It doesn't depend on the skin or the sound volumes: muted SFX still vibrate.
+
+| Event                       | Pattern (ms on, off, on, …) |
+| --------------------------- | --------------------------- |
+| UI click, select / pick up  | 30                          |
+| Move (and undo)             | 60                          |
+| Capture                     | 110                         |
+| Castle (two pieces move)    | 60, 90, 60                  |
+| Promotion                   | 60, 70, 130                 |
+| Check                       | 100, 90, 100                |
+| Checkmate (and resignation) | 150, 100, 150, 100, 400     |
+| Draw                        | 150, 150, 150               |
+| Illegal drop                | 50, 60, 50                  |
+| New game                    | 80                          |
+
+The API has no strength setting, and a phone's motor needs time to spin up, so length is what makes a buzz felt. These were chosen on an Android phone from a set of candidates; the first patterns (8–30 ms) could barely be felt.
+
+- **Android** (Chrome): the Vibration API plays the patterns, the computer's moves included (after the first tap, which browsers require). Chrome doesn't vibrate while the phone is muted. Firefox for Android has no Vibration API, so it stays still.
+- **iPhone:** Safari has no Vibration API. iOS 18 and later give a system tick when an iOS switch control (`<input type="checkbox" switch>`) is toggled, so a hidden one is toggled instead: one light tick, whatever the event, and only during a tap (`navigator.userActivation`). So the player feels their own actions but not the computer's moves.
+- **Desktop:** nothing. Support needs a coarse pointer, so a desktop browser with a no-op `navigator.vibrate` doesn't count.
+- A **Vibration** toggle in Settings (in the Sound group), on by default and persisted, shown only where haptics work.
+- **Implementation (M11):** `haptics.ts` holds the patterns and the two ways to play them; `Sound` plays the haptic for every SFX event it handles (`sound.haptics`), so a new sound event gets its haptic for free. The hidden iOS switch is marked so its own click doesn't count as a UI click.
 
 ## 5. Skin system
 
@@ -595,7 +621,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 
 ```
 ┌──────────────────────────┐
-│ ☠ Title          ⚙       │  header (compact)
+│ ☠ Vibe Chess    ⓘ ⚙      │  header (compact)
 ├──────────────────────────┤
 │ ● Red Crew ♟♟♞    +2     │  opponent strip: side, captures, +N, engine/thinking
 ├──────────────────────────┤
@@ -626,7 +652,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ ☠ Title                                   ⚙      │
+│ ☠ Vibe Chess                            ⓘ ⚙      │
 ├───────────────────────────────┬──────────────────┤
 │ ● Red Crew ♟♟♞   +2           │ Status           │
 │                               │ ──────────────── │
@@ -655,8 +681,11 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 | Move list                                              | **Drawer** (☰)       | Inline in side panel                |
 | New Game setup (mode, colour, difficulty + Elo slider) | **Drawer**            | Drawer (opened from the side panel) |
 | Settings (skin, guidance, coordinates, auto-flip)      | **Drawer** (⚙)        | Drawer                              |
+| Credits                                                | **Drawer** (ⓘ)        | Drawer                              |
 | Promotion picker                                       | Overlay on the board  | Overlay on the board                |
 | Resign confirm, game-over                              | Inline                | Inline                              |
+
+The game is called **Vibe Chess** (the header and the page title). The ⓘ button beside Settings opens the **Credits** drawer: Meat Proxy (Veli Gebrev), Code (Claude), Graphics (ChatGPT), Music (Suno), Sound Effects (ElevenLabs), and the chess.js and stockfish.js libraries, each linking to its site or repository in a new tab.
 
 On wide screens, New Game and Settings could be shown as a centred dialog instead. The plan uses the same `Drawer` component everywhere for v1: one component, one behaviour, less to test. On `lg` the drawer can open as a side sheet from the right instead of a bottom sheet, through a `side` prop.
 
@@ -756,6 +785,7 @@ src/
       NewGameForm.svelte    # mode, colour, difficulty (in a Drawer)
       DifficultyPicker.svelte  # presets + custom Elo slider, shared by New game and Settings
       SettingsPanel.svelte  # skin, guidance, coordinates, auto-flip, difficulty
+      Credits.svelte        # who and what made the game, in the Credits drawer
       Icon.svelte           # stroked icons for the control bar, header and drawers
       options.ts            # shared chip style for radios
     audio/
@@ -763,7 +793,8 @@ src/
       sfx.ts                # which SFX a move gets
       playlist.ts           # session shuffle + looping order
       mixer.ts              # Web Audio: unlock on first input, buffers, category gains, ducking, music element
-      sound.ts              # turns game events into sounds from the active skin, at the set volumes
+      sound.ts              # turns game events into sounds from the active skin, at the set volumes, and haptics
+    haptics.ts              # vibration patterns; Vibration API or the iOS switch tick (§4.12)
     labels.ts               # status templates + label fallbacks
     persistence.ts
 static/
@@ -820,6 +851,7 @@ interface Settings {
 	lastDifficulty: Difficulty;
 	sound: { music: number; sfx: number; voices: number }; // §4.11, volumes 0–1 (defaults 0.5, 0.8, 1)
 	unmuted: { music: number; sfx: number; voices: number }; // the level each goes back to when unmuted, > 0
+	haptics: boolean; // §4.12, default true
 }
 ```
 
@@ -868,6 +900,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Controls: full accessible names, Moves button, focus back on Resign after "No"
 - Sound rules (§4.11): each SFX case; a player's move and capture voiced by chance (with no answer), the computer's capture answered by the player's piece, taunts (only vs Computer, from pieces that have them, 30 s apart), check and checkmate always, castling and promotion speakers, missing lines; variations never repeat; the playlist shuffles every track once and loops; the `audio` manifest block and its errors; volumes in [0, 1] falling back on their own, unmute levels above 0; the `emotes` block and its errors
 - Settings panel: a volume slider and mute toggle per category the skin has sound for, none for a silent skin; muting and unmuting (back to the last level above 0, also after sliding to 0)
+- Haptics (§4.12): each event's pattern, nothing when off or unsupported, no support without a window; the Vibration toggle only where the device can vibrate
 
 **E2E (Playwright, run at both 390×844 and 1280×800)**
 
@@ -883,6 +916,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Reload: the game resumes with its undo history, board side, skin and settings; a resignation stays final; vs Computer, Undo still takes back the pair and a reload on the computer's turn gets a reply; an unreplayable saved game starts afresh; the game plays with storage blocked
 - Skins as shipped: Pirate only, with no picker; a saved skin that has since been disabled falls back to an enabled one. With every skin enabled, the picker switches skin and the choice survives a reload
 - Sound, with the browser's Web Audio and media calls recorded: a move plays its SFX and the piece's line, a capture by the capturing piece alone, check by the checked king; two quick moves' lines overlap, neither stopped; music waits for the first press; volumes are kept across a reload, and 0 plays (and downloads) nothing in that category; a mute toggle sets 0 and, after a reload, brings the level back; the computer's opening taunt shows a speech bubble over one of its pieces while the line plays; UI controls click once (a label and its checkbox too), the board and sliders don't
+- Haptics, on a browser made to look like a phone that vibrates: picking up and moving a piece vibrate their patterns, and turning Vibration off (kept across a reload) stops them
 - Accessibility: no axe violations in each state of the screen (settings, start, selection, new game, move drawer, resign confirmation, game over, promotion picker) in both skins; a move played with the keyboard alone
 
 **Acceptance checklist (v1 done)**
@@ -914,7 +948,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 8. **Polish:** persistence, a11y pass, E2E suite, Cloudflare Pages deploy check
 9. **Human-like opponent:** presets as target Elos for casual players (450–2250), full-strength analysis of every candidate move, a move choice that makes plausible mistakes for the target Elo, a calibration script, Elo shown on presets and the computer's strip (§4.6.2)
 10. **Sound:** music, SFX and character voices from the skin, with a volume slider for each (§4.11); converting the Pirate audio, including splitting the recorded voice lines (§5.6)
-11. **Haptics:** haptic feedback on supporting phones, once sound is in place
+11. **Haptics:** vibration on game events on supporting phones: patterns on Android, a tick on iPhone, a Settings toggle (§4.12)
 
 ## 10. Open questions
 
@@ -961,3 +995,7 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 35  | No answer to a capture, UI click | The captured piece no longer answers a player's capture: it played after the piece had gone, and didn't flow. Your piece still reacts when the computer takes it. Buttons, links, chips and toggles play a skin `click` SFX (§4.11)                                                                                                                                                                                                                                                                                                                     |
 | 36  | No voice cooldown                | The 3 s cooldown between lines is gone: moves alternate, so any move may speak, and a newer line cuts off one still playing. Taunts still come at most every 30 s (§4.11)                                                                                                                                                                                                                                                                                                                                                                               |
 | 37  | Overlapping lines                | Voice lines play to their end and overlap rather than a newer one cutting off an older one; a bubble stays until its line ends unless its speaker moves or is taken (§4.11)                                                                                                                                                                                                                                                                                                                                                                             |
+| 38  | Every line always                | Every voice chance is 1: each move gets its line, which played better than lines by chance. Taunts stay at most one per 30 s. More lines per pool are coming, to keep it from repeating (§4.11)                                                                                                                                                                                                                                                                                                                                                         |
+| 39  | Haptics                          | Vibration on the same events as the SFX, driven from the same place. Android plays patterns through the Vibration API; iPhone, with none, gets one tick from toggling a hidden iOS switch, only during a tap. A Vibration toggle in Settings where it works (§4.12)                                                                                                                                                                                                                                                                                     |
+| 40  | Longer vibrations                | Patterns lengthened 2–4× (taps 30 ms, a move 60 ms, a capture 110 ms, up to 400 ms for checkmate) after the first ones were too faint to feel on an Android phone (§4.12)                                                                                                                                                                                                                                                                                                                                                                               |
+| 41  | Name and credits                 | Called Vibe Chess. A Credits drawer, opened from an ⓘ button in the header, links to the people, tools and libraries behind the game (§6.3)                                                                                                                                                                                                                                                                                                                                                                                                             |

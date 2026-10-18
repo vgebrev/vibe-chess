@@ -18,17 +18,17 @@ export interface Odds {
 	taunt: number;
 }
 
-/** The chances as tuned. */
+/**
+ * The chances first tuned by ear, for if the lines grow repetitive; the tests use them to
+ * exercise the chance rules.
+ */
 export const TUNED_ODDS: Odds = {
 	move: 0.35,
 	capture: 0.8,
 	reaction: 0.5,
 	taunt: 0.07
 };
-/**
- * The chances in use. For now every line is said, so playback can be checked by ear; then back
- * to TUNED_ODDS.
- */
+/** The chances in use: every line is said (§4.11); only taunts are spaced out, by their wait. */
 export const ODDS: Odds = { move: 1, capture: 1, reaction: 1, taunt: 1 };
 /** At most one taunt in this long. */
 export const TAUNT_COOLDOWN_MS = 30_000;

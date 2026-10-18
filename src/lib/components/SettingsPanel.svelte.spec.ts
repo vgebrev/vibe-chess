@@ -11,7 +11,12 @@ const BOTH: SkinInfo[] = [
 	{ id: 'pirate', name: 'Pirate' }
 ];
 
-function setup(vsComputer: boolean, skins = BOTH, soundCategories: Category[] = []) {
+function setup(
+	vsComputer: boolean,
+	skins = BOTH,
+	soundCategories: Category[] = [],
+	canVibrate = false
+) {
 	const props = {
 		skinId: 'default',
 		skins,
@@ -24,6 +29,8 @@ function setup(vsComputer: boolean, skins = BOTH, soundCategories: Category[] = 
 		labels: { difficulty: { p3: 'First Mate' } },
 		sound: { music: 0.5, sfx: 0.8, voices: 1 },
 		unmuted: { music: 0.5, sfx: 0.8, voices: 1 },
+		haptics: true,
+		canVibrate,
 		soundCategories
 	};
 	render(SettingsPanel, props);
@@ -91,6 +98,16 @@ describe('SettingsPanel', () => {
 		await expect.element(mute).toBeChecked();
 		await mute.click();
 		await expect.element(slider).toHaveValue('30');
+	});
+
+	it('offers vibration only where the device can vibrate', async () => {
+		setup(false, BOTH, ['sfx'], true);
+		await expect.element(page.getByLabelText('Vibration')).toBeChecked();
+	});
+
+	it('has no vibration setting where the device cannot vibrate', async () => {
+		setup(false, BOTH, ['sfx']);
+		await expect.element(page.getByLabelText('Vibration')).not.toBeInTheDocument();
 	});
 
 	it('has no sound settings for a silent skin', async () => {

@@ -25,6 +25,9 @@
 		unmuted: Volumes;
 		/** The categories the skin has sounds for; each gets a slider and a mute toggle. */
 		soundCategories: Category[];
+		/** Vibration on events (§4.12), offered only where the device can vibrate. */
+		haptics: boolean;
+		canVibrate: boolean;
 	}
 
 	let {
@@ -39,7 +42,9 @@
 		labels,
 		sound = $bindable(),
 		unmuted = $bindable(),
-		soundCategories
+		soundCategories,
+		haptics = $bindable(),
+		canVibrate
 	}: Props = $props();
 
 	const toggle = 'flex cursor-pointer items-center gap-3 py-1';
@@ -56,7 +61,8 @@
 </script>
 
 <!-- Settings apply as they change: skin (when there is a choice), guidance, coordinates, auto-flip,
-     sound volumes (for what the skin has), difficulty (§4.7, §4.11). -->
+     sound volumes (for what the skin has), vibration (where it works), difficulty (§4.7, §4.11,
+     §4.12). -->
 <div class="flex flex-col gap-4" data-settings>
 	{#if skins.length > 1}
 		<fieldset class="flex flex-wrap gap-2">
@@ -94,7 +100,7 @@
 		{/if}
 	</fieldset>
 
-	{#if soundCategories.length > 0}
+	{#if soundCategories.length > 0 || canVibrate}
 		<fieldset class="flex flex-col gap-1">
 			<legend class="mb-1 text-sm text-muted">Sound</legend>
 			{#each soundCategories as category (category)}
@@ -131,6 +137,12 @@
 					</output>
 				</div>
 			{/each}
+			{#if canVibrate}
+				<label class={toggle}>
+					<input class="size-4 accent-(--accent)" type="checkbox" bind:checked={haptics} />
+					Vibration
+				</label>
+			{/if}
 		</fieldset>
 	{/if}
 

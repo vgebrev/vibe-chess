@@ -57,6 +57,7 @@
 	let autoFlip = $state(settings.autoFlip);
 	let volumes = $state(settings.sound);
 	let unmuted = $state(settings.unmuted);
+	let haptics = $state(settings.haptics);
 	/** An auto-flip is due; input waits for it. */
 	let turning = $state(false);
 
@@ -132,6 +133,9 @@
 		if (skin.current) sound.setSkin(skin.current);
 	});
 	$effect(() => sound.setVolumes($state.snapshot(volumes)));
+	$effect(() => {
+		sound.haptics.enabled = haptics;
+	});
 	let heard = untrack(() => ({ game, moves: game.moves.length, resigned: game.resigned }));
 	$effect(() => {
 		const current = { game, moves: game.moves.length, resigned: game.resigned };
@@ -221,7 +225,8 @@
 			autoFlip,
 			lastDifficulty: $state.snapshot(setup.difficulty),
 			sound: $state.snapshot(volumes),
-			unmuted: $state.snapshot(unmuted)
+			unmuted: $state.snapshot(unmuted),
+			haptics
 		});
 	});
 
@@ -348,6 +353,8 @@
 		{labels}
 		bind:sound={volumes}
 		bind:unmuted
+		bind:haptics
+		canVibrate={sound.haptics.support !== null}
 		{soundCategories}
 	/>
 </Drawer>

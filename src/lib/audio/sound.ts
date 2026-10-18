@@ -1,6 +1,8 @@
 // The game's sound (§4.11): turns game events into SFX and voice lines from the active skin,
-// and keeps the mixer's volumes, playlist and unlock in step with the page.
+// and keeps the mixer's volumes, playlist and unlock in step with the page. Every SFX event
+// also gives haptic feedback (§4.12), so the two can't drift apart.
 import type { Color, Move, Square } from 'chess.js';
+import { Haptics } from '#lib/haptics.ts';
 import type { LoadedSkin } from '#lib/skins/loader.ts';
 import type { BubbleEvent, Emotes, SfxName, SkinAudio } from '#lib/skins/schema.ts';
 import { Mixer, type Category, type Timing, type Volumes } from './mixer.ts';
@@ -21,7 +23,7 @@ export interface Bubble {
  * sounds) or sliders.
  */
 function isControl(target: EventTarget | null): boolean {
-	if (!(target instanceof Element) || target.closest('[data-skin]')) return false;
+	if (!(target instanceof Element) || target.closest('[data-skin], [data-haptic]')) return false;
 	const control = target.closest('button, a[href], summary, label, input');
 	if (!control) return false;
 	const input = control instanceof HTMLLabelElement ? control.control : control;
@@ -33,6 +35,8 @@ const BUBBLE_LINGER_MS = 300;
 
 export class Sound {
 	#mixer = new Mixer();
+	/** Each sound event also gives haptic feedback, where the device can (§4.12). */
+	readonly haptics = new Haptics();
 	#audio: SkinAudio | null = null;
 	#emotes: Emotes | null = null;
 	/** Shows or hides the speech bubble. */
@@ -154,6 +158,7 @@ export class Sound {
 	}
 
 	#sfx(name: SfxName) {
+		this.haptics.play(name);
 		const path = this.#audio?.sfx[name];
 		if (path) void this.#mixer.playSfx(this.#url(path));
 	}
