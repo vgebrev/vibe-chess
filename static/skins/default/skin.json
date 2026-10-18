@@ -2,6 +2,7 @@
   "manifestVersion": 1,
   "id": "default",
   "name": "Marble",
+  "disabled": true,
   "board": {
     "image": "board.webp",
     "inset": { "top": 0, "right": 0, "bottom": 0, "left": 0 }
@@ -13,17 +14,18 @@
     "order": ["k", "q", "b", "n", "r", "p"],
     "rowFor": { "w": 0, "b": 1 },
     "scale": 0.92,
-    "anchorY": 0.03
+    "anchorY": 0.06,
+    "anchorYFor": { "p": 0.13 }
   },
   "moveIndicator": {
     "image": "indicator-move.webp",
     "scale": 1.0,
-    "opacity": 0.8
+    "opacity": 0.5
   },
   "captureIndicator": {
     "image": "indicator-capture.webp",
     "scale": 0.9,
-    "opacity": 0.7
+    "opacity": 0.45
   },
   "font": {
     "family": "Marcellus",
@@ -43,11 +45,12 @@
     "text": "#ecebe8",
     "textMuted": "#a3a19c",
     "accent": "#c2a878",
-    "danger": "#b3261e",
+    "danger": "#f2766b",
     "highlightSelected": "rgba(194, 168, 120, 0.45)",
     "highlightLastMove": "rgba(194, 168, 120, 0.28)",
     "highlightCheck": "rgba(190, 30, 30, 0.50)",
     "coordText": "#a3a19c",
+    "pieceShadowBlack": "drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.55)) drop-shadow(0.25cqw 0.8cqw 1cqw rgba(0, 0, 0, 0.6))",
     "dragShadow": "0 8px 16px rgba(0, 0, 0, 0.5)",
     "scrim": "rgba(0, 0, 0, 0.6)"
   }

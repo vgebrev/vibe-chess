@@ -1,0 +1,4 @@
+# Cloudflare Pages headers (§7.1). Hashed build assets never change, so they cache for a year;
+# everything else (index.html, skins) keeps the default revalidation.
+/_app/immutable/*
+  Cache-Control: public, max-age=31536000, immutable

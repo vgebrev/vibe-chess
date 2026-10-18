@@ -6,8 +6,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
 	// 24377 spells CHESS on a phone keypad; own ports keep localStorage separate from other projects
-	server: { port: 24377, strictPort: true },
-	preview: { port: 24378, strictPort: true },
+	// On the network too, for phones: vibe-chess.test resolves to this machine via the local
+	// dnsmasq (CLAUDE.md), and Vite only answers hosts it is told about.
+	server: { port: 24377, strictPort: true, host: true, allowedHosts: ['.vibe-chess.test'] },
+	preview: { port: 24378, strictPort: true, host: true, allowedHosts: ['.vibe-chess.test'] },
 	plugins: [
 		tailwindcss(),
 		sveltekit({

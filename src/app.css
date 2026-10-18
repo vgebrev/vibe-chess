@@ -1,1 +1,43 @@
 @import 'tailwindcss';
+
+/* Skin tokens (§6.0): the active skin sets the runtime variables on :root (skin.svelte.ts);
+   these map them into Tailwind so components can use bg-surface, text-accent, font-skin, … */
+@theme inline {
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-surface-raised: var(--surface-raised);
+	--color-text: var(--text);
+	--color-muted: var(--text-muted);
+	--color-accent: var(--accent);
+	--color-danger: var(--danger);
+	--font-skin: var(--skin-font, serif), var(--font-fallback, serif);
+}
+
+/* Neutral values until the first skin is applied, so the page doesn't flash white. */
+:root {
+	--bg: #141414;
+	--text: #ecebe8;
+	--font-fallback: serif;
+	color-scheme: dark;
+}
+
+@layer base {
+	body {
+		@apply bg-bg font-skin text-text;
+	}
+
+	/* Tailwind v4 gives buttons the default cursor; enabled ones (and sliders) get the pointer,
+	   like links and the option chips. Disabled ones keep the arrow. */
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']),
+	input[type='range']:not(:disabled) {
+		cursor: pointer;
+	}
+
+	/* A visible focus ring in the skin's accent (§6.5); the board squares and the promotion
+	   picker draw their own inside the square. */
+	:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+}
