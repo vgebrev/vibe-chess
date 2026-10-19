@@ -30,6 +30,9 @@ function isControl(target: EventTarget | null): boolean {
 	return !(input instanceof HTMLInputElement && input.type === 'range');
 }
 
+/** Input that unlocks audio: whichever of these counts as a user gesture on the device. */
+const UNLOCK_EVENTS = ['pointerdown', 'pointerup', 'touchend', 'keydown'] as const;
+
 /** A bubble stays up this long after its line ends, in ms. */
 const BUBBLE_LINGER_MS = 300;
 
@@ -104,14 +107,14 @@ export class Sound {
 			this.#sfx('click');
 		};
 		const options = { capture: true, passive: true };
-		window.addEventListener('pointerdown', unlock, options);
-		window.addEventListener('keydown', unlock, options);
+		// A touch's pointerdown isn't a user gesture (HTML's activation-triggering events), and
+		// iOS won't start audio from one, so its pointerup and touchend unlock too.
+		for (const type of UNLOCK_EVENTS) window.addEventListener(type, unlock, options);
 		window.addEventListener('click', click, options);
 		document.addEventListener('visibilitychange', visibility);
 		visibility();
 		return () => {
-			window.removeEventListener('pointerdown', unlock, options);
-			window.removeEventListener('keydown', unlock, options);
+			for (const type of UNLOCK_EVENTS) window.removeEventListener(type, unlock, options);
 			window.removeEventListener('click', click, options);
 			document.removeEventListener('visibilitychange', visibility);
 			this.#hush();

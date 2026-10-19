@@ -17,6 +17,11 @@ const ANSWER_GAP = 0.15;
 const VOICE_FADE = 0.08;
 /** A sound still loading after this long (ms) is dropped rather than played late. */
 const MAX_LATE_MS = { sfx: 250, voices: 1000 }; // a line is commentary, so it can wait a little
+/**
+ * How long a sound waits for the audio context to start (ms): a new context can take a few
+ * hundred ms to open the device, and iOS only starts it on the first tap's touchend.
+ */
+const START_WAIT_MS = 1000;
 /** Prefetches running at once, so a page load doesn't flood the server. */
 const FETCHES = 4;
 /** Music turned down to 0 pauses after its fade, in ms. */
@@ -75,7 +80,8 @@ export class Mixer {
 			this.#duck.connect(this.#gains.music!);
 			this.#ctx = ctx;
 		}
-		if (this.#ctx.state === 'suspended') void this.#ctx.resume();
+		// iOS also leaves it 'interrupted' after a call or a switch to another app.
+		if (this.#ctx.state !== 'running') void this.#ctx.resume().catch(() => {});
 		this.#updateMusic();
 	}
 
@@ -123,8 +129,10 @@ export class Mixer {
 	/** Play a short sound once. */
 	async playSfx(url: string) {
 		if (!this.#ctx || this.#volumes.sfx === 0) return;
-		const asked = performance.now();
-		const buffer = await this.#buffer(url);
+		const pending = this.#buffer(url);
+		const asked = await this.#started(this.#ctx);
+		if (asked === null) return;
+		const buffer = await pending;
 		if (!buffer || performance.now() - asked > MAX_LATE_MS.sfx) return;
 		this.#source(buffer, this.#gains.sfx!).start();
 	}
@@ -137,8 +145,10 @@ export class Mixer {
 	async playVoices(urls: string[]): Promise<Timing[]> {
 		const seq = this.#voiceSeq;
 		if (!this.#ctx || this.#volumes.voices === 0 || urls.length === 0) return [];
-		const asked = performance.now();
-		const buffers = await Promise.all(urls.map((u) => this.#buffer(u)));
+		const pending = Promise.all(urls.map((u) => this.#buffer(u)));
+		const asked = await this.#started(this.#ctx);
+		if (asked === null) return [];
+		const buffers = await pending;
 		if (seq !== this.#voiceSeq || performance.now() - asked > MAX_LATE_MS.voices) return [];
 		const ctx = this.#ctx;
 		const gain = ctx.createGain();
@@ -193,6 +203,26 @@ export class Mixer {
 	setHidden(hidden: boolean) {
 		this.#hidden = hidden;
 		this.#updateMusic();
+	}
+
+	/**
+	 * When the context is running, as a `performance.now()` time to measure lateness from, so its
+	 * start-up isn't counted; null if it doesn't start within START_WAIT_MS.
+	 */
+	#started(ctx: AudioContext): Promise<number | null> {
+		if (ctx.state === 'running') return Promise.resolve(performance.now());
+		return new Promise((resolve) => {
+			const done = (running: boolean) => {
+				clearTimeout(timer);
+				ctx.removeEventListener('statechange', check);
+				resolve(running ? performance.now() : null);
+			};
+			const check = () => {
+				if (ctx.state === 'running') done(true);
+			};
+			const timer = setTimeout(() => done(false), START_WAIT_MS);
+			ctx.addEventListener('statechange', check);
+		});
 	}
 
 	#source(buffer: AudioBuffer, destination: AudioNode): AudioBufferSourceNode {
