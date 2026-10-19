@@ -292,8 +292,8 @@ test.describe('with reduced motion', () => {
 	});
 
 	test('moves and flips without animating', async ({ page }) => {
-		await page.locator('[data-cell="e2"]').click();
-		await page.locator('[data-cell="e4"]').click();
+		await cell(page, 'e2').click();
+		await cell(page, 'e4').click();
 		await page.keyboard.press('f');
 		await expect(page.locator('[data-piece][data-square="e4"]')).toHaveAttribute(
 			'data-piece',

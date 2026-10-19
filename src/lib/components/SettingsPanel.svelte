@@ -5,7 +5,7 @@
 	import type { Labels } from '#lib/skins/schema.ts';
 	import DifficultyPicker from './DifficultyPicker.svelte';
 	import Icon from './Icon.svelte';
-	import { option } from './styles.ts';
+	import { legend, option, slider } from './styles.ts';
 
 	interface Props {
 		skinId: string;
@@ -68,7 +68,7 @@
 <div class="flex flex-col gap-4" data-settings>
 	{#if skins.length > 1}
 		<fieldset class="flex flex-wrap gap-2">
-			<legend class="mb-1 text-sm text-muted">Skin</legend>
+			<legend class={legend}>Skin</legend>
 			{#each skins as { id, name } (id)}
 				<label class={option}>
 					<input
@@ -85,7 +85,7 @@
 	{/if}
 
 	<fieldset class="flex flex-col">
-		<legend class="mb-1 text-sm text-muted">Board</legend>
+		<legend class={legend}>Board</legend>
 		<label class={toggle}>
 			<input class={checkbox} type="checkbox" bind:checked={showLegalMoves} />
 			Show legal moves
@@ -104,7 +104,7 @@
 
 	{#if soundCategories.length > 0 || canVibrate}
 		<fieldset class="flex flex-col gap-1">
-			<legend class="mb-1 text-sm text-muted">Sound</legend>
+			<legend class={legend}>Sound</legend>
 			{#each soundCategories as category (category)}
 				{@const muted = sound[category] === 0}
 				<div class="flex items-center gap-3">
@@ -125,7 +125,7 @@
 					</label>
 					<input
 						id="volume-{category}"
-						class="min-w-0 flex-1 accent-(--accent)"
+						class={slider}
 						type="range"
 						min="0"
 						max="100"

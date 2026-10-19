@@ -11,7 +11,7 @@
 	} from '#lib/board/geometry.ts';
 	import type { Game, PromotionPiece } from '#lib/game/game.svelte.ts';
 	import { squareLabel } from '#lib/labels.ts';
-	import { piecesSheetStyle } from '#lib/skins/loader.ts';
+	import { cssUrl, piecesSheetStyle } from '#lib/skins/loader.ts';
 	import type { SkinManifest } from '#lib/skins/schema.ts';
 	import Coordinates from './Coordinates.svelte';
 	import Highlights, { type Highlight } from './Highlights.svelte';
@@ -154,8 +154,8 @@
 
 	function promote(piece: PromotionPiece) {
 		if (!promotion) return;
-		const { to } = promotion;
-		game.move({ from: promotion.from, to: promotion.to, promotion: piece });
+		const { from, to } = promotion;
+		game.move({ from, to, promotion: piece });
 		closePromotion(to);
 	}
 
@@ -279,7 +279,7 @@
 		class="board"
 		style:left="{gutterPct}%"
 		style:width="{boardPct}%"
-		style:background-image="url({JSON.stringify(skin.board.image)})"
+		style:background-image={cssUrl(skin.board.image)}
 	>
 		<!-- Layers bottom to top (§5.4): highlights, pieces, indicators, squares (input),
 		     speech bubble, dragged piece, promotion picker. -->

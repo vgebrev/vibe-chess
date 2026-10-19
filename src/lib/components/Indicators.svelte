@@ -2,6 +2,7 @@
 	import type { Square } from 'chess.js';
 	import { cellPosition, type Orientation } from '#lib/board/geometry.ts';
 	import type { Target } from '#lib/game/game.svelte.ts';
+	import { cssUrl } from '#lib/skins/loader.ts';
 	import type { SkinManifest } from '#lib/skins/schema.ts';
 
 	interface Props {
@@ -37,7 +38,7 @@
 		style:opacity={hover === target.square ? style.hoverOpacity : style.opacity}
 	>
 		<div
-			style:background-image="url({JSON.stringify(style.image)})"
+			style:background-image={cssUrl(style.image)}
 			style:width="{style.scale * 100}%"
 			style:height="{style.scale * 100}%"
 		></div>
@@ -56,6 +57,5 @@
 
 	.indicator > div {
 		background-size: 100% 100%;
-		flex: none;
 	}
 </style>

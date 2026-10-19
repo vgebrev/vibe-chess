@@ -11,7 +11,7 @@
 		type PresetId
 	} from '#lib/engine/difficulty.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
-	import { option } from './styles.ts';
+	import { legend, option, slider } from './styles.ts';
 
 	interface Props {
 		value: Difficulty;
@@ -33,7 +33,7 @@
 
 <!-- Presets, each with the Elo it plays at, plus Custom with an Elo slider in steps of 50 (§4.6). -->
 <fieldset class="flex flex-wrap gap-2">
-	<legend class="mb-1 text-sm text-muted">Difficulty</legend>
+	<legend class={legend}>Difficulty</legend>
 	{#each PRESETS as { id, elo } (id)}
 		<label class={option}>
 			<input class="sr-only" type="radio" {name} checked={level === id} onchange={() => pick(id)} />
@@ -58,7 +58,7 @@
 		<label class="flex items-center gap-3">
 			<span class="shrink-0">Elo</span>
 			<input
-				class="min-w-0 flex-1 accent-(--accent)"
+				class={slider}
 				type="range"
 				min={ELO_RANGE.min}
 				max={ELO_RANGE.max}
@@ -66,7 +66,7 @@
 				value={shown}
 				oninput={(e) => {
 					elo = e.currentTarget.valueAsNumber;
-					value = { kind: 'custom', elo: shown };
+					pick('custom');
 				}}
 				data-elo
 			/>

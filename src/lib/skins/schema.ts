@@ -46,19 +46,7 @@ export interface Theme {
 }
 
 /** Generic game sounds (§4.11). */
-export type SfxName =
-	| 'start'
-	| 'select'
-	| 'move'
-	| 'capture'
-	| 'castle'
-	| 'promotion'
-	| 'check'
-	| 'checkmate'
-	| 'draw'
-	| 'illegal'
-	| 'click';
-const SFX_NAMES: readonly SfxName[] = [
+const SFX_NAMES = [
 	'start',
 	'select',
 	'move',
@@ -70,18 +58,12 @@ const SFX_NAMES: readonly SfxName[] = [
 	'draw',
 	'illegal',
 	'click'
-];
+] as const;
+export type SfxName = (typeof SFX_NAMES)[number];
 
 /** What a piece's voice line is about (§4.11). */
-export type VoiceEvent = 'move' | 'capture' | 'captured' | 'check' | 'defeat' | 'taunt';
-const VOICE_EVENTS: readonly VoiceEvent[] = [
-	'move',
-	'capture',
-	'captured',
-	'check',
-	'defeat',
-	'taunt'
-];
+const VOICE_EVENTS = ['move', 'capture', 'captured', 'check', 'defeat', 'taunt'] as const;
+export type VoiceEvent = (typeof VOICE_EVENTS)[number];
 
 /** Pools of variations per side, piece type and event; any level may be missing. */
 export type Voices = Record<
@@ -290,6 +272,11 @@ export function validateSkin(raw: unknown, baseUrl: string): ValidationResult {
 		err(path, `expected an integer in [${min}, ${max}]`);
 		return min;
 	};
+	// Unknown keys are errors, so a typo isn't silently ignored.
+	const known = (o: Obj, names: readonly string[], path: string, what: string) => {
+		for (const key of Object.keys(o))
+			if (!names.includes(key)) err(`${path}.${key}`, `unknown ${what}`);
+	};
 
 	const root = obj(raw, '$');
 	if (!root) return { ok: false, errors };
@@ -330,10 +317,7 @@ export function validateSkin(raw: unknown, baseUrl: string): ValidationResult {
 	};
 	const anchorY = num(pieces.anchorY, 'pieces.anchorY', 0, 0.5, 0);
 	const anchorYForRaw = optObj(pieces.anchorYFor, 'pieces.anchorYFor') ?? {};
-	for (const key of Object.keys(anchorYForRaw)) {
-		if (!(PIECE_TYPES as string[]).includes(key))
-			err(`pieces.anchorYFor.${key}`, 'unknown piece type');
-	}
+	known(anchorYForRaw, PIECE_TYPES, 'pieces.anchorYFor', 'piece type');
 	const anchorYFor = Object.fromEntries(
 		PIECE_TYPES.map((t) => [t, num(anchorYForRaw[t], `pieces.anchorYFor.${t}`, 0, 0.5, anchorY)])
 	) as Record<PieceSymbol, number>;
@@ -444,21 +428,17 @@ export function validateSkin(raw: unknown, baseUrl: string): ValidationResult {
 		}
 	}
 
-	// audio (optional, every part optional; unknown names are errors so a typo isn't silent)
+	// audio (optional, every part optional)
 	const audioRaw = optObj(root.audio, 'audio');
 	let audio: SkinAudio | null = null;
 	if (audioRaw) {
-		const files = (v: unknown, path: string): string[] => {
+		const paths = (v: unknown, path: string): string[] => {
 			if (Array.isArray(v) && v.length > 0) return v.map((f, i) => file(f, `${path}[${i}]`));
 			err(path, 'expected a non-empty array of paths');
 			return [];
 		};
-		const known = (o: Obj, names: readonly string[], path: string, what: string) => {
-			for (const key of Object.keys(o))
-				if (!names.includes(key)) err(`${path}.${key}`, `unknown ${what}`);
-		};
 		audio = { music: [], sfx: {}, voices: { w: {}, b: {} } };
-		if (audioRaw.music !== undefined) audio.music = files(audioRaw.music, 'audio.music');
+		if (audioRaw.music !== undefined) audio.music = paths(audioRaw.music, 'audio.music');
 		const sfx = optObj(audioRaw.sfx, 'audio.sfx') ?? {};
 		known(sfx, SFX_NAMES, 'audio.sfx', 'sound');
 		for (const name of SFX_NAMES)
@@ -476,7 +456,7 @@ export function validateSkin(raw: unknown, baseUrl: string): ValidationResult {
 				const pools: Partial<Record<VoiceEvent, string[]>> = {};
 				for (const event of VOICE_EVENTS)
 					if (byEvent[event] !== undefined)
-						pools[event] = files(byEvent[event], `${path}.${event}`);
+						pools[event] = paths(byEvent[event], `${path}.${event}`);
 				audio.voices[side][type] = pools;
 			}
 		}
@@ -523,9 +503,7 @@ export function validateSkin(raw: unknown, baseUrl: string): ValidationResult {
 			return { w: file(o.w, `${path}.w`), b: file(o.b, `${path}.b`) };
 		};
 		const single = (v: unknown, path: string) => (v === undefined ? null : file(v, path));
-		for (const key of Object.keys(resultsRaw))
-			if (!['win', 'loss', 'resign', 'draw', 'stalemate'].includes(key))
-				err(`results.${key}`, 'unknown result');
+		known(resultsRaw, ['win', 'loss', 'resign', 'draw', 'stalemate'], 'results', 'result');
 		results = {
 			win: bySide(resultsRaw.win, 'results.win'),
 			loss: bySide(resultsRaw.loss, 'results.loss'),

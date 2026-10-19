@@ -798,7 +798,7 @@ src/
     skins/
       index.ts              # registry
       schema.ts             # Skin type + validation (asset paths resolved to URLs)
-      loader.ts             # fetch, validate, preload images + FontFace, CSS vars
+      loader.ts             # fetch, validate, preload images + FontFace, CSS vars and url()s
       skin.svelte.ts        # active skin store: apply + swap
     components/
       Board.svelte          # grid, layers, orientation, pointer handling
@@ -820,7 +820,7 @@ src/
       SettingsPanel.svelte  # skin, guidance, coordinates, auto-flip, sound, vibration, difficulty
       Credits.svelte        # who and what made the game, in the Credits drawer
       Icon.svelte           # stroked icons for the control bar, header and drawers
-      styles.ts             # shared class strings: option chips, primary/secondary buttons
+      styles.ts             # shared class strings: option chips, legends, sliders, primary/secondary buttons
       dialog.ts             # shared modal dialog: open/focus attachment, Esc handling, class
     audio/
       voices.ts             # which line (if any) a move gets: rules, taunt wait (§4.11)
@@ -1046,3 +1046,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 53  | Link previews                        | Shared links showed no picture or description. `app.html` now has Open Graph and Twitter card tags with a 1200×630 picture; static, since crawlers don't run the SPA (§7.1)                                                                                                                                                                                                                                                                                                                                                                             |
 | 54  | Code review cleanup                  | Every voice line always plays: the chance machinery (`ODDS`, `TUNED_ODDS`) is gone, and repetition is answered with more variations per pool in the skin. Alongside: dead code removed (`BoardPiece.leaving`, `difficultyName`, `Playlist.current`, the `#lib` index), one set of piece types (chess.js's), shared helpers for colours and orientation, sprite-sheet cells, JSON guards, modal dialogs and test setup, and test-only code in `lib/testing/` (§4.11, §7.2, §7.3)                                                                         |
 | 55  | Code review, round 2                 | Skin asset paths are resolved to absolute URLs once, during validation, so a loaded skin is just its manifest (the `LoadedSkin` wrapper and its `urls` copy are gone). Buttons share their colours (`components/styles.ts`), and `Game` saves its own move history and finds kings. Dead code removed: unused search statistics, an unread error field, a duplicate icon, redundant cursor rules (§5.1, §5.5, §7.2, §7.3)                                                                                                                               |
+| 56  | Code review, round 3                 | Fixed lists (SFX names, voice events, promotion pieces) are `as const` arrays with their types derived from them, so the two can't drift. Shared: the skin validator's unknown-key check, a `cssUrl()` for skin images in CSS, the splash's `md` media query, legend and slider styles, the start position in tests (chess.js's) and an alpha mask in the converter. Dead code removed: a CSS rule that did nothing, a repeated page title, unused converter options (§5.1, §5.6, §7.2)                                                                 |

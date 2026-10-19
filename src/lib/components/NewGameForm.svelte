@@ -4,7 +4,7 @@
 	import { sideName } from '#lib/labels.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
 	import DifficultyPicker from './DifficultyPicker.svelte';
-	import { option, primary } from './styles.ts';
+	import { legend, option, primary } from './styles.ts';
 
 	interface Props {
 		/** The choices the form opens with: the last game's. */
@@ -30,7 +30,7 @@
 <!-- New game: mode, colour and difficulty (§4.7), shown in a Drawer. -->
 <form class="flex w-full flex-col gap-3" aria-label="New game" onsubmit={submit} data-new-game>
 	<fieldset class="flex flex-wrap gap-2">
-		<legend class="mb-1 text-sm text-muted">Opponent</legend>
+		<legend class={legend}>Opponent</legend>
 		<label class={option}>
 			<input class="sr-only" type="radio" bind:group={mode} value="computer" />Computer
 		</label>
@@ -41,7 +41,7 @@
 
 	{#if mode === 'computer'}
 		<fieldset class="flex flex-wrap gap-2">
-			<legend class="mb-1 text-sm text-muted">Play as</legend>
+			<legend class={legend}>Play as</legend>
 			{#each [['w', sideName('w', labels)], ['b', sideName('b', labels)], ['random', 'Random']] as [value, name] (value)}
 				<label class={option}>
 					<input class="sr-only" type="radio" bind:group={color} {value} />{name}

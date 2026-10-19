@@ -105,11 +105,9 @@ def runs(values, min_gap):
     return merged
 
 
-def projection(mask, axis):
-    """Per-column (axis=0) or per-row (axis=1) 'any pixel set' for a 1-bit mask."""
+def filled_rows(mask):
+    """Per row, whether any pixel of a 1-bit mask is set."""
     w, h = mask.size
-    if axis == 0:
-        return [mask.crop((x, 0, x + 1, h)).getbbox() is not None for x in range(w)]
     return [mask.crop((0, y, w, y + 1)).getbbox() is not None for y in range(h)]
 
 
@@ -124,6 +122,11 @@ def split_bands(spans, total, expected, what):
     return list(zip(edges, edges[1:]))
 
 
+def alpha_mask(im, above):
+    """An L mask of the pixels whose alpha is above `above`."""
+    return im.getchannel("A").point(lambda v: 255 if v > above else 0)
+
+
 def resize_rgba(im, size):
     return im.convert("RGBa").resize(size, Image.LANCZOS).convert("RGBA")
 
@@ -134,7 +137,7 @@ def base_centre(sprite):
     Centring on the base rather than the whole bounding box keeps pieces that hold
     something out to one side (a sword, a flag) standing in the middle of their square.
     """
-    mask = sprite.getchannel("A").point(lambda v: 255 if v > DETECT_ALPHA else 0)
+    mask = alpha_mask(sprite, DETECT_ALPHA)
     x0, y0, x1, y1 = mask.getbbox()
     band = max(1, round((y1 - y0) * BASE_FRACTION))
     # Median of per-row centres, so a coat or cape flaring into the band doesn't skew it.
@@ -203,9 +206,9 @@ def outlines(band, count):
 
 def normalise_sheet(path, columns, rows):
     sheet = Image.open(path).convert("RGBA")
-    detect = sheet.getchannel("A").point(lambda v: 255 if v > DETECT_ALPHA else 0).convert("1")
+    detect = alpha_mask(sheet, DETECT_ALPHA).convert("1")
 
-    row_bands = split_bands(runs(projection(detect, 1), MERGE_GAP_Y), sheet.height, rows, "rows")
+    row_bands = split_bands(runs(filled_rows(detect), MERGE_GAP_Y), sheet.height, rows, "rows")
     sprites = [outlines(sheet.crop((0, y0, sheet.width, y1)), columns) for y0, y1 in row_bands]  # [row][col]
 
     centres = [[base_centre(s) for s in row] for row in sprites]
@@ -254,7 +257,7 @@ def cut_out(im):
 def result_picture(path):
     """A game-over picture: cropped to its art, centred in a padded square, RESULT_PX."""
     im = Image.open(path).convert("RGBA")
-    art = im.crop(im.getchannel("A").point(lambda a: 255 if a > CROP_ALPHA else 0).getbbox())
+    art = im.crop(alpha_mask(im, CROP_ALPHA).getbbox())
     side = round(max(art.size) * (1 + 2 * RESULT_PAD))
     square = Image.new("RGBA", (side, side))
     square.paste(art, ((side - art.width) // 2, (side - art.height) // 2))
@@ -271,7 +274,7 @@ def emote_sheet(path, columns, rows):
         for c in range(columns):
             cell = sheet.crop((round(c * cw), round(r * ch), round((c + 1) * cw), round((r + 1) * ch)))
             # Only the bubble around the cell's centre: neighbours' edges can cross the grid lines.
-            mask = cell.getchannel("A").point(lambda v: 255 if v > 0 else 0)
+            mask = alpha_mask(cell, 0)
             ImageDraw.floodfill(mask, (cell.width // 2, cell.height // 2), 128, thresh=0)
             own = mask.point(lambda v: 255 if v == 128 else 0)
             cell.putalpha(ImageChops.multiply(cell.getchannel("A"), own))
@@ -340,10 +343,9 @@ def fit_grid(board, inset):
     return board
 
 
-def save_webp(im, path, lossless=False, quality=WEBP_QUALITY):
+def save_webp(im, path, quality=WEBP_QUALITY):
     path.parent.mkdir(parents=True, exist_ok=True)
-    im.save(path, "WEBP", quality=quality, alpha_quality=100, method=6, lossless=lossless)
-    return path
+    im.save(path, "WEBP", quality=quality, alpha_quality=100, method=6)
 
 
 def decode(path, rate=None, channels=1):
@@ -364,7 +366,6 @@ def encode(samples, rate, path, bitrate):
         input=np.clip(samples, -1, 1).astype(np.float32).tobytes(),
         check=True,
     )
-    return path
 
 
 def envelope(samples, rate, window):

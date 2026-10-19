@@ -42,9 +42,8 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Sk
 	}
 
 	// Speech bubbles and game-over pictures are only needed later, so they load without holding
-	// up the skin.
-	// The splash is on screen first, so the picture for this screen holds up the skin like the
-	// board does. The other is left to the <picture> element, should the window change.
+	// up the skin. The splash is on screen first, so the picture for this screen holds it up like
+	// the board does; the other is left to the <picture> element, should the window change.
 	const later = [skin.emotes?.image, ...resultImageList(skin.results)];
 	for (const src of new Set(later)) if (src) void preloadImage(src).catch(() => {});
 	const images = [
@@ -67,10 +66,13 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Sk
 	return skin;
 }
 
+/** Screens that show the main splash picture rather than the portrait one: `md` and up (§4.13). */
+export const SPLASH_WIDE_MEDIA = '(width >= 48rem)';
+
 /** The splash picture this screen shows (§4.13): portrait below md, if there is one. */
 function splashShown(splash: Splash | null): string | null {
 	if (!splash?.portrait) return splash?.image ?? null;
-	return matchMedia('(width >= 48rem)').matches ? splash.image : splash.portrait.image;
+	return matchMedia(SPLASH_WIDE_MEDIA).matches ? splash.image : splash.portrait.image;
 }
 
 function resultImageList(results: ResultImages | null): (string | null)[] {
@@ -129,13 +131,16 @@ async function loadFontCss(family: string, href: string): Promise<void> {
 	await document.fonts.load(`1em "${family}"`);
 }
 
+/** A CSS `url()` of a skin asset, quoted so any URL is safe in it. */
+export const cssUrl = (url: string) => `url(${JSON.stringify(url)})`;
+
 /**
  * The CSS variables piece sprites read (Sprite.svelte), for the element that holds them: the
  * sheet's URL and its size in cells.
  */
 export function piecesSheetStyle(skin: SkinManifest): string {
 	const { image, columns, rows } = skin.pieces;
-	return `--pieces-url: url(${JSON.stringify(image)}); --sheet-size: ${columns * 100}% ${rows * 100}%`;
+	return `--pieces-url: ${cssUrl(image)}; --sheet-size: ${columns * 100}% ${rows * 100}%`;
 }
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);

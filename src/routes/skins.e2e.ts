@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { settings } from './e2e-helpers.ts';
+import { cell, settings } from './e2e-helpers.ts';
 
 // The skins as shipped (§5.5): Marble is disabled in its manifest, so Pirate is the only
 // skin on offer. The other e2e files enable every skin to play in the default one.
@@ -44,8 +44,8 @@ test("Pirate's game-over overlay shows its picture for the result", async ({ pag
 		['g2', 'g4'],
 		['d8', 'h4']
 	]) {
-		await page.locator(`[data-cell="${from}"]`).click();
-		await page.locator(`[data-cell="${to}"]`).click();
+		await cell(page, from).click();
+		await cell(page, to).click();
 	}
 	const over = page.getByRole('dialog', { name: 'Red Crew wins!' });
 	await expect(over.locator('[data-result-image]')).toHaveAttribute('src', /result-win-red\.webp$/);
@@ -87,8 +87,8 @@ test.describe("Pirate's splash (§4.13)", () => {
 	test('Continue, or Esc, goes back to the game in progress; New Game offers the computer', async ({
 		page
 	}) => {
-		await page.locator('[data-cell="e2"]').click();
-		await page.locator('[data-cell="e4"]').click();
+		await cell(page, 'e2').click();
+		await cell(page, 'e4').click();
 		await expect(page.locator('[data-status]')).toHaveText('Red Crew to move');
 
 		await page.goto('/');

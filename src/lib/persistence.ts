@@ -11,7 +11,7 @@ import {
 	type Difficulty,
 	type PresetId
 } from '#lib/engine/difficulty.ts';
-import type { MoveInput, PromotionPiece } from '#lib/game/game.svelte.ts';
+import { PROMOTION_PIECES, type MoveInput, type PromotionPiece } from '#lib/game/game.svelte.ts';
 import type { ColorChoice, GameSetup } from '#lib/game/setup.ts';
 import { isObj } from '#lib/json.ts';
 import { DEFAULT_SKIN_ID } from '#lib/skins/index.ts';
@@ -87,7 +87,6 @@ function write(key: string, value: unknown) {
 
 const isColor = (v: unknown): v is Color => v === 'w' || v === 'b';
 const SQUARE = /^[a-h][1-8]$/;
-const PROMOTIONS: readonly unknown[] = ['q', 'r', 'b', 'n'];
 
 export function parseDifficulty(v: unknown): Difficulty | null {
 	if (!isObj(v)) return null;
@@ -103,8 +102,9 @@ function parseMove(v: unknown): MoveInput | null {
 	if (!SQUARE.test(v.from) || !SQUARE.test(v.to)) return null;
 	const move: MoveInput = { from: v.from as Square, to: v.to as Square };
 	if (v.promotion !== undefined) {
-		if (!PROMOTIONS.includes(v.promotion)) return null;
-		move.promotion = v.promotion as PromotionPiece;
+		const promotion = v.promotion as PromotionPiece;
+		if (!PROMOTION_PIECES.includes(promotion)) return null;
+		move.promotion = promotion;
 	}
 	return move;
 }
