@@ -13,7 +13,7 @@
 	let { status, lastMove, gameOver, onnew }: Props = $props();
 </script>
 
-<!-- Game over offers a new game inline, no modal (§6.1). -->
+<!-- Game over offers a new game inline, as well as in the game-over overlay (§6.1). -->
 <div class="flex min-h-8 flex-wrap items-center justify-center gap-x-3 gap-y-1 lg:justify-start">
 	<!-- Status changes are announced with the move that caused them, so a screen reader hears
 	     the computer's reply (§6.5). -->

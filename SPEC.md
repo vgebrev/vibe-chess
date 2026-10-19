@@ -808,6 +808,7 @@ src/
       Indicators.svelte     # move + capture indicators
       Coordinates.svelte    # in-frame or gutter labels
       PromotionPicker.svelte
+      SpeechBubble.svelte   # a voice line's bubble over the speaking piece (§4.11)
       PlayerStrip.svelte
       StatusBar.svelte
       MoveList.svelte
