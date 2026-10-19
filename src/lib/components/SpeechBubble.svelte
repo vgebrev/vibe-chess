@@ -13,11 +13,10 @@
 		/** The cell of the emote sheet to show. */
 		emote: number;
 		emotes: Emotes;
-		url: string;
 		orientation: Orientation;
 	}
 
-	let { square, emote, emotes, url, orientation }: Props = $props();
+	let { square, emote, emotes, orientation }: Props = $props();
 
 	// The tip of the bubble's tail, which the art draws at the bottom left, as a fraction of the
 	// bubble; it points at the speaker's head, this far into its square.
@@ -50,7 +49,7 @@
 >
 	<div
 		class="art"
-		style:background-image="url({JSON.stringify(url)})"
+		style:background-image="url({JSON.stringify(emotes.image)})"
 		style:background-size="{emotes.columns * 100}% {emotes.rows * 100}%"
 		style:background-position={sheetPosition(
 			emote % emotes.columns,

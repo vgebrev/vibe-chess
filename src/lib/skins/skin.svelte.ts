@@ -1,9 +1,10 @@
 // Active skin store: loads a skin, applies its CSS variables and swaps it in one step (§5.5).
-import { loadSkin, skinCssVars, SkinError, type LoadedSkin } from './loader.ts';
+import { loadSkin, skinCssVars, SkinError } from './loader.ts';
+import type { SkinManifest } from './schema.ts';
 
 class SkinStore {
 	/** The skin currently applied, or null before the first successful load. */
-	current = $state.raw<LoadedSkin | null>(null);
+	current = $state.raw<SkinManifest | null>(null);
 	/** Errors from the last failed load, for display when no skin could be loaded at all. */
 	errors = $state.raw<string[]>([]);
 	#seq = 0;
@@ -18,8 +19,7 @@ class SkinStore {
 			const skin = await loadSkin(baseUrl, expectedId);
 			if (seq !== this.#seq) return false;
 			const style = document.documentElement.style;
-			for (const [name, value] of Object.entries(skinCssVars(skin.manifest)))
-				style.setProperty(name, value);
+			for (const [name, value] of Object.entries(skinCssVars(skin))) style.setProperty(name, value);
 			this.current = skin;
 			this.errors = [];
 			return true;

@@ -2,12 +2,13 @@
 	import type { Color, PieceSymbol } from 'chess.js';
 	import { other } from '#lib/game/color.ts';
 	import { capturesLabel, sideName } from '#lib/labels.ts';
-	import { piecesSheetStyle, type LoadedSkin } from '#lib/skins/loader.ts';
+	import { piecesSheetStyle } from '#lib/skins/loader.ts';
+	import type { SkinManifest } from '#lib/skins/schema.ts';
 	import Sprite from './Sprite.svelte';
 
 	interface Props {
 		color: Color;
-		skin: LoadedSkin;
+		skin: SkinManifest;
 		/** Pieces this side has captured, in display order. */
 		captured: PieceSymbol[];
 		/** This side's material lead; shown as +N only when positive. */
@@ -20,8 +21,8 @@
 
 	let { color, skin, captured, advantage, active, elo = null }: Props = $props();
 
-	const labels = $derived(skin.manifest.labels);
-	const sheet = $derived(skin.manifest.pieces);
+	const labels = $derived(skin.labels);
+	const sheet = $derived(skin.pieces);
 	// Same-type captures overlap, and squeeze closer when space runs out, so a full set fits on
 	// a phone (§4.10).
 	const groups = $derived(

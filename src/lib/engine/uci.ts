@@ -20,16 +20,13 @@ export function parseBestMove(line: string): MoveInput | null {
 
 export interface SearchInfo {
 	depth: number;
-	nodes: number;
 	/** Nodes per second. */
 	nps: number;
-	/** Milliseconds searched. */
-	time: number;
 }
 
 /** The search statistics in an `info depth …` line, or null for other info lines. */
 export function parseInfo(line: string): SearchInfo | null {
 	if (!line.startsWith('info ') || !/ depth \d/.test(line)) return null;
 	const field = (name: string) => Number(new RegExp(` ${name} (\\d+)`).exec(line)?.[1] ?? 0);
-	return { depth: field('depth'), nodes: field('nodes'), nps: field('nps'), time: field('time') };
+	return { depth: field('depth'), nps: field('nps') };
 }

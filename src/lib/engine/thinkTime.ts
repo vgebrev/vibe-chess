@@ -4,7 +4,7 @@
 import { Chess, type Move } from 'chess.js';
 import { personality, type Difficulty } from './difficulty.ts';
 
-export const THINK = {
+const THINK = {
 	forced: [350, 600],
 	opening: [400, 900],
 	/** Moves of the game (plies) played "by the book". */

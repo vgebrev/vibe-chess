@@ -13,8 +13,7 @@
 		close: 'M6 6l12 12M18 6 6 18',
 		yes: 'M5 12.5 10 17.5 19 7',
 		sound: 'M11 5 6 9H3v6h3l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13',
-		muted: 'M11 5 6 9H3v6h3l5 4V5zM16 9l6 6M22 9l-6 6',
-		no: 'M6 6l12 12M18 6 6 18'
+		muted: 'M11 5 6 9H3v6h3l5 4V5zM16 9l6 6M22 9l-6 6'
 	} as const;
 
 	export type IconName = keyof typeof paths;

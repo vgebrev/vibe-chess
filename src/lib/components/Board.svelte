@@ -11,7 +11,8 @@
 	} from '#lib/board/geometry.ts';
 	import type { Game, PromotionPiece } from '#lib/game/game.svelte.ts';
 	import { squareLabel } from '#lib/labels.ts';
-	import { piecesSheetStyle, type LoadedSkin } from '#lib/skins/loader.ts';
+	import { piecesSheetStyle } from '#lib/skins/loader.ts';
+	import type { SkinManifest } from '#lib/skins/schema.ts';
 	import Coordinates from './Coordinates.svelte';
 	import Highlights, { type Highlight } from './Highlights.svelte';
 	import Indicators from './Indicators.svelte';
@@ -21,7 +22,7 @@
 	import Sprite from './Sprite.svelte';
 
 	interface Props {
-		skin: LoadedSkin;
+		skin: SkinManifest;
 		game: Game;
 		orientation: Orientation;
 		showCoordinates?: boolean;
@@ -56,16 +57,15 @@
 	// Pointer travel (px) before a press on a piece becomes a drag rather than a click.
 	const DRAG_THRESHOLD = 4;
 
-	const manifest = $derived(skin.manifest);
-	const inset = $derived(manifest.board.inset);
+	const inset = $derived(skin.board.inset);
 	const framed = $derived(inset.top > 0 || inset.right > 0 || inset.bottom > 0 || inset.left > 0);
 	// Frameless boards put coordinates in a gutter outside the image; the board shrinks so
 	// board + gutter fill the same square box (§4.4).
-	const gutter = $derived(showCoordinates && !framed ? manifest.coordinates.gutter : 0);
+	const gutter = $derived(showCoordinates && !framed ? skin.coordinates.gutter : 0);
 	const gutterPct = $derived((gutter / (8 + gutter)) * 100);
 	const boardPct = $derived(100 - gutterPct);
 
-	const sheet = $derived(manifest.pieces);
+	const sheet = $derived(skin.pieces);
 
 	// Every square, top-left to bottom-right as seen on screen.
 	const squares = $derived(
@@ -274,12 +274,12 @@
 
 <svelte:window {onkeydown} />
 
-<div class="frame" data-skin={manifest.id} data-orientation={orientation}>
+<div class="frame" data-skin={skin.id} data-orientation={orientation}>
 	<div
 		class="board"
 		style:left="{gutterPct}%"
 		style:width="{boardPct}%"
-		style:background-image="url({JSON.stringify(skin.urls.board)})"
+		style:background-image="url({JSON.stringify(skin.board.image)})"
 	>
 		<!-- Layers bottom to top (§5.4): highlights, pieces, indicators, squares (input),
 		     speech bubble, dragged piece, promotion picker. -->
@@ -326,7 +326,7 @@
 				<button
 					class="square"
 					data-cell={square}
-					aria-label={squareLabel(square, game.pieceAt(square), manifest.labels)}
+					aria-label={squareLabel(square, game.pieceAt(square), skin.labels)}
 					aria-pressed={active === square}
 					tabindex={square === tabStop ? 0 : -1}
 					style:left="{pos.left}%"
@@ -337,9 +337,9 @@
 				></button>
 			{/each}
 
-			{#if bubble && manifest.emotes && skin.urls.emotes}
+			{#if bubble && skin.emotes}
 				{#key bubble}
-					<SpeechBubble {...bubble} emotes={manifest.emotes} url={skin.urls.emotes} {orientation} />
+					<SpeechBubble {...bubble} emotes={skin.emotes} {orientation} />
 				{/key}
 			{/if}
 
@@ -380,7 +380,7 @@
 				}}
 				fileY={(1 - inset.bottom / 2) * 100}
 				rankX={(inset.left / 2) * 100}
-				fontSize={manifest.coordinates.fontScale * Math.min(inset.bottom, inset.left) * 100}
+				fontSize={skin.coordinates.fontScale * Math.min(inset.bottom, inset.left) * 100}
 			/>
 		{/if}
 	</div>
@@ -433,7 +433,6 @@
 		background: none;
 		border: 0;
 		padding: 0;
-		cursor: pointer;
 		-webkit-tap-highlight-color: transparent;
 	}
 

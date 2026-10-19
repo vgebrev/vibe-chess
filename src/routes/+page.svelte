@@ -10,7 +10,7 @@
 	import Credits from '#lib/components/Credits.svelte';
 	import Drawer from '#lib/components/Drawer.svelte';
 	import GameOver from '#lib/components/GameOver.svelte';
-	import Icon from '#lib/components/Icon.svelte';
+	import Icon, { type IconName } from '#lib/components/Icon.svelte';
 	import MoveList from '#lib/components/MoveList.svelte';
 	import PlayerStrip from '#lib/components/PlayerStrip.svelte';
 	import NewGameForm from '#lib/components/NewGameForm.svelte';
@@ -20,14 +20,14 @@
 	import { targetElo } from '#lib/engine/difficulty.ts';
 	import { Opponent } from '#lib/engine/opponent.svelte.ts';
 	import { other } from '#lib/game/color.ts';
-	import { Game, type PromotionPiece } from '#lib/game/game.svelte.ts';
+	import { Game } from '#lib/game/game.svelte.ts';
 	import { numberedMove } from '#lib/game/notation.ts';
 	import { outcome, resultImage } from '#lib/game/outcome.ts';
 	import { DEFAULT_SETUP, pickColor, type GameSetup } from '#lib/game/setup.ts';
 	import { outcomeTitle, reasonText, statusText } from '#lib/labels.ts';
 	import { loadGame, loadSettings, saveGame, saveSettings } from '#lib/persistence.ts';
 	import { availableSkins, skinBaseUrl, type SkinId, type SkinInfo } from '#lib/skins/index.ts';
-	import type { LoadedSkin } from '#lib/skins/loader.ts';
+	import type { SkinManifest } from '#lib/skins/schema.ts';
 	import { skin } from '#lib/skins/skin.svelte.ts';
 
 	// The game screen (§6): header, strips, board and control bar in one column below lg; the
@@ -70,7 +70,7 @@
 	let showSplash = $state(!linked);
 	const canContinue = resumed !== null && resumed.game.moves.length > 0 && !resumed.game.isGameOver;
 	$effect(() => {
-		if (skin.current && !skin.current.urls.splash) showSplash = false;
+		if (skin.current && !skin.current.splash) showSplash = false;
 	});
 	/** The New game form was opened from the splash, so it offers a game vs the computer. */
 	let newFromSplash = $state(false);
@@ -145,7 +145,7 @@
 	// heard from the game's changes; a resumed game starts silently.
 	let bubble = $state<Bubble | null>(null);
 	const sound = new Sound((b) => (bubble = b));
-	const soundCategories = $derived(Sound.categories(skin.current?.manifest.audio ?? null));
+	const soundCategories = $derived(Sound.categories(skin.current?.audio ?? null));
 	$effect(() => sound.attach());
 	$effect(() => {
 		if (skin.current) sound.setSkin(skin.current);
@@ -163,23 +163,18 @@
 			const g = current.game;
 			if (g !== was.game) sound.newGame();
 			else if (current.resigned && !was.resigned)
-				sound.resign(
-					current.resigned,
-					g.pieces.find((p) => p.type === 'k' && p.color === current.resigned)?.square
-				);
+				sound.resign(current.resigned, g.kingSquare(current.resigned));
 			else if (current.moves === was.moves + 1 && g.lastMove)
 				sound.move(g.lastMove, {
 					result: g.result,
 					human: player,
-					computerPieces: g.pieces
-						.filter((p) => p.color !== human)
-						.map(({ square, type }) => ({ square, type }))
+					computerPieces: g.pieces.filter((p) => p.color !== human)
 				});
 			else if (current.moves < was.moves) sound.undo();
 		});
 	});
 
-	const labels = $derived(skin.current?.manifest.labels ?? {});
+	const labels = $derived(skin.current?.labels ?? {});
 	const status = $derived(
 		statusText(
 			{
@@ -236,11 +231,7 @@
 	$effect(() => {
 		saveGame({
 			startFen: game.startFen,
-			moves: game.moves.map(({ from, to, promotion }) => ({
-				from,
-				to,
-				...(promotion && { promotion: promotion as PromotionPiece })
-			})),
+			moves: game.history,
 			resigned: game.resigned,
 			setup: $state.snapshot(setup),
 			human,
@@ -249,7 +240,7 @@
 	});
 	$effect(() => {
 		saveSettings({
-			skinId: skin.current?.manifest.id ?? settings.skinId,
+			skinId: skin.current?.id ?? settings.skinId,
 			showLegalMoves,
 			showCoordinates,
 			autoFlip,
@@ -263,10 +254,11 @@
 	function onkeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
 		if (e.altKey || target.closest('input, select, textarea, dialog')) return;
-		if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+		const key = e.key.toLowerCase();
+		if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
 			e.preventDefault();
 			undo();
-		} else if (!e.ctrlKey && !e.metaKey && (e.key === 'f' || e.key === 'F')) {
+		} else if (!e.ctrlKey && !e.metaKey && key === 'f') {
 			flip();
 		}
 	}
@@ -289,7 +281,7 @@
 <svelte:window {onkeydown} />
 
 <!-- The computer's strip shows the Elo it plays at (§4.6). -->
-{#snippet strip(color: Color, current: LoadedSkin)}
+{#snippet strip(color: Color, current: SkinManifest)}
 	<PlayerStrip
 		{color}
 		skin={current}
@@ -300,24 +292,19 @@
 	/>
 {/snippet}
 
+<!-- A header button that opens a drawer. -->
+{#snippet opens(name: Exclude<typeof drawer, null>, icon: IconName, label: string)}
+	<button class="rounded p-2 hover:text-accent" aria-label={label} onclick={() => (drawer = name)}>
+		<Icon name={icon} class="size-6" />
+	</button>
+{/snippet}
+
 <div class="flex min-h-dvh flex-col">
 	<header class="flex h-12 shrink-0 items-center justify-between px-4">
 		<h1 class="text-xl">Vibe Chess</h1>
 		<div class="-mr-2 flex">
-			<button
-				class="rounded p-2 hover:text-accent"
-				aria-label="Credits"
-				onclick={() => (drawer = 'credits')}
-			>
-				<Icon name="info" class="size-6" />
-			</button>
-			<button
-				class="rounded p-2 hover:text-accent"
-				aria-label="Settings"
-				onclick={() => (drawer = 'settings')}
-			>
-				<Icon name="settings" class="size-6" />
-			</button>
+			{@render opens('credits', 'info', 'Credits')}
+			{@render opens('settings', 'settings', 'Settings')}
 		</div>
 	</header>
 
@@ -381,7 +368,7 @@
 		open={showResult}
 		title={outcomeTitle(ending, labels)}
 		reason={reasonText(game.result, labels)}
-		image={resultImage(skin.current?.urls.results ?? null, ending)}
+		image={resultImage(skin.current?.results ?? null, ending)}
 		onnew={() => {
 			showResult = false;
 			drawer = 'new';
@@ -390,11 +377,10 @@
 	/>
 {/if}
 
-{#if skin.current?.urls.splash && skin.current.manifest.splash}
+{#if skin.current?.splash}
 	<Splash
 		open={showSplash}
-		images={skin.current.urls.splash}
-		splash={skin.current.manifest.splash}
+		splash={skin.current.splash}
 		{canContinue}
 		onnew={() => {
 			showSplash = false;
@@ -415,7 +401,7 @@
 
 <Drawer open={drawer === 'settings'} title="Settings" onclose={closeDrawer}>
 	<SettingsPanel
-		skinId={skin.current?.manifest.id ?? ''}
+		skinId={skin.current?.id ?? ''}
 		{skins}
 		onskin={changeSkin}
 		bind:showLegalMoves

@@ -5,6 +5,7 @@
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
 import { other } from '#lib/game/color.ts';
 import type { Result } from '#lib/game/game.svelte.ts';
+import type { BoardPiece } from '#lib/game/pieces.ts';
 import type { VoiceEvent } from '#lib/skins/schema.ts';
 
 /** At most one taunt in this long. */
@@ -25,7 +26,7 @@ export interface MoveContext {
 	/** vs Computer, the player's colour; null in hot-seat, where both sides are players. */
 	human: Color | null;
 	/** The computer's pieces still on the board, for a taunt. */
-	computerPieces: { square: Square; type: PieceSymbol }[];
+	computerPieces: Pick<BoardPiece, 'square' | 'type'>[];
 }
 
 /** The square of a side's king in a FEN. */
@@ -41,10 +42,10 @@ export function pieceOn(fen: string, square: Square): string {
 
 export class VoiceDirector {
 	#lastTaunt = -Infinity;
-	readonly has: (line: Line) => boolean;
-	readonly now: () => number;
+	#has: (line: Line) => boolean;
+	#now: () => number;
 	/** Which taunting piece speaks. */
-	readonly random: () => number;
+	#random: () => number;
 
 	/** `has`: whether the skin has lines for this speaker and event. */
 	constructor(
@@ -52,9 +53,9 @@ export class VoiceDirector {
 		now: () => number = () => performance.now(),
 		random: () => number = Math.random
 	) {
-		this.has = has;
-		this.now = now;
-		this.random = random;
+		this.#has = has;
+		this.#now = now;
+		this.#random = random;
 	}
 
 	/**
@@ -63,21 +64,21 @@ export class VoiceDirector {
 	 */
 	move(move: Move, context: MoveContext): Line[] {
 		const lines = this.#pick(move, context);
-		if (lines[0]?.event === 'taunt') this.#lastTaunt = this.now();
+		if (lines[0]?.event === 'taunt') this.#lastTaunt = this.#now();
 		return lines;
 	}
 
 	/** A resigning side's king concedes, always (§4.11 rule 1). */
 	resign(side: Color, square?: Square): Line[] {
 		const line: Line = { side, piece: 'k', event: 'defeat', square };
-		if (!this.has(line)) return [];
+		if (!this.#has(line)) return [];
 		return [line];
 	}
 
 	#pick(move: Move, { result, human, computerPieces }: MoveContext): Line[] {
 		const mover = move.color;
 		const opponent = other(mover);
-		const say = (line: Line) => (this.has(line) ? [line] : []);
+		const say = (line: Line) => (this.#has(line) ? [line] : []);
 		const king = (event: VoiceEvent): Line => ({
 			side: opponent,
 			piece: 'k',
@@ -112,14 +113,14 @@ export class VoiceDirector {
 	 * likely, then one of that kind.
 	 */
 	#taunt(computer: Color, computerPieces: MoveContext['computerPieces']): Line | null {
-		if (this.now() - this.#lastTaunt < TAUNT_COOLDOWN_MS) return null;
+		if (this.#now() - this.#lastTaunt < TAUNT_COOLDOWN_MS) return null;
 		const kinds = [...new Set(computerPieces.map((p) => p.type))].filter((piece) =>
-			this.has({ side: computer, piece, event: 'taunt' })
+			this.#has({ side: computer, piece, event: 'taunt' })
 		);
 		if (kinds.length === 0) return null;
-		const piece = kinds[Math.floor(this.random() * kinds.length)];
+		const piece = kinds[Math.floor(this.#random() * kinds.length)];
 		const squares = computerPieces.filter((p) => p.type === piece);
-		const { square } = squares[Math.floor(this.random() * squares.length)];
+		const { square } = squares[Math.floor(this.#random() * squares.length)];
 		return { side: computer, piece, event: 'taunt', square };
 	}
 }

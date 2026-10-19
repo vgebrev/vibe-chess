@@ -3,8 +3,7 @@
 // also gives haptic feedback (§4.12), so the two can't drift apart.
 import type { Color, Move, Square } from 'chess.js';
 import { Haptics } from '#lib/haptics.ts';
-import type { LoadedSkin } from '#lib/skins/loader.ts';
-import type { BubbleEvent, Emotes, SfxName, SkinAudio } from '#lib/skins/schema.ts';
+import type { BubbleEvent, Emotes, SfxName, SkinAudio, SkinManifest } from '#lib/skins/schema.ts';
 import { CATEGORIES, Mixer, type Category, type Timing, type Volumes } from './mixer.ts';
 import { moveSfx } from './sfx.ts';
 import { pickVariation, pieceOn, VoiceDirector, type Line, type MoveContext } from './voices.ts';
@@ -41,17 +40,16 @@ export class Sound {
 	#audio: SkinAudio | null = null;
 	#emotes: Emotes | null = null;
 	/** Shows or hides the speech bubble. */
-	readonly onbubble: (bubble: Bubble | null) => void;
+	#onbubble: (bubble: Bubble | null) => void;
 	#shown: Bubble | null = null;
 	#bubbleTimers: ReturnType<typeof setTimeout>[] = [];
-	#base = '';
 	#volumes: Volumes = { music: 0, sfx: 0, voices: 0 };
 	/** The variation played last per pool, so a line doesn't repeat straight away. */
 	#lastVariation: Record<string, number> = {};
 	#director = new VoiceDirector((line) => this.#pool(line).length > 0);
 
 	constructor(onbubble: (bubble: Bubble | null) => void = () => {}) {
-		this.onbubble = onbubble;
+		this.#onbubble = onbubble;
 	}
 
 	/** Which categories the skin has sounds for (Settings shows a slider for each, §4.11). */
@@ -66,13 +64,12 @@ export class Sound {
 	}
 
 	/** Use a skin's sounds: whatever is playing stops, and the new music starts. */
-	setSkin(skin: LoadedSkin) {
+	setSkin(skin: SkinManifest) {
 		this.#hush();
-		this.#audio = skin.manifest.audio;
-		this.#emotes = skin.manifest.emotes;
-		this.#base = skin.baseUrl;
+		this.#audio = skin.audio;
+		this.#emotes = skin.emotes;
 		this.#lastVariation = {};
-		this.#mixer.setMusic(this.#audio?.music.map((p) => this.#url(p)) ?? null);
+		this.#mixer.setMusic(this.#audio?.music ?? null);
 		this.#prefetch();
 	}
 
@@ -159,14 +156,14 @@ export class Sound {
 
 	#sfx(name: SfxName) {
 		this.haptics.play(name);
-		const path = this.#audio?.sfx[name];
-		if (path) void this.#mixer.playSfx(this.#url(path));
+		const url = this.#audio?.sfx[name];
+		if (url) void this.#mixer.playSfx(url);
 	}
 
 	async #say(lines: Line[]) {
 		const urls = lines.map((line) => {
 			const pool = this.#pool(line);
-			return this.#url(pool[this.#vary(`${line.side}${line.piece}-${line.event}`, pool.length)]);
+			return pool[this.#vary(`${line.side}${line.piece}-${line.event}`, pool.length)];
 		});
 		const timings = await this.#mixer.playVoices(urls);
 		timings.forEach((timing, i) => this.#bubble(lines[i], timing));
@@ -186,12 +183,12 @@ export class Sound {
 		const bubble: Bubble = { square, emote: cells[this.#vary(`emote-${event}`, cells.length)] };
 		const at = (seconds: number, then: () => void) =>
 			this.#bubbleTimers.push(setTimeout(then, seconds * 1000));
-		at(start, () => this.onbubble((this.#shown = bubble)));
+		at(start, () => this.#onbubble((this.#shown = bubble)));
 		// Unless the next line's bubble has taken its place.
 		at(start + duration + BUBBLE_LINGER_MS / 1000, () => {
 			if (this.#shown !== bubble) return;
 			this.#shown = null;
-			this.onbubble(null);
+			this.#onbubble(null);
 		});
 	}
 
@@ -199,7 +196,7 @@ export class Sound {
 		this.#bubbleTimers.forEach(clearTimeout);
 		this.#bubbleTimers = [];
 		this.#shown = null;
-		this.onbubble(null);
+		this.#onbubble(null);
 	}
 
 	/** Stop speaking, bubble and all. */
@@ -212,10 +209,6 @@ export class Sound {
 		return this.#audio?.voices[side][piece]?.[event] ?? [];
 	}
 
-	#url(path: string): string {
-		return new URL(path, this.#base).href;
-	}
-
 	/**
 	 * Fetch the short sounds of every category that is turned up, ready to play: the few SFX
 	 * at once, the many voice lines only once sound is unlocked, since nothing plays before.
@@ -223,12 +216,12 @@ export class Sound {
 	#prefetch() {
 		const audio = this.#audio;
 		if (!audio) return;
-		const paths: string[] = [];
-		if (this.#volumes.sfx > 0) paths.push(...Object.values(audio.sfx));
+		const urls: string[] = [];
+		if (this.#volumes.sfx > 0) urls.push(...Object.values(audio.sfx));
 		if (this.#volumes.voices > 0 && this.#mixer.unlocked)
 			for (const byPiece of Object.values(audio.voices))
 				for (const byEvent of Object.values(byPiece))
-					for (const pool of Object.values(byEvent)) paths.push(...pool);
-		this.#mixer.prefetch(paths.map((p) => this.#url(p)));
+					for (const pool of Object.values(byEvent)) urls.push(...pool);
+		this.#mixer.prefetch(urls);
 	}
 }

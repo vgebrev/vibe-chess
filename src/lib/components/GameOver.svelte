@@ -3,6 +3,7 @@
 	import { fade, scale } from 'svelte/transition';
 	import { motion } from '#lib/board/motion.ts';
 	import { cancelWith, dialogClass, modal } from './dialog.ts';
+	import { primary, secondary } from './styles.ts';
 
 	interface Props {
 		open: boolean;
@@ -61,10 +62,8 @@
 				<h2 id="{id}-title" class="text-4xl text-accent" data-result-title>{title}</h2>
 				<p id="{id}-reason" class="text-lg text-muted" data-result-reason>{reason}</p>
 				<div class="mt-3 flex gap-2">
-					<button class="rounded bg-accent px-4 py-2 text-bg" onclick={onnew}>New game</button>
-					<button class="rounded bg-surface-raised px-4 py-2 hover:text-accent" onclick={onclose}>
-						View board
-					</button>
+					<button class={[primary, 'px-4 py-2']} onclick={onnew}>New game</button>
+					<button class={[secondary, 'px-4 py-2']} onclick={onclose}>View board</button>
 				</div>
 			</div>
 		</div>

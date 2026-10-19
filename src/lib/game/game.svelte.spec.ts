@@ -41,6 +41,13 @@ describe('Game', () => {
 		expect(game.isGameOver).toBe(true);
 	});
 
+	it("finds each side's king", () => {
+		const game = new Game('4k3/8/8/8/8/8/8/R3K3 w - - 0 1');
+		expect(game.kingSquare('w')).toBe('e1');
+		expect(game.kingSquare('b')).toBe('e8');
+		expect(game.checkSquare).toBeNull();
+	});
+
 	it('keeps the move history and derives captures and material from it', () => {
 		const game = new Game();
 		for (const san of ['e4', 'd5', 'exd5', 'Qxd5']) game.move(sanMove(game, san));
@@ -176,9 +183,7 @@ describe('Game.result', () => {
 				['e4', 'd5']
 			]);
 			game.move({ from: 'd8', to: 'd5' });
-			const saved = JSON.parse(
-				JSON.stringify(game.moves.map(({ from, to, promotion }) => ({ from, to, promotion })))
-			);
+			const saved = JSON.parse(JSON.stringify(game.history));
 
 			const restored = Game.replay(game.startFen, saved)!;
 			expect(restored.fen).toBe(game.fen);
@@ -188,6 +193,15 @@ describe('Game.result', () => {
 			restored.undo();
 			expect(restored.pieceAt('d5')).toEqual({ type: 'p', color: 'b' });
 			expect(restored.pieces.find((p) => p.id === 'bp-d7')?.square).toBe('d5');
+		});
+
+		it('saves the moves as from, to and only a real promotion', () => {
+			const game = new Game();
+			game.move({ from: 'e2', to: 'e4' });
+			expect(game.history).toEqual([{ from: 'e2', to: 'e4' }]);
+			const promoted = new Game('1n2k3/P7/8/8/8/8/8/4K3 w - - 0 1');
+			promoted.move({ from: 'a7', to: 'b8', promotion: 'n' });
+			expect(promoted.history).toEqual([{ from: 'a7', to: 'b8', promotion: 'n' }]);
 		});
 
 		it('keeps a promotion, a custom start and a resignation', () => {
