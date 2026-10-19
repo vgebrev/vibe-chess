@@ -87,28 +87,36 @@ describe('VoiceDirector (§4.11)', () => {
 		]);
 	});
 
-	it('lets the computer taunt now and then, from a piece that has taunts, at most every 30 s', () => {
+	it("answers the player's quiet move with a computer taunt now and then, at most every 30 s", () => {
 		const has = (line: Line) => line.event !== 'taunt' || !['n', 'r'].includes(line.piece);
-		const { voices, clock } = director(rolls(0.05, 0.99, 0.3, 0.05, 0.01, 0.05, 0, 0), has);
+		const { voices, clock } = director(rolls(0.05, 0.99, 0.3, 0.05, 0.01, 0.05, 0, 0, 0.05), has);
 		// The roll picks among the kinds of piece with taunts only (k, q, b, p), so 0.99 is a pawn,
 		// and the next roll which pawn.
 		expect(
-			voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w', ['n', 'r', 'k', 'q', 'b', 'p']))
+			voices.move(play(START, 'Nf3'), vsComputer('w', ['n', 'r', 'k', 'q', 'b', 'p']))
 		).toEqual([{ side: 'b', piece: 'p', event: 'taunt', square: 'c7' }]);
+		// Within 30 s, the player's own line instead.
 		clock.now = TAUNT_COOLDOWN_MS - 1;
-		expect(voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w'))).toEqual([]);
+		expect(voices.move(play(START, 'Nf3'), vsComputer('w'))).toEqual([
+			{ side: 'w', piece: 'n', event: 'move', square: 'f3' }
+		]);
 		clock.now = TAUNT_COOLDOWN_MS;
-		expect(voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w', ['k']))).toEqual([
+		expect(voices.move(play(START, 'Nf3'), vsComputer('w', ['k']))).toEqual([
 			{ side: 'b', piece: 'k', event: 'taunt', square: 'e8' }
 		]);
-		// Nothing to taunt with.
+		// Nothing to taunt with: the player's line.
 		clock.now = 3 * TAUNT_COOLDOWN_MS;
-		expect(voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w', ['n', 'r']))).toEqual([]);
+		expect(voices.move(play(START, 'Nf3'), vsComputer('w', ['n', 'r']))).toEqual([
+			{ side: 'w', piece: 'n', event: 'move', square: 'f3' }
+		]);
 	});
 
-	it('never taunts in hot-seat, and never voices the computer moving', () => {
+	it("never taunts in hot-seat, after a player's capture or on the computer's move", () => {
 		const { voices } = director(() => 0); // every chance hits
-		expect(voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w', []))).toEqual([]);
+		expect(voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w'))).toEqual([]);
+		expect(voices.move(play(WHITE_TAKES, 'exd5'), vsComputer('w'))).toEqual([
+			{ side: 'w', piece: 'p', event: 'capture', square: 'd5' }
+		]);
 		expect(voices.move(play(BLACK_QUIET, 'Nf6'), hotseat)).toEqual([
 			{ side: 'b', piece: 'n', event: 'move', square: 'f6' }
 		]);

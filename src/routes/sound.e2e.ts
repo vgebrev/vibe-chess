@@ -147,17 +147,25 @@ test('a mute toggle silences a category and brings its level back', async ({ pag
 	await expect(again.getByRole('slider', { name: 'Effects' })).toHaveValue('40');
 });
 
-test("a taunt shows a speech bubble over the computer's piece while it is said", async ({
+test("the computer answers the player's move with a taunt, in a bubble over its piece", async ({
 	page
 }) => {
-	// The computer has White, so it moves first, and with every chance hitting it taunts.
-	await page.goto('/?mode=computer&color=b');
-	await page.locator('[data-cell="e7"]').click(); // unlocks audio, so the line can play
+	// With every chance hitting, the player's first quiet move gets the computer's taunt.
+	await page.goto('/?mode=computer&color=w');
+	await cell(page, 'e2').click(); // unlocks audio, so the line can play
+	await cell(page, 'e4').click();
 	const bubble = page.locator('[data-bubble]');
 	await expect(bubble).toBeVisible({ timeout: 8000 });
-	expect(await played(page)).toContainEqual(expect.stringMatching(/^voices\/w-\w+-taunt-\d\.mp3$/));
-	const square = await bubble.getAttribute('data-bubble');
-	await expect(page.locator(`[data-square="${square}"]`)).toHaveAttribute('data-piece', /^w/);
+	expect(await played(page)).toContainEqual(expect.stringMatching(/^voices\/b-\w+-taunt-\d\.mp3$/));
+	expect(await played(page)).not.toContainEqual(expect.stringMatching(/^voices\/w-/));
+	// Over one of Black's pieces: read in one go, as the computer's reply may move the speaker,
+	// which takes the bubble away.
+	const speaker = await bubble.evaluate((el) =>
+		document
+			.querySelector(`[data-piece][data-square="${el.dataset.bubble}"]`)
+			?.getAttribute('data-piece')
+	);
+	expect(speaker).toMatch(/^b/);
 	await expect(bubble).toBeHidden({ timeout: 8000 });
 });
 

@@ -1,6 +1,6 @@
 // Which voice line (if any) a move gets (§4.11). A move is voiced from the side of the player
-// who made it; check and checkmate always speak; the computer's own moves stay silent except
-// for an occasional taunt. Pure apart from the injected clock and random source, so the rules
+// who made it; check and checkmate always speak; the computer's own moves stay silent, and it
+// answers a player's move with an occasional taunt. Pure apart from the injected clock and random source, so the rules
 // can be tested move by move.
 import type { Color, Move, Square } from 'chess.js';
 import type { Result } from '#lib/game/game.svelte.ts';
@@ -14,7 +14,7 @@ export interface Odds {
 	capture: number;
 	/** When the computer captures, the player's piece's reaction. */
 	reaction: number;
-	/** Per computer move, a taunt. */
+	/** Per player's quiet move vs Computer, the computer's taunt. */
 	taunt: number;
 }
 
@@ -140,8 +140,13 @@ export class VoiceDirector {
 		if (move.san.includes('+')) return say(king('check'));
 
 		// 3–4: a player's capture or other move, from the piece that moved (castling is the
-		// king's, promotion the pawn's). The captured piece doesn't answer.
+		// king's, promotion the pawn's). The captured piece doesn't answer. vs Computer, a quiet
+		// move may get a computer piece's taunt instead, so the taunt answers the player.
 		if (human === null || mover === human) {
+			if (human !== null && !move.captured) {
+				const taunt = this.#taunt(opponent, computerPieces);
+				if (taunt) return [taunt];
+			}
 			const [event, p] = move.captured
 				? (['capture', odds.capture] as const)
 				: (['move', odds.move] as const);
@@ -149,22 +154,29 @@ export class VoiceDirector {
 			return this.has(line) && chance(p) ? [line] : [];
 		}
 
-		// 5: the computer's capture: the player's piece reacts.
+		// 5–6: the computer's capture: the player's piece reacts. Its other moves are silent.
 		if (move.captured) {
 			const line: Line = { side: opponent, piece: move.captured as PieceType, event: 'captured' };
 			return this.has(line) && chance(odds.reaction) ? [line] : [];
 		}
-		// 6: otherwise an occasional taunt from a computer piece that has one: each kind of piece
-		// is as likely, then one of that kind.
-		if (this.now() - this.#lastTaunt < TAUNT_COOLDOWN_MS || !chance(odds.taunt)) return [];
+		return [];
+	}
+
+	/**
+	 * Now and then, at most every 30 s, a taunt from a computer piece that has one: each kind of
+	 * piece is as likely, then one of that kind.
+	 */
+	#taunt(computer: Color, computerPieces: MoveContext['computerPieces']): Line | null {
+		if (this.now() - this.#lastTaunt < TAUNT_COOLDOWN_MS) return null;
+		if (!(this.random() < this.odds.taunt)) return null;
 		const kinds = [...new Set(computerPieces.map((p) => p.type))].filter((piece) =>
-			this.has({ side: mover, piece, event: 'taunt' })
+			this.has({ side: computer, piece, event: 'taunt' })
 		);
-		if (kinds.length === 0) return [];
+		if (kinds.length === 0) return null;
 		const piece = kinds[Math.floor(this.random() * kinds.length)];
 		const squares = computerPieces.filter((p) => p.type === piece);
 		const { square } = squares[Math.floor(this.random() * squares.length)];
-		return [{ side: mover, piece, event: 'taunt', square }];
+		return { side: computer, piece, event: 'taunt', square };
 	}
 }
 

@@ -281,23 +281,23 @@ Sound comes from the skin (`audio` in the manifest, §5.1), in three categories,
 
 **Voices.** Each piece type has pools of lines per side and **event**. A line is chosen at random from the pool for the event, never the same one twice in a row when the pool has more than one.
 
-| Event      | Who speaks                          | Pirate lines per side                              |
-| ---------- | ----------------------------------- | -------------------------------------------------- |
-| `move`     | the piece that moved                | 3 (king, queen, bishop, pawn); 2 (knight, rook)    |
-| `capture`  | the capturing piece                 | 3; 2                                               |
-| `captured` | the captured piece                  | 2 (not kings)                                      |
-| `check`    | the king in check                   | 2 (kings only)                                     |
-| `defeat`   | the checkmated (or resigning) king  | 2 (kings only)                                     |
-| `taunt`    | a computer piece (vs Computer only) | 2 (king, queen, bishop, pawn); none (knight, rook) |
+| Event      | Who speaks                                               | Pirate lines per side                              |
+| ---------- | -------------------------------------------------------- | -------------------------------------------------- |
+| `move`     | the piece that moved                                     | 3 (king, queen, bishop, pawn); 2 (knight, rook)    |
+| `capture`  | the capturing piece                                      | 3; 2                                               |
+| `captured` | the captured piece                                       | 2 (not kings)                                      |
+| `check`    | the king in check                                        | 2 (kings only)                                     |
+| `defeat`   | the checkmated (or resigning) king                       | 2 (kings only)                                     |
+| `taunt`    | a computer piece, answering your move (vs Computer only) | 2 (king, queen, bishop, pawn); none (knight, rook) |
 
 A move is **voiced from the side of the player who made it**. The rules, in order; the first that applies decides the move's voice:
 
 1. **Checkmate:** the losing king's `defeat`, always. A resigning side's king says `defeat` too.
 2. **Check:** the checked king's `check`, always.
 3. **A player's capture:** the capturing piece's `capture` (chance `P_CAPTURE`). The captured piece doesn't answer: by the time the line ends it has left the board, so an answer didn't flow.
-4. **A player's other move:** the moved piece's `move` (chance `P_MOVE`). Castling is the king's move and promotion the pawn's; en passant is a capture.
+4. **A player's other move:** vs Computer, a **taunt** when one is due (chance `P_TAUNT`, at most one per 30 s), from one of the computer's pieces still on the board: each kind of piece that has taunt lines is as likely, then one piece of that kind. Otherwise (and always in hot-seat) the moved piece's `move` (chance `P_MOVE`). Castling is the king's move and promotion the pawn's; en passant is a capture. The taunt answers your move, so it never seems to come from the computer taunting itself after its own; a capture of yours isn't taunted.
 5. **The computer's capture:** the computer stays silent, and **your** captured piece reacts with its `captured` line (chance `P_REACTION`).
-6. **The computer's other moves:** silent, except for a **taunt** (chance `P_TAUNT`, at most one per 30 s) from one of the computer's pieces still on the board: each kind of piece that has taunt lines is as likely, then one piece of that kind. No taunts in hot-seat.
+6. **The computer's other moves:** silent. No taunts in hot-seat.
 
 **Every chance is 1** (`ODDS` in `audio/voices.ts`): every move gets its line, which played better than lines by chance. Taunts are still spaced out, at most one per 30 s. The values first tuned by ear are kept as `TUNED_ODDS`, should the lines grow repetitive before the skin has more of them:
 
@@ -306,7 +306,7 @@ A move is **voiced from the side of the player who made it**. The rules, in orde
 | `P_MOVE`     | 1      | 0.35        |                           |
 | `P_CAPTURE`  | 1      | 0.8         |                           |
 | `P_REACTION` | 1      | 0.5         |                           |
-| `P_TAUNT`    | 1      | 0.07        | Per computer move         |
+| `P_TAUNT`    | 1      | 0.07        | Per quiet move of yours   |
 | Taunt wait   | 30 s   | 30 s        | At most one taunt in 30 s |
 
 - **Lines overlap.** Every line plays to its end: a newer move's line starts over one still playing rather than cutting it off (a cut-off taunt felt unnatural). The music stays dipped until the last one ends. Undo, a new game, a skin change and setting Voices to 0 stop every line, with a short fade.
@@ -940,7 +940,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Settings panel: skins listed by name, no skin picker with a single skin, auto-flip only in hot-seat, difficulty only vs Computer
 - Skin availability: the `disabled` flag is validated; the start order is the saved skin, the default, then the rest, skipping disabled ones
 - Controls: full accessible names, Moves button, focus back on Resign after "No"
-- Sound rules (§4.11): each SFX case; a player's move and capture voiced by chance (with no answer), the computer's capture answered by the player's piece, taunts (only vs Computer, from pieces that have them, 30 s apart), check and checkmate always, castling and promotion speakers, missing lines; variations never repeat; the playlist shuffles every track once and loops; the `audio` manifest block and its errors; volumes in [0, 1] falling back on their own, unmute levels above 0; the `emotes` block and its errors
+- Sound rules (§4.11): each SFX case; a player's move and capture voiced by chance (with no answer), the computer's capture answered by the player's piece, taunts (only vs Computer, answering the player's quiet move in place of its line, from pieces that have them, 30 s apart; never on the computer's move or after a capture), check and checkmate always, castling and promotion speakers, missing lines; variations never repeat; the playlist shuffles every track once and loops; the `audio` manifest block and its errors; volumes in [0, 1] falling back on their own, unmute levels above 0; the `emotes` block and its errors
 - Settings panel: a volume slider and mute toggle per category the skin has sound for, none for a silent skin; muting and unmuting (back to the last level above 0, also after sliding to 0)
 - Haptics (§4.12): each event's pattern, nothing when off or unsupported, no support without a window; the Vibration toggle only where the device can vibrate
 
@@ -958,7 +958,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Drawers: settings apply at once and the drawer closes from its scrim; a short swipe on the handle springs back and a long one closes it; vs Computer, Settings offer the difficulty and not auto-flip
 - Reload: the game resumes with its undo history, board side, skin and settings; a resignation stays final; vs Computer, Undo still takes back the pair and a reload on the computer's turn gets a reply; an unreplayable saved game starts afresh; the game plays with storage blocked
 - Skins as shipped: Pirate only, with no picker; a saved skin that has since been disabled falls back to an enabled one. With every skin enabled, the picker switches skin and the choice survives a reload
-- Sound, with the browser's Web Audio and media calls recorded: a move plays its SFX and the piece's line, a capture by the capturing piece alone, check by the checked king; two quick moves' lines overlap, neither stopped; music waits for the first press; volumes are kept across a reload, and 0 plays (and downloads) nothing in that category; a mute toggle sets 0 and, after a reload, brings the level back; the computer's opening taunt shows a speech bubble over one of its pieces while the line plays; UI controls click once (a label and its checkbox too), the board and sliders don't
+- Sound, with the browser's Web Audio and media calls recorded: a move plays its SFX and the piece's line, a capture by the capturing piece alone, check by the checked king; two quick moves' lines overlap, neither stopped; music waits for the first press; volumes are kept across a reload, and 0 plays (and downloads) nothing in that category; a mute toggle sets 0 and, after a reload, brings the level back; the player's first move gets the computer's taunt, with a speech bubble over one of its pieces while the line plays; UI controls click once (a label and its checkbox too), the board and sliders don't
 - Haptics, on a browser made to look like a phone that vibrates: picking up and moving a piece vibrate their patterns, and turning Vibration off (kept across a reload) stops them
 - Splash, in Pirate as shipped: opens at startup with the portrait picture on a phone and the landscape one on desktop, the title on the banner in the skin's font; Continue is disabled without a game in progress; New Game opens the New game drawer; Continue and Esc go back to the game in progress; a link that sets up the game skips it
 - Accessibility: no axe violations in each state of the screen (settings, start, selection, new game, move drawer, resign confirmation, game-over overlay, game over, promotion picker) in both skins, and on the splash; a move played with the keyboard alone
@@ -1056,3 +1056,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 48  | Loss pictures in the loser's colours | A loss or resignation picture is now the loser's: they are the skull (or raise the white flag), so vs the computer a loss shows the player's own crew. A win stays in the winner's colours. Replaces the winner's colours for losses in #44 (§4.7.1)                                                                                                                                                                                                                                                                                                    |
 | 49  | UI scale on big screens              | At 100% zoom on a desktop the UI looked small; 150% zoom looked right. The root font size now scales with the viewport, up to 1.5×, as far as the desktop layout still fits at 1024×576 in scaled pixels, rather than a fixed 1.5× (which would squeeze a 1280-wide window) or browser zoom (which also moves the breakpoints) (§6.0)                                                                                                                                                                                                                   |
 | 50  | Portrait splash                      | Phones get a portrait splash picture (`splash.portrait`) below `md`, with its own title area and button height, and the buttons on it rather than under it; the landscape one is for `md` and up, phones held sideways included. A `<picture>` element, so each screen downloads one (§4.13)                                                                                                                                                                                                                                                            |
+| 51  | Taunts answer your move              | The computer taunted after its own moves, which could sound like it taunting itself. A taunt now answers a quiet move of yours vs Computer, in place of your piece's line, still at most one per 30 s; the computer's quiet moves are silent (§4.11)                                                                                                                                                                                                                                                                                                    |
