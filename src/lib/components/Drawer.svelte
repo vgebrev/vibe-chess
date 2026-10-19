@@ -83,7 +83,7 @@
 		></div>
 		<div
 			class={[
-				'absolute inset-x-0 bottom-0 flex max-h-[70dvh] flex-col rounded-t-xl bg-surface shadow-lg',
+				'absolute inset-x-0 bottom-0 flex max-h-[calc(100dvh-4rem)] flex-col rounded-t-xl bg-surface shadow-lg',
 				'[--sheet-x:0] [--sheet-y:1] lg:inset-y-0 lg:right-0 lg:left-auto lg:max-h-none lg:w-96',
 				'lg:rounded-none lg:[--sheet-x:1] lg:[--sheet-y:0]',
 				// A short swipe springs back.
