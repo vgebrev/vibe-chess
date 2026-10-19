@@ -349,7 +349,7 @@
 						onnew={() => (drawer = 'new')}
 						onundo={undo}
 						onflip={flip}
-						onresign={() => game.resign(vsComputer ? human : game.turn)}
+						onresign={() => game.resign(player ?? game.turn)}
 						onmoves={() => (drawer = 'moves')}
 					/>
 				</div>

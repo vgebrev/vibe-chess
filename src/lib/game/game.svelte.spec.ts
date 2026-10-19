@@ -163,7 +163,7 @@ describe('Game.result', () => {
 
 	it('ends the game when the side to move resigns, and refuses further moves and undo', () => {
 		const game = play(undefined, 'e4');
-		game.resign();
+		game.resign('b');
 		expect(game.result).toEqual({ winner: 'w', reason: 'resignation' });
 		expect(game.isGameOver).toBe(true);
 		expect(game.move({ from: 'e7', to: 'e5' })).toBeNull();

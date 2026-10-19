@@ -63,7 +63,6 @@ describe('validateSkin', () => {
 			captureScale: DEFAULTS.captureScale
 		});
 		expect(skin.pieces.scale).toBe(1);
-		expect(skin.pieces.anchorY).toBe(0);
 		expect(skin.coordinates).toEqual({
 			fontScale: DEFAULTS.coordFontScale,
 			gutter: DEFAULTS.coordGutter

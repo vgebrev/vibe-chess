@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cell, hotseatAt, settings } from './e2e-helpers.ts';
+import { cell, hotseatAt, play, settings } from './e2e-helpers.ts';
 
 // Sound (§4.11), in Pirate as shipped. The browser is instrumented rather than the app: each
 // fetched MP3's bytes are followed through decoding to the buffer a sound plays, so the test
@@ -63,27 +63,23 @@ const played = (page: Page) => page.evaluate(() => window.played);
 const music = (page: Page) => page.evaluate(() => window.music);
 
 test('a move plays its sound and a line from the piece that moved', async ({ page }) => {
-	await cell(page, 'e2').click();
-	await cell(page, 'e4').click();
+	await play(page, ['e2', 'e4']);
 	await expect
 		.poll(() => played(page))
 		.toEqual(['sfx/select.mp3', 'sfx/move.mp3', 'voices/w-pawn-move-1.mp3']);
 });
 
 test('lines overlap rather than cut each other off', async ({ page }) => {
-	await cell(page, 'e2').click();
-	await cell(page, 'e4').click();
+	await play(page, ['e2', 'e4']);
 	await expect.poll(() => played(page)).toContain('voices/w-pawn-move-1.mp3');
-	await cell(page, 'e7').click();
-	await cell(page, 'e5').click();
+	await play(page, ['e7', 'e5']);
 	await expect.poll(() => played(page)).toContain('voices/b-pawn-move-1.mp3');
 	expect(await page.evaluate(() => window.stopped)).toEqual([]);
 });
 
 test('a capture is voiced by the capturing piece alone', async ({ page }) => {
 	await page.goto(hotseatAt('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2'));
-	await cell(page, 'e4').click();
-	await cell(page, 'd5').click();
+	await play(page, ['e4', 'd5']);
 	await expect
 		.poll(() => played(page))
 		.toEqual(['sfx/select.mp3', 'sfx/capture.mp3', 'voices/w-pawn-capture-1.mp3']);
@@ -91,8 +87,7 @@ test('a capture is voiced by the capturing piece alone', async ({ page }) => {
 
 test('check is answered by the king in check', async ({ page }) => {
 	await page.goto(hotseatAt('4k3/8/8/8/8/8/8/4K2R w K - 0 1'));
-	await cell(page, 'h1').click();
-	await cell(page, 'h8').click();
+	await play(page, ['h1', 'h8']);
 	await expect
 		.poll(() => played(page))
 		.toEqual(['sfx/select.mp3', 'sfx/check.mp3', 'voices/b-king-check-1.mp3']);
@@ -114,8 +109,7 @@ test('volumes are set in Settings and kept, and 0 silences a category', async ({
 
 	// Reloaded with music and voices off, nothing of either plays (or downloads).
 	await page.reload();
-	await cell(page, 'e2').click();
-	await cell(page, 'e4').click();
+	await play(page, ['e2', 'e4']);
 	await expect.poll(() => played(page)).toEqual(['sfx/select.mp3', 'sfx/move.mp3']);
 	expect(await music(page)).toEqual([]);
 	const again = await settings(page);

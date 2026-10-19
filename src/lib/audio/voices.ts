@@ -70,15 +70,17 @@ export class VoiceDirector {
 
 	/** A resigning side's king concedes, always (§4.11 rule 1). */
 	resign(side: Color, square?: Square): Line[] {
-		const line: Line = { side, piece: 'k', event: 'defeat', square };
-		if (!this.#has(line)) return [];
-		return [line];
+		return this.#say({ side, piece: 'k', event: 'defeat', square });
+	}
+
+	/** The line, if the skin has it. */
+	#say(line: Line): Line[] {
+		return this.#has(line) ? [line] : [];
 	}
 
 	#pick(move: Move, { result, human, computerPieces }: MoveContext): Line[] {
 		const mover = move.color;
 		const opponent = other(mover);
-		const say = (line: Line) => (this.#has(line) ? [line] : []);
 		const king = (event: VoiceEvent): Line => ({
 			side: opponent,
 			piece: 'k',
@@ -87,9 +89,9 @@ export class VoiceDirector {
 		});
 
 		// 1–2: check and checkmate always speak, from the king concerned.
-		if (result?.reason === 'checkmate') return say(king('defeat'));
+		if (result?.reason === 'checkmate') return this.#say(king('defeat'));
 		if (result) return []; // a draw has no line
-		if (move.san.includes('+')) return say(king('check'));
+		if (move.san.includes('+')) return this.#say(king('check'));
 
 		// 3–4: a player's capture or other move, from the piece that moved (castling is the
 		// king's, promotion the pawn's). The captured piece doesn't answer. vs Computer, a quiet
@@ -100,11 +102,12 @@ export class VoiceDirector {
 				if (taunt) return [taunt];
 			}
 			const event = move.captured ? 'capture' : 'move';
-			return say({ side: mover, piece: move.piece, event, square: move.to });
+			return this.#say({ side: mover, piece: move.piece, event, square: move.to });
 		}
 
 		// 5–6: the computer's capture: the player's piece reacts. Its other moves are silent.
-		if (move.captured) return say({ side: opponent, piece: move.captured, event: 'captured' });
+		if (move.captured)
+			return this.#say({ side: opponent, piece: move.captured, event: 'captured' });
 		return [];
 	}
 

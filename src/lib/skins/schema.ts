@@ -150,8 +150,7 @@ export interface SkinManifest {
 		order: PieceSymbol[];
 		rowFor: Record<Color, number>;
 		scale: number;
-		anchorY: number;
-		/** Per-type anchor, `anchorY` unless overridden by the manifest's `anchorYFor`. */
+		/** Per-type anchor: the manifest's `anchorY` unless overridden by its `anchorYFor`. */
 		anchorYFor: Record<PieceSymbol, number>;
 	};
 	moveIndicator: {
@@ -328,7 +327,6 @@ export function validateSkin(raw: unknown, baseUrl: string): ValidationResult {
 		order,
 		rowFor,
 		scale: num(pieces.scale, 'pieces.scale', 0.1, 1.5, 1),
-		anchorY,
 		anchorYFor
 	};
 

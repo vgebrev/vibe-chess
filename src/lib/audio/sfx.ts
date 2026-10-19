@@ -10,6 +10,6 @@ export function moveSfx(move: Move, result: Result | null): SfxName {
 	if (move.san.includes('+')) return 'check';
 	if (move.isPromotion()) return 'promotion';
 	if (move.isKingsideCastle() || move.isQueensideCastle()) return 'castle';
-	if (move.isCapture() || move.isEnPassant()) return 'capture';
+	if (move.captured) return 'capture';
 	return 'move';
 }

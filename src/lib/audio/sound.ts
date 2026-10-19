@@ -43,7 +43,6 @@ export class Sound {
 	#onbubble: (bubble: Bubble | null) => void;
 	#shown: Bubble | null = null;
 	#bubbleTimers: ReturnType<typeof setTimeout>[] = [];
-	#volumes: Volumes = { music: 0, sfx: 0, voices: 0 };
 	/** The variation played last per pool, so a line doesn't repeat straight away. */
 	#lastVariation: Record<string, number> = {};
 	#director = new VoiceDirector((line) => this.#pool(line).length > 0);
@@ -76,7 +75,6 @@ export class Sound {
 	setVolumes(volumes: Volumes) {
 		for (const category of CATEGORIES) this.#mixer.setVolume(category, volumes[category]);
 		if (volumes.voices === 0) this.#hush();
-		this.#volumes = { ...volumes };
 		this.#prefetch();
 	}
 
@@ -124,7 +122,7 @@ export class Sound {
 		const shown = this.#shown?.square;
 		if (shown && pieceOn(move.before, shown) !== pieceOn(move.after, shown)) this.#hideBubble();
 		this.#sfx(moveSfx(move, context.result));
-		if (this.#volumes.voices === 0) return; // a muted taunt shouldn't start its wait
+		if (this.#mixer.volume('voices') === 0) return; // a muted taunt shouldn't start its wait
 		const lines = this.#director.move(move, context);
 		if (lines.length > 0) this.#say(lines);
 	}
@@ -133,7 +131,7 @@ export class Sound {
 	resign(side: Color, square?: Square) {
 		this.#hideBubble();
 		this.#sfx('checkmate');
-		if (this.#volumes.voices > 0) this.#say(this.#director.resign(side, square));
+		if (this.#mixer.volume('voices') > 0) this.#say(this.#director.resign(side, square));
 	}
 
 	undo() {
@@ -216,12 +214,13 @@ export class Sound {
 	#prefetch() {
 		const audio = this.#audio;
 		if (!audio) return;
+		const mixer = this.#mixer;
 		const urls: string[] = [];
-		if (this.#volumes.sfx > 0) urls.push(...Object.values(audio.sfx));
-		if (this.#volumes.voices > 0 && this.#mixer.unlocked)
+		if (mixer.volume('sfx') > 0) urls.push(...Object.values(audio.sfx));
+		if (mixer.volume('voices') > 0 && mixer.unlocked)
 			for (const byPiece of Object.values(audio.voices))
 				for (const byEvent of Object.values(byPiece))
 					for (const pool of Object.values(byEvent)) urls.push(...pool);
-		this.#mixer.prefetch(urls);
+		mixer.prefetch(urls);
 	}
 }
