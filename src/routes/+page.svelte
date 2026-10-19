@@ -92,7 +92,8 @@
 		}
 	}
 
-	const opponent = new Opponent();
+	// A reply waits for the computer's taunt to end, so it doesn't seem to answer itself.
+	const opponent = new Opponent(undefined, () => sound.afterTaunt());
 	const vsComputer = $derived(setup.mode === 'computer');
 	/** The player's colour vs the computer; null in hot-seat, where both sides are players. */
 	const player = $derived(vsComputer ? human : null);

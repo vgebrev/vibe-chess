@@ -11,12 +11,18 @@ export type OpponentStatus = 'idle' | 'thinking' | 'failed';
 export class Opponent {
 	status = $state<OpponentStatus>('idle');
 	#start: () => Promise<Engine>;
+	#hold: () => Promise<void>;
 	#engine: Promise<Engine | null> | null = null;
 	/** Bumped by every request and cancel; replies for an older one are dropped (§4.6). */
 	#request = 0;
 
-	constructor(start: () => Promise<Engine> = async () => Engine.start(await createWorker())) {
+	/** `hold`: what a reply waits for once found, such as a taunt still being said (§4.11). */
+	constructor(
+		start: () => Promise<Engine> = async () => Engine.start(await createWorker()),
+		hold: () => Promise<void> = async () => {}
+	) {
 		this.#start = start;
+		this.#hold = hold;
 	}
 
 	/** Start the engine if it isn't running. Resolves null, with status `failed`, if it can't. */
@@ -45,6 +51,7 @@ export class Opponent {
 		// A forced line can come back early; the pause stays as long as planned.
 		const remaining = budget - (performance.now() - started);
 		if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+		await this.#hold();
 		if (!current() || game.fen !== fen) return;
 
 		this.status = 'idle';

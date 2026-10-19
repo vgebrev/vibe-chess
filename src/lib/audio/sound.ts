@@ -42,10 +42,13 @@ export class Sound {
 	/** Shows or hides the speech bubble. */
 	#onbubble: (bubble: Bubble | null) => void;
 	#shown: Bubble | null = null;
-	#bubbleTimers: ReturnType<typeof setTimeout>[] = [];
+	/** Each bubble still to show or showing, with the timers that show and hide it. */
+	#bubbles = new Map<Bubble, ReturnType<typeof setTimeout>[]>();
 	/** The variation played last per pool, so a line doesn't repeat straight away. */
 	#lastVariation: Record<string, number> = {};
 	#director = new VoiceDirector((line) => this.#pool(line).length > 0);
+	/** The taunt being said (or about to be), and how to stop waiting for it. */
+	#taunt: { done: Promise<void>; end: () => void } | null = null;
 
 	constructor(onbubble: (bubble: Bubble | null) => void = () => {}) {
 		this.#onbubble = onbubble;
@@ -115,16 +118,28 @@ export class Sound {
 	}
 
 	/**
-	 * A move was played: its SFX, and perhaps a voice line. A line still being said plays on; its
-	 * bubble goes if its speaker moved or was taken.
+	 * A move was played: its SFX, and perhaps voice lines. A line still being said (or yet to be,
+	 * after another) plays on; its bubble goes, or never comes, if its speaker moved or was taken.
 	 */
 	move(move: Move, context: MoveContext) {
-		const shown = this.#shown?.square;
-		if (shown && pieceOn(move.before, shown) !== pieceOn(move.after, shown)) this.#hideBubble();
+		for (const bubble of this.#bubbles.keys()) {
+			const { square } = bubble;
+			if (pieceOn(move.before, square) !== pieceOn(move.after, square)) this.#dropBubble(bubble);
+		}
 		this.#sfx(moveSfx(move, context.result));
-		if (this.#mixer.volume('voices') === 0) return; // a muted taunt shouldn't start its wait
+		if (this.#mixer.volume('voices') === 0) return; // muted moves don't count towards a taunt
 		const lines = this.#director.move(move, context);
-		if (lines.length > 0) this.#say(lines);
+		if (lines.length === 0) return;
+		const said = this.#say(lines);
+		if (lines.at(-1)?.event === 'taunt') this.#waitForTaunt(said, lines.length - 1);
+	}
+
+	/**
+	 * Resolves once the computer's taunt, if one is being said or about to be, has ended, so its
+	 * reply doesn't come over it and sound like the computer answering itself (§4.11).
+	 */
+	afterTaunt(): Promise<void> {
+		return this.#taunt?.done ?? Promise.resolve();
 	}
 
 	/** A side resigned: the game-end SFX and that side's king (on `square`) conceding. */
@@ -141,6 +156,7 @@ export class Sound {
 
 	newGame() {
 		this.#hush();
+		this.#director.reset();
 		this.#sfx('start');
 	}
 
@@ -174,13 +190,36 @@ export class Sound {
 		if (url) void this.#mixer.playSfx(url);
 	}
 
-	async #say(lines: Line[]) {
+	/** Say lines one after another; resolves with when each starts and how long it lasts. */
+	async #say(lines: Line[]): Promise<Timing[]> {
 		const urls = lines.map((line) => {
 			const pool = this.#pool(line);
 			return pool[this.#vary(`${line.side}${line.piece}-${line.event}`, pool.length)];
 		});
 		const timings = await this.#mixer.playVoices(urls);
 		timings.forEach((timing, i) => this.#bubble(lines[i], timing));
+		return timings;
+	}
+
+	/** Hold `afterTaunt` until line `index` of those being said ends, or doesn't play. */
+	#waitForTaunt(said: Promise<Timing[]>, index: number) {
+		this.#taunt?.end();
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let resolve!: () => void;
+		const taunt = {
+			done: new Promise<void>((r) => (resolve = r)),
+			end: () => {
+				clearTimeout(timer);
+				if (this.#taunt === taunt) this.#taunt = null;
+				resolve();
+			}
+		};
+		this.#taunt = taunt;
+		void said.then((timings) => {
+			const timing = timings[index];
+			if (!timing || this.#taunt !== taunt) return taunt.end();
+			timer = setTimeout(taunt.end, (timing.start + timing.duration) * 1000);
+		});
 	}
 
 	/** A variation for a pool of `size`, not the one it gave last time if there is a choice. */
@@ -195,20 +234,26 @@ export class Sound {
 		const cells = this.#emotes?.events[event as BubbleEvent];
 		if (!square || !cells) return;
 		const bubble: Bubble = { square, emote: cells[this.#vary(`emote-${event}`, cells.length)] };
-		const at = (seconds: number, then: () => void) =>
-			this.#bubbleTimers.push(setTimeout(then, seconds * 1000));
-		at(start, () => this.#onbubble((this.#shown = bubble)));
+		const at = (seconds: number, then: () => void) => setTimeout(then, seconds * 1000);
+		this.#bubbles.set(bubble, [
+			at(start, () => this.#onbubble((this.#shown = bubble))),
+			at(start + duration + BUBBLE_LINGER_MS / 1000, () => this.#dropBubble(bubble))
+		]);
+	}
+
+	/** Take a bubble away, or keep it from showing. */
+	#dropBubble(bubble: Bubble) {
+		this.#bubbles.get(bubble)?.forEach(clearTimeout);
+		this.#bubbles.delete(bubble);
 		// Unless the next line's bubble has taken its place.
-		at(start + duration + BUBBLE_LINGER_MS / 1000, () => {
-			if (this.#shown !== bubble) return;
-			this.#shown = null;
-			this.#onbubble(null);
-		});
+		if (this.#shown !== bubble) return;
+		this.#shown = null;
+		this.#onbubble(null);
 	}
 
 	#hideBubble() {
-		this.#bubbleTimers.forEach(clearTimeout);
-		this.#bubbleTimers = [];
+		this.#bubbles.forEach((timers) => timers.forEach(clearTimeout));
+		this.#bubbles.clear();
 		this.#shown = null;
 		this.#onbubble(null);
 	}
@@ -217,6 +262,7 @@ export class Sound {
 	#hush() {
 		this.#mixer.stopVoices();
 		this.#hideBubble();
+		this.#taunt?.end();
 	}
 
 	#pool({ side, piece, event }: Line): string[] {

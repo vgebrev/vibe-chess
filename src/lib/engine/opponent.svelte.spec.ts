@@ -38,6 +38,26 @@ describe('Opponent', () => {
 		expect(opponent.status).toBe('idle');
 	});
 
+	it('holds the reply until told, such as when a taunt ends', async () => {
+		const worker = new FakeWorker();
+		worker.instant = true;
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => (release = resolve));
+		const opponent = new Opponent(
+			() => Engine.start(worker),
+			() => held
+		);
+		const game = new Game();
+		game.move({ from: 'e2', to: 'e4' });
+		const playing = opponent.play(game, beginner);
+		await vi.advanceTimersByTimeAsync(5000);
+		expect(game.moves).toHaveLength(1);
+		expect(opponent.status).toBe('thinking');
+		release();
+		await playing;
+		expect(game.lastMove?.san).toBe('e5');
+	});
+
 	it('drops the reply when cancelled', async () => {
 		const { opponent, game } = setup();
 		const playing = opponent.play(game, beginner);

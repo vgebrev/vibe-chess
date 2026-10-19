@@ -14,7 +14,7 @@ declare global {
 
 test.beforeEach(async ({ page }) => {
 	await page.addInitScript(() => {
-		Math.random = () => 0; // the first variation and taunting piece are chosen
+		Math.random = () => 0; // the first variation, the shortest taunt gap and the first taunter
 		window.played = [];
 		window.stopped = [];
 		window.music = [];
@@ -149,19 +149,34 @@ test('setting Effects or Voices plays a sample of it, and a double-click resets 
 	await expect(voices).toHaveValue('100');
 });
 
-test("the computer answers the player's move with a taunt, in a bubble over its piece", async ({
+test("the computer answers a player's move with a taunt, in a bubble over its piece", async ({
 	page
 }) => {
-	// The player's first quiet move gets the computer's taunt.
+	// With every roll 0, the third quiet move is taunted: the pawn's line, then the taunt. No
+	// reply Black can make in two moves blocks these, or makes one a capture or check.
 	await page.goto('/?mode=computer&color=w');
-	await cell(page, 'e2').click(); // unlocks audio, so the line can play
-	await cell(page, 'e4').click();
+	const status = page.locator('[data-status]');
+	for (const [from, to] of [
+		['a2', 'a3'],
+		['h2', 'h3']
+	] as const) {
+		await play(page, [from, to]);
+		await expect(status).toHaveText(/to move/, { timeout: 5000 });
+	}
+	const voices = async () => (await played(page)).filter((name) => name.startsWith('voices/'));
+	const pawn = expect.stringMatching(/^voices\/w-pawn-move-\d\.mp3$/);
+	expect(await voices()).toEqual([pawn, pawn]);
+	await play(page, ['b2', 'b3']);
 	const bubble = page.locator('[data-bubble]');
 	await expect(bubble).toBeVisible({ timeout: 8000 });
-	expect(await played(page)).toContainEqual(expect.stringMatching(/^voices\/b-\w+-taunt-\d\.mp3$/));
-	expect(await played(page)).not.toContainEqual(expect.stringMatching(/^voices\/w-/));
-	// Over one of Black's pieces: read in one go, as the computer's reply may move the speaker,
-	// which takes the bubble away.
+	// The reply waits for the taunt to end, so the computer doesn't seem to answer itself.
+	await expect(status).toHaveText(/thinking/);
+	expect((await voices()).slice(2)).toEqual([
+		pawn,
+		expect.stringMatching(/^voices\/b-\w+-taunt-\d\.mp3$/)
+	]);
+	// Over one of Black's pieces: read in one go, as the reply, once the taunt ends, may move
+	// the speaker while the bubble lingers, which takes it away.
 	const speaker = await bubble.evaluate((el) =>
 		document
 			.querySelector(`[data-piece][data-square="${el.dataset.bubble}"]`)
@@ -169,6 +184,7 @@ test("the computer answers the player's move with a taunt, in a bubble over its 
 	);
 	expect(speaker).toMatch(/^b/);
 	await expect(bubble).toBeHidden({ timeout: 8000 });
+	await expect(status).toHaveText(/to move/, { timeout: 5000 });
 });
 
 test('UI controls click, and the board and sliders do not', async ({ page }) => {

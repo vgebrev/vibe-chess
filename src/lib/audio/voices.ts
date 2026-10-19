@@ -1,15 +1,17 @@
 // Which voice line (if any) a move gets (§4.11). A move is voiced from the side of the player
 // who made it; the computer's own moves stay silent, and it answers a player's move with a
-// taunt at most every 30 s. Pure apart from the injected clock and random source, so the rules
-// can be tested move by move.
+// taunt every few moves. Pure apart from the injected clock and random source, so the rules can
+// be tested move by move.
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
 import { other } from '#lib/game/color.ts';
 import type { Result } from '#lib/game/game.svelte.ts';
 import type { BoardPiece } from '#lib/game/pieces.ts';
 import type { VoiceEvent } from '#lib/skins/schema.ts';
 
-/** At most one taunt in this long. */
-export const TAUNT_COOLDOWN_MS = 30_000;
+/** A taunt answers one of every this many of the player's quiet moves, chosen at random. */
+export const TAUNT_GAP = { min: 3, max: 6 };
+/** And never comes sooner than this after the last one, so quick play doesn't bunch them. */
+export const TAUNT_FLOOR_MS = 10_000;
 
 /** One line to say: the speaker and what about. */
 export interface Line {
@@ -42,9 +44,11 @@ export function pieceOn(fen: string, square: Square): string {
 
 export class VoiceDirector {
 	#lastTaunt = -Infinity;
+	/** The player's quiet moves still to go before a taunt is due. */
+	#untilTaunt: number;
 	#has: (line: Line) => boolean;
 	#now: () => number;
-	/** Which taunting piece speaks. */
+	/** How many moves until the next taunt, and which taunting piece speaks. */
 	#random: () => number;
 
 	/** `has`: whether the skin has lines for this speaker and event. */
@@ -56,16 +60,21 @@ export class VoiceDirector {
 		this.#has = has;
 		this.#now = now;
 		this.#random = random;
+		this.#untilTaunt = this.#gap();
 	}
 
 	/**
-	 * The lines for a move just played: none or one. Every move that has a line says it, but
-	 * taunts are spaced out; a taunt is assumed to play, so it starts that wait.
+	 * The lines for a move just played, in the order said: none, one, or the player's line and
+	 * then the computer's taunt in answer.
 	 */
 	move(move: Move, context: MoveContext): Line[] {
-		const lines = this.#pick(move, context);
-		if (lines[0]?.event === 'taunt') this.#lastTaunt = this.#now();
-		return lines;
+		return this.#pick(move, context);
+	}
+
+	/** A new game: the count to the first taunt starts again. */
+	reset() {
+		this.#lastTaunt = -Infinity;
+		this.#untilTaunt = this.#gap();
 	}
 
 	/** A resigning side's king concedes, always (§4.11 rule 1). */
@@ -95,14 +104,12 @@ export class VoiceDirector {
 
 		// 3–4: a player's capture or other move, from the piece that moved (castling is the
 		// king's, promotion the pawn's). The captured piece doesn't answer. vs Computer, a quiet
-		// move may get a computer piece's taunt instead, so the taunt answers the player.
+		// move may get a computer piece's taunt after it, so the taunt answers the player.
 		if (human === null || mover === human) {
-			if (human !== null && !move.captured) {
-				const taunt = this.#taunt(opponent, computerPieces);
-				if (taunt) return [taunt];
-			}
 			const event = move.captured ? 'capture' : 'move';
-			return this.#say({ side: mover, piece: move.piece, event, square: move.to });
+			const own = this.#say({ side: mover, piece: move.piece, event, square: move.to });
+			const taunt = human !== null && !move.captured && this.#taunt(opponent, computerPieces);
+			return taunt ? [...own, taunt] : own;
 		}
 
 		// 5–6: the computer's capture: the player's piece reacts. Its other moves are silent.
@@ -112,11 +119,13 @@ export class VoiceDirector {
 	}
 
 	/**
-	 * At most every 30 s, a taunt from a computer piece that has one: each kind of piece is as
-	 * likely, then one of that kind.
+	 * Every few quiet moves, a taunt from a computer piece that has one: each kind of piece is as
+	 * likely, then one of that kind. A taunt is assumed to play, so it starts the next count. One
+	 * that is due but can't be said yet (too soon, or no piece to say it) waits for a later move.
 	 */
 	#taunt(computer: Color, computerPieces: MoveContext['computerPieces']): Line | null {
-		if (this.#now() - this.#lastTaunt < TAUNT_COOLDOWN_MS) return null;
+		this.#untilTaunt--;
+		if (this.#untilTaunt > 0 || this.#now() - this.#lastTaunt < TAUNT_FLOOR_MS) return null;
 		const kinds = [...new Set(computerPieces.map((p) => p.type))].filter((piece) =>
 			this.#has({ side: computer, piece, event: 'taunt' })
 		);
@@ -124,7 +133,15 @@ export class VoiceDirector {
 		const pick = <T>(items: T[]) => items[Math.floor(this.#random() * items.length)];
 		const piece = pick(kinds);
 		const { square } = pick(computerPieces.filter((p) => p.type === piece));
+		this.#lastTaunt = this.#now();
+		this.#untilTaunt = this.#gap();
 		return { side: computer, piece, event: 'taunt', square };
+	}
+
+	/** A random count of quiet moves to the next taunt. */
+	#gap(): number {
+		const { min, max } = TAUNT_GAP;
+		return min + Math.floor(this.#random() * (max - min + 1));
 	}
 }
 
