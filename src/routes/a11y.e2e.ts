@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { cell, enableAllSkins, settings, settle } from './e2e-helpers.ts';
+import { cell, enableAllSkins, hotseatAt, settings, settle } from './e2e-helpers.ts';
 
 // Accessibility (§6.5): an axe scan of each state of the screen, in both skins, and a game
 // played with the keyboard alone.
@@ -56,7 +56,7 @@ for (const skin of ['Marble', 'Pirate']) {
 		await page.getByRole('button', { name: 'View board' }).click();
 		await scan(page, 'game over, board');
 
-		await page.goto('/?mode=hotseat&fen=' + encodeURIComponent('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
+		await page.goto(hotseatAt('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
 		await cell(page, 'a7').click();
 		await cell(page, 'a8').click();
 		await scan(page, 'promotion picker');

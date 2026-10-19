@@ -3,6 +3,7 @@
 import type { Color, PieceSymbol, Square } from 'chess.js';
 import { other } from '#lib/game/color.ts';
 import type { Result } from '#lib/game/game.svelte.ts';
+import { countByType } from '#lib/game/material.ts';
 import type { Outcome } from '#lib/game/outcome.ts';
 import type { Labels } from '#lib/skins/schema.ts';
 
@@ -79,10 +80,8 @@ export function capturesLabel(
 	advantage: number,
 	labels: Labels
 ): string {
-	const counts = new Map<PieceSymbol, number>();
-	for (const type of captured) counts.set(type, (counts.get(type) ?? 0) + 1);
-	const list = [...counts].map(([type, n]) =>
-		n === 1 ? PIECE_NAMES[type] : `${n} ${PIECE_NAMES[type]}s`
+	const list = countByType(captured).map(({ type, count }) =>
+		count === 1 ? PIECE_NAMES[type] : `${count} ${PIECE_NAMES[type]}s`
 	);
 	const text = `${sideName(color, labels)} captured: ${list.join(', ') || 'nothing'}`;
 	return advantage > 0 ? `${text}. +${advantage}` : text;

@@ -98,7 +98,6 @@
 					class="flex w-max justify-center gap-3 p-3 md:bottom-(--buttons-bottom-md) {portrait
 						? 'absolute bottom-(--buttons-bottom) left-1/2 -translate-x-1/2 rounded-xl bg-surface/80 shadow-lg backdrop-blur-sm'
 						: 'sm:absolute sm:bottom-(--buttons-bottom) sm:left-1/2 sm:-translate-x-1/2 sm:rounded-xl sm:bg-surface/80 sm:shadow-lg sm:backdrop-blur-sm'}"
-					data-splash-buttons
 				>
 					<!-- The main action is Continue when there is a game to go back to. -->
 					<button class={[button, canContinue ? secondary : primary]} onclick={onnew}>

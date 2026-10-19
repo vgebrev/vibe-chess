@@ -312,7 +312,6 @@
 			<!-- Board size: the full width below lg, unless the height is shorter (§6.1, §6.2). -->
 			<div
 				class="flex w-[min(100%,calc(100dvh-16rem))] flex-col gap-1 lg:w-[min(calc(100vw-23.5rem),calc(100dvh-10rem))]"
-				data-board-column
 			>
 				{@render strip(top, skin.current)}
 				<Board
@@ -332,7 +331,7 @@
 		{/if}
 
 		<!-- At lg the panel is as tall as the board column, and the move list scrolls in it. -->
-		<div class="flex w-full flex-1 flex-col lg:relative lg:w-80 lg:flex-none" data-panel>
+		<div class="flex w-full flex-1 flex-col lg:relative lg:w-80 lg:flex-none">
 			<div class="flex flex-1 flex-col gap-2 lg:absolute lg:inset-0 lg:pt-9 lg:pb-9">
 				<StatusBar {status} {lastMove} gameOver={game.isGameOver} onnew={() => (drawer = 'new')} />
 				{#if notice}

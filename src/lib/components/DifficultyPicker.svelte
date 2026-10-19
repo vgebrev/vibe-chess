@@ -11,7 +11,8 @@
 		type PresetId
 	} from '#lib/engine/difficulty.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
-	import { legend, option, slider } from './styles.ts';
+	import Choices, { type Choice } from './Choices.svelte';
+	import { slider } from './styles.ts';
 
 	interface Props {
 		value: Difficulty;
@@ -20,7 +21,6 @@
 
 	let { value = $bindable(), labels }: Props = $props();
 
-	const name = $props.id();
 	const level = $derived<PresetId | 'custom'>(value.kind === 'preset' ? value.id : 'custom');
 	// The slider remembers its value while a preset is picked.
 	let elo = $state(untrack(() => (value.kind === 'custom' ? value.elo : DEFAULT_ELO)));
@@ -29,29 +29,19 @@
 	function pick(next: PresetId | 'custom') {
 		value = next === 'custom' ? { kind: 'custom', elo: shown } : { kind: 'preset', id: next };
 	}
+
+	const choices = $derived<Choice<PresetId | 'custom'>[]>([
+		...PRESETS.map(({ id, elo }) => ({
+			value: id,
+			label: presetName(id, labels),
+			detail: `(${elo})`
+		})),
+		{ value: 'custom', label: 'Custom' }
+	]);
 </script>
 
 <!-- Presets, each with the Elo it plays at, plus Custom with an Elo slider in steps of 50 (§4.6). -->
-<fieldset class="flex flex-wrap gap-2">
-	<legend class={legend}>Difficulty</legend>
-	{#each PRESETS as { id, elo } (id)}
-		<label class={option}>
-			<input class="sr-only" type="radio" {name} checked={level === id} onchange={() => pick(id)} />
-			{presetName(id, labels)}
-			<span class="text-sm text-muted tabular-nums">({elo})</span>
-		</label>
-	{/each}
-	<label class={option}>
-		<input
-			class="sr-only"
-			type="radio"
-			{name}
-			checked={level === 'custom'}
-			onchange={() => pick('custom')}
-		/>
-		Custom
-	</label>
-</fieldset>
+<Choices legend="Difficulty" {choices} value={level} onchange={pick} />
 
 {#if level === 'custom'}
 	<div class="flex flex-col gap-1">

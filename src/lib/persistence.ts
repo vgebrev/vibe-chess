@@ -12,7 +12,7 @@ import {
 	type PresetId
 } from '#lib/engine/difficulty.ts';
 import { PROMOTION_PIECES, type MoveInput, type PromotionPiece } from '#lib/game/game.svelte.ts';
-import type { ColorChoice, GameSetup } from '#lib/game/setup.ts';
+import type { GameSetup } from '#lib/game/setup.ts';
 import { isObj } from '#lib/json.ts';
 import { DEFAULT_SKIN_ID } from '#lib/skins/index.ts';
 
@@ -110,12 +110,10 @@ function parseMove(v: unknown): MoveInput | null {
 }
 
 function parseSetup(v: unknown): GameSetup | null {
-	if (!isObj(v)) return null;
-	const difficulty = parseDifficulty(v.difficulty);
-	if (v.mode !== 'computer' && v.mode !== 'hotseat') return null;
+	if (!isObj(v) || (v.mode !== 'computer' && v.mode !== 'hotseat')) return null;
 	if (!isColor(v.color) && v.color !== 'random') return null;
-	if (!difficulty) return null;
-	return { mode: v.mode, color: v.color as ColorChoice, difficulty };
+	const difficulty = parseDifficulty(v.difficulty);
+	return difficulty && { mode: v.mode, color: v.color, difficulty };
 }
 
 /**

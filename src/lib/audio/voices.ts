@@ -118,9 +118,9 @@ export class VoiceDirector {
 			this.#has({ side: computer, piece, event: 'taunt' })
 		);
 		if (kinds.length === 0) return null;
-		const piece = kinds[Math.floor(this.#random() * kinds.length)];
-		const squares = computerPieces.filter((p) => p.type === piece);
-		const { square } = squares[Math.floor(this.#random() * squares.length)];
+		const pick = <T>(items: T[]) => items[Math.floor(this.#random() * items.length)];
+		const piece = pick(kinds);
+		const { square } = pick(computerPieces.filter((p) => p.type === piece));
 		return { side: computer, piece, event: 'taunt', square };
 	}
 }

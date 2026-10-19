@@ -13,6 +13,9 @@ export async function enableAllSkins(page: Page) {
 	});
 }
 
+/** The URL of a hot-seat game from a given position. */
+export const hotseatAt = (fen: string) => `/?mode=hotseat&fen=${encodeURIComponent(fen)}`;
+
 /** A board square's button, for clicks, drags and focus. */
 export const cell = (page: Page, square: string) => page.locator(`[data-cell="${square}"]`);
 

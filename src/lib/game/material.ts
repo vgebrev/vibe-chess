@@ -23,6 +23,17 @@ export function capturedBy(
 	return captured;
 }
 
+/** Captured pieces in display order as one entry per type, with how many (§4.10). */
+export function countByType(captured: PieceSymbol[]): { type: PieceSymbol; count: number }[] {
+	const groups: { type: PieceSymbol; count: number }[] = [];
+	for (const type of captured) {
+		const last = groups.at(-1);
+		if (last?.type === type) last.count++;
+		else groups.push({ type, count: 1 });
+	}
+	return groups;
+}
+
 /** White's material minus Black's, counted on the board so promotions count correctly. */
 export function materialBalance(pieces: Pick<BoardPiece, 'color' | 'type'>[]): number {
 	let balance = 0;

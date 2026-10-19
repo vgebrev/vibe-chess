@@ -151,7 +151,7 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
 if only one legal move:          T = rand(350, 600) ms          // forced: answer quickly
 else if ply < 8:                 T = rand(400, 900) ms          // opening: "book-like" speed
 else:
-  c = clamp01(                                             // complexity 0..1
+  c = (                                                    // complexity 0..1: the weights add up to 1
         0.40 · min(legalMoves / 40, 1)                     // breadth
       + 0.30 · min(capturesAvailable / 6, 1)               // tactical tension
       + 0.15 · (inCheck || checksAvailable > 0 ? 1 : 0)    // forcing lines
@@ -820,7 +820,8 @@ src/
       SettingsPanel.svelte  # skin, guidance, coordinates, auto-flip, sound, vibration, difficulty
       Credits.svelte        # who and what made the game, in the Credits drawer
       Icon.svelte           # stroked icons for the control bar, header and drawers
-      styles.ts             # shared class strings: option chips, legends, sliders, primary/secondary buttons
+      Choices.svelte        # a radio group drawn as option chips (skin, opponent, colour, difficulty)
+      styles.ts             # shared class strings: legends, sliders, primary/secondary buttons
       dialog.ts             # shared modal dialog: open/focus attachment, Esc handling, class
     audio/
       voices.ts             # which line (if any) a move gets: rules, taunt wait (§4.11)
@@ -832,6 +833,7 @@ src/
     labels.ts               # status templates + label fallbacks
     persistence.ts
     json.ts                 # guards for untrusted JSON (manifests, saved state)
+    math.ts                 # clamp()
     testing/                # test-only helpers: fake engine worker, seeded random, test skins
 static/
   favicon.*, icon-*.png, apple-touch-icon.png, site.webmanifest   # app icons (source in scratchpad/)
@@ -1047,3 +1049,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 54  | Code review cleanup                  | Every voice line always plays: the chance machinery (`ODDS`, `TUNED_ODDS`) is gone, and repetition is answered with more variations per pool in the skin. Alongside: dead code removed (`BoardPiece.leaving`, `difficultyName`, `Playlist.current`, the `#lib` index), one set of piece types (chess.js's), shared helpers for colours and orientation, sprite-sheet cells, JSON guards, modal dialogs and test setup, and test-only code in `lib/testing/` (§4.11, §7.2, §7.3)                                                                         |
 | 55  | Code review, round 2                 | Skin asset paths are resolved to absolute URLs once, during validation, so a loaded skin is just its manifest (the `LoadedSkin` wrapper and its `urls` copy are gone). Buttons share their colours (`components/styles.ts`), and `Game` saves its own move history and finds kings. Dead code removed: unused search statistics, an unread error field, a duplicate icon, redundant cursor rules (§5.1, §5.5, §7.2, §7.3)                                                                                                                               |
 | 56  | Code review, round 3                 | Fixed lists (SFX names, voice events, promotion pieces) are `as const` arrays with their types derived from them, so the two can't drift. Shared: the skin validator's unknown-key check, a `cssUrl()` for skin images in CSS, the splash's `md` media query, legend and slider styles, the start position in tests (chess.js's) and an alpha mask in the converter. Dead code removed: a CSS rule that did nothing, a repeated page title, unused converter options (§5.1, §5.6, §7.2)                                                                 |
+| 57  | Code review, round 4                 | The option chips (skin, opponent, colour, difficulty) are one `Choices` component instead of four copies of the same markup. Shared: a `clamp()` (five copies), grouping captured pieces by type (the player strip and its text equivalent each did it), the dev and preview servers' network options, and small test helpers. Dead code removed: twelve `data-` attributes nothing read, a clamp on a sum that can't leave 0..1, a test option with no effect (§4.6.1, §7.2)                                                                           |

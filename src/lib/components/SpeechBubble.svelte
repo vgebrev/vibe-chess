@@ -41,7 +41,6 @@
 	class="bubble"
 	class:mirrored
 	data-bubble={square}
-	data-emote={emote}
 	aria-hidden="true"
 	style:left="{left}%"
 	style:top="{top}%"

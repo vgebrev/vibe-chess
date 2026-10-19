@@ -5,7 +5,7 @@ import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { Game } from '#lib/game/game.svelte.ts';
 import type { SkinManifest } from '#lib/skins/schema.ts';
-import { settle, testSkins } from '#lib/testing/skins.ts';
+import { centre, settle, testSkins } from '#lib/testing/skins.ts';
 import Board from './Board.svelte';
 
 let fixture: SkinManifest;
@@ -345,10 +345,6 @@ describe('animation', () => {
 	it('starts the slide back from where the piece was dropped', async () => {
 		document.documentElement.style.setProperty('--drag-scale', '1.15');
 		const b = setup();
-		const centre = (el: Element) => {
-			const r = el.getBoundingClientRect();
-			return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-		};
 		// Below-right and above-left of the start square.
 		for (const [from, to] of [
 			['b1', 'd1'],

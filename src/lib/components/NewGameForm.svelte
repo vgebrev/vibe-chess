@@ -3,8 +3,9 @@
 	import type { ColorChoice, GameSetup, Mode } from '#lib/game/setup.ts';
 	import { sideName } from '#lib/labels.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
+	import Choices from './Choices.svelte';
 	import DifficultyPicker from './DifficultyPicker.svelte';
-	import { legend, option, primary } from './styles.ts';
+	import { primary } from './styles.ts';
 
 	interface Props {
 		/** The choices the form opens with: the last game's. */
@@ -28,26 +29,26 @@
 </script>
 
 <!-- New game: mode, colour and difficulty (§4.7), shown in a Drawer. -->
-<form class="flex w-full flex-col gap-3" aria-label="New game" onsubmit={submit} data-new-game>
-	<fieldset class="flex flex-wrap gap-2">
-		<legend class={legend}>Opponent</legend>
-		<label class={option}>
-			<input class="sr-only" type="radio" bind:group={mode} value="computer" />Computer
-		</label>
-		<label class={option}>
-			<input class="sr-only" type="radio" bind:group={mode} value="hotseat" />Two players
-		</label>
-	</fieldset>
+<form class="flex w-full flex-col gap-3" aria-label="New game" onsubmit={submit}>
+	<Choices
+		legend="Opponent"
+		choices={[
+			{ value: 'computer', label: 'Computer' },
+			{ value: 'hotseat', label: 'Two players' }
+		]}
+		bind:value={mode}
+	/>
 
 	{#if mode === 'computer'}
-		<fieldset class="flex flex-wrap gap-2">
-			<legend class={legend}>Play as</legend>
-			{#each [['w', sideName('w', labels)], ['b', sideName('b', labels)], ['random', 'Random']] as [value, name] (value)}
-				<label class={option}>
-					<input class="sr-only" type="radio" bind:group={color} {value} />{name}
-				</label>
-			{/each}
-		</fieldset>
+		<Choices
+			legend="Play as"
+			choices={[
+				{ value: 'w', label: sideName('w', labels) },
+				{ value: 'b', label: sideName('b', labels) },
+				{ value: 'random', label: 'Random' }
+			]}
+			bind:value={color}
+		/>
 
 		<DifficultyPicker bind:value={difficulty} {labels} />
 	{/if}
