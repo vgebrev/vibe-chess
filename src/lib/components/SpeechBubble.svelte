@@ -6,6 +6,7 @@
 		squareToGrid,
 		type Orientation
 	} from '#lib/board/geometry.ts';
+	import { cssUrl } from '#lib/skins/loader.ts';
 	import type { Emotes } from '#lib/skins/schema.ts';
 
 	interface Props {
@@ -49,7 +50,7 @@
 >
 	<div
 		class="art"
-		style:background-image="url({JSON.stringify(emotes.image)})"
+		style:background-image={cssUrl(emotes.image)}
 		style:background-size="{emotes.columns * 100}% {emotes.rows * 100}%"
 		style:background-position={sheetPosition(
 			emote % emotes.columns,

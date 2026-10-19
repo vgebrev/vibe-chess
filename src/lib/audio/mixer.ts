@@ -140,8 +140,8 @@ export class Mixer {
 
 	/**
 	 * Say these lines in order, over whatever is already being said (which plays on to its end).
-	 * The music dips while any line plays. Resolves to when each line that plays starts and how long it lasts, in seconds
-	 * from now (fewer than asked, or none, if some can't play).
+	 * The music dips while any line plays. Resolves to when each line that plays starts and how
+	 * long it lasts, in seconds from now (fewer than asked, or none, if some can't play).
 	 */
 	async playVoices(urls: string[]): Promise<Timing[]> {
 		const seq = this.#voiceSeq;

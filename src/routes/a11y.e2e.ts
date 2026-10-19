@@ -57,8 +57,8 @@ for (const skin of ['Marble', 'Pirate']) {
 		await scan(page, 'game over, board');
 
 		await page.goto('/?mode=hotseat&fen=' + encodeURIComponent('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
-		await page.locator('[data-cell="a7"]').click();
-		await page.locator('[data-cell="a8"]').click();
+		await cell(page, 'a7').click();
+		await cell(page, 'a8').click();
 		await scan(page, 'promotion picker');
 	});
 }
@@ -77,10 +77,9 @@ test('a game can be played with the keyboard alone', async ({ page }) => {
 	// Tab reaches the board's single tab stop, bottom-left (a1).
 	for (let i = 0; i < 10; i++) {
 		await page.keyboard.press('Tab');
-		if (await page.locator('[data-cell="a1"]').evaluate((el) => el === document.activeElement))
-			break;
+		if (await cell(page, 'a1').evaluate((el) => el === document.activeElement)) break;
 	}
-	await expect(page.locator('[data-cell="a1"]')).toBeFocused();
+	await expect(cell(page, 'a1')).toBeFocused();
 
 	// e2–e4: right ×4, up, select, up ×2, move.
 	for (const key of ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowUp'])

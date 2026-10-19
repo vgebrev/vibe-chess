@@ -1,4 +1,4 @@
-import { Chess, type Color, type PieceSymbol, type Square } from 'chess.js';
+import { Chess, DEFAULT_POSITION, type Color, type PieceSymbol, type Square } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import type { Result } from '#lib/game/game.svelte.ts';
 import {
@@ -13,7 +13,6 @@ import {
 
 const play = (fen: string, san: string) => new Chess(fen).move(san);
 
-const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 /** 1.e4 d5: White can take with exd5. */
 const WHITE_TAKES = 'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2';
 /** 1.e4 d5 2.Nc3: Black can take with dxe4. */
@@ -52,7 +51,7 @@ const hotseat: MoveContext = { result: null, human: null, computerPieces: [] };
 
 describe('VoiceDirector (§4.11)', () => {
 	it("voices a player's quiet move from the piece that moved", () => {
-		expect(director(rolls()).voices.move(play(START, 'Nf3'), hotseat)).toEqual([
+		expect(director(rolls()).voices.move(play(DEFAULT_POSITION, 'Nf3'), hotseat)).toEqual([
 			{ side: 'w', piece: 'n', event: 'move', square: 'f3' }
 		]);
 	});
@@ -83,20 +82,20 @@ describe('VoiceDirector (§4.11)', () => {
 		// The roll picks among the kinds of piece with taunts only (k, q, b, p), so 0.99 is a pawn,
 		// and the next roll which pawn.
 		expect(
-			voices.move(play(START, 'Nf3'), vsComputer('w', ['n', 'r', 'k', 'q', 'b', 'p']))
+			voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w', ['n', 'r', 'k', 'q', 'b', 'p']))
 		).toEqual([{ side: 'b', piece: 'p', event: 'taunt', square: 'c7' }]);
 		// Within 30 s, the player's own line instead.
 		clock.now = TAUNT_COOLDOWN_MS - 1;
-		expect(voices.move(play(START, 'Nf3'), vsComputer('w'))).toEqual([
+		expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'))).toEqual([
 			{ side: 'w', piece: 'n', event: 'move', square: 'f3' }
 		]);
 		clock.now = TAUNT_COOLDOWN_MS;
-		expect(voices.move(play(START, 'Nf3'), vsComputer('w', ['k']))).toEqual([
+		expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w', ['k']))).toEqual([
 			{ side: 'b', piece: 'k', event: 'taunt', square: 'e8' }
 		]);
 		// Nothing to taunt with: the player's line.
 		clock.now = 3 * TAUNT_COOLDOWN_MS;
-		expect(voices.move(play(START, 'Nf3'), vsComputer('w', ['n', 'r']))).toEqual([
+		expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w', ['n', 'r']))).toEqual([
 			{ side: 'w', piece: 'n', event: 'move', square: 'f3' }
 		]);
 	});
@@ -114,7 +113,7 @@ describe('VoiceDirector (§4.11)', () => {
 
 	it('always voices check, from the king in check, even by the computer', () => {
 		const { voices } = director(() => 0);
-		voices.move(play(START, 'e4'), hotseat);
+		voices.move(play(DEFAULT_POSITION, 'e4'), hotseat);
 		expect(voices.move(play(ROOK, 'Rh8+'), hotseat)).toEqual([
 			{ side: 'b', piece: 'k', event: 'check', square: 'e8' }
 		]);
@@ -130,7 +129,7 @@ describe('VoiceDirector (§4.11)', () => {
 			voices.move(play('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1', 'Ra8#'), { ...hotseat, result: mate })
 		).toEqual([{ side: 'b', piece: 'k', event: 'defeat', square: 'g8' }]);
 		const draw: Result = { winner: 'draw', reason: 'stalemate' };
-		expect(voices.move(play(START, 'e4'), { ...hotseat, result: draw })).toEqual([]);
+		expect(voices.move(play(DEFAULT_POSITION, 'e4'), { ...hotseat, result: draw })).toEqual([]);
 	});
 
 	it('gives castling to the king and promotion to the pawn', () => {
@@ -144,7 +143,7 @@ describe('VoiceDirector (§4.11)', () => {
 
 	it('voices every move, however quickly they come', () => {
 		const { voices } = director(() => 0);
-		expect(voices.move(play(START, 'e4'), hotseat)).toHaveLength(1);
+		expect(voices.move(play(DEFAULT_POSITION, 'e4'), hotseat)).toHaveLength(1);
 		expect(voices.move(play(BLACK_QUIET, 'e5'), hotseat)).toHaveLength(1);
 	});
 
@@ -154,7 +153,7 @@ describe('VoiceDirector (§4.11)', () => {
 			(line) => line.event === 'captured'
 		);
 		expect(voices.move(play(WHITE_TAKES, 'exd5'), hotseat)).toEqual([]);
-		expect(voices.move(play(START, 'e4'), hotseat)).toEqual([]);
+		expect(voices.move(play(DEFAULT_POSITION, 'e4'), hotseat)).toEqual([]);
 	});
 
 	it("has a resigning side's king concede", () => {
@@ -166,15 +165,15 @@ describe('VoiceDirector (§4.11)', () => {
 
 describe('kingSquare', () => {
 	it("finds a side's king in a FEN", () => {
-		expect(kingSquare(START, 'w')).toBe('e1');
-		expect(kingSquare(START, 'b')).toBe('e8');
+		expect(kingSquare(DEFAULT_POSITION, 'w')).toBe('e1');
+		expect(kingSquare(DEFAULT_POSITION, 'b')).toBe('e8');
 		expect(kingSquare('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1', 'b')).toBe('g8');
 	});
 
 	it('reads the piece on a square, or none', () => {
-		expect(pieceOn(START, 'd8')).toBe('bq');
-		expect(pieceOn(START, 'g1')).toBe('wn');
-		expect(pieceOn(START, 'e4')).toBe('');
+		expect(pieceOn(DEFAULT_POSITION, 'd8')).toBe('bq');
+		expect(pieceOn(DEFAULT_POSITION, 'g1')).toBe('wn');
+		expect(pieceOn(DEFAULT_POSITION, 'e4')).toBe('');
 	});
 });
 

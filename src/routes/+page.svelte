@@ -274,10 +274,6 @@
 	};
 </script>
 
-<svelte:head>
-	<title>Vibe Chess</title>
-</svelte:head>
-
 <svelte:window {onkeydown} />
 
 <!-- The computer's strip shows the Elo it plays at (§4.6). -->

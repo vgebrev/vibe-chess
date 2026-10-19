@@ -1,3 +1,4 @@
+import { DEFAULT_POSITION } from 'chess.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	DEFAULT_SETTINGS,
@@ -23,7 +24,7 @@ function memoryStorage() {
 }
 
 const game: SavedGame = {
-	startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+	startFen: DEFAULT_POSITION,
 	moves: [
 		{ from: 'e2', to: 'e4' },
 		{ from: 'a7', to: 'a8', promotion: 'q' }

@@ -1,3 +1,4 @@
+import { DEFAULT_POSITION } from 'chess.js';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
@@ -8,8 +9,6 @@ import Controls from './Controls.svelte';
 import MoveList from './MoveList.svelte';
 import PlayerStrip from './PlayerStrip.svelte';
 import StatusBar from './StatusBar.svelte';
-
-const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 let pirate: SkinManifest;
 
@@ -97,7 +96,7 @@ describe('MoveList', () => {
 		);
 
 	it('lists moves in numbered pairs and marks the latest', async () => {
-		const screen = render(MoveList, { startFen: START, moves: ['e4', 'e5', 'Nf3'] });
+		const screen = render(MoveList, { startFen: DEFAULT_POSITION, moves: ['e4', 'e5', 'Nf3'] });
 		expect(cells(screen.container)).toEqual(['1. e4 e5', '2. Nf3']);
 		expect(screen.container.querySelector('[aria-current]')?.textContent).toBe('Nf3');
 		await screen.rerender({ moves: ['e4', 'e5', 'Nf3', 'Nc6'] });
@@ -106,7 +105,7 @@ describe('MoveList', () => {
 
 	it('keeps the latest move scrolled into view', async () => {
 		const sans = Array.from({ length: 60 }, (_, i) => (i % 2 ? 'Ng8' : 'Nf3'));
-		const screen = render(MoveList, { startFen: START, moves: sans.slice(0, -1) });
+		const screen = render(MoveList, { startFen: DEFAULT_POSITION, moves: sans.slice(0, -1) });
 		const list = screen.container.querySelector('ol')!;
 		list.style.maxHeight = '12rem'; // the page's panel or drawer sizes it
 		await screen.rerender({ moves: sans });

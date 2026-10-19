@@ -14,7 +14,8 @@ export interface Target {
 	promotion: boolean;
 }
 
-export type PromotionPiece = Extract<PieceSymbol, 'q' | 'r' | 'b' | 'n'>;
+export const PROMOTION_PIECES = ['q', 'r', 'b', 'n'] as const satisfies PieceSymbol[];
+export type PromotionPiece = (typeof PROMOTION_PIECES)[number];
 
 export interface MoveInput {
 	from: Square;

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { motion } from '#lib/board/motion.ts';
+	import { SPLASH_WIDE_MEDIA } from '#lib/skins/loader.ts';
 	import type { Splash, SplashLayout } from '#lib/skins/schema.ts';
 	import { cancelWith, dialogClass, modal } from './dialog.ts';
 	import { primary, secondary } from './styles.ts';
@@ -69,7 +70,7 @@
 					<!-- Only the picture for this screen is downloaded. -->
 					<picture>
 						{#if splash.portrait}
-							<source media="(width >= 48rem)" srcset={splash.image} />
+							<source media={SPLASH_WIDE_MEDIA} srcset={splash.image} />
 						{/if}
 						<img
 							src={splash.portrait?.image ?? splash.image}

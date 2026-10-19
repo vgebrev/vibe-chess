@@ -1,13 +1,12 @@
-import { Chess } from 'chess.js';
+import { Chess, DEFAULT_POSITION } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import { moveSfx } from './sfx.ts';
 
 const play = (fen: string, san: string) => new Chess(fen).move(san);
-const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 describe('moveSfx (§4.11)', () => {
 	it('picks the most important sound that applies', () => {
-		expect(moveSfx(play(START, 'e4'), null)).toBe('move');
+		expect(moveSfx(play(DEFAULT_POSITION, 'e4'), null)).toBe('move');
 		const takes = 'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2';
 		expect(moveSfx(play(takes, 'exd5'), null)).toBe('capture');
 		const enPassant = 'rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3';
@@ -19,6 +18,8 @@ describe('moveSfx (§4.11)', () => {
 		expect(moveSfx(play('4k3/8/8/8/8/8/8/4K2R w K - 0 1', 'Rh8+'), null)).toBe('check');
 		const mate = play('6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1', 'Ra8#');
 		expect(moveSfx(mate, { winner: 'w', reason: 'checkmate' })).toBe('checkmate');
-		expect(moveSfx(play(START, 'e4'), { winner: 'draw', reason: 'repetition' })).toBe('draw');
+		expect(moveSfx(play(DEFAULT_POSITION, 'e4'), { winner: 'draw', reason: 'repetition' })).toBe(
+			'draw'
+		);
 	});
 });
