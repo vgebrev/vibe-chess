@@ -134,6 +134,21 @@ test('a mute toggle silences a category and brings its level back', async ({ pag
 	await expect(again.getByRole('slider', { name: 'Effects' })).toHaveValue('40');
 });
 
+test('setting Effects or Voices plays a sample of it, and a double-click resets it', async ({
+	page
+}) => {
+	const drawer = await settings(page); // the press unlocks audio
+	await drawer.getByRole('slider', { name: 'Effects' }).fill('50');
+	await expect.poll(() => played(page)).toContain('sfx/move.mp3');
+	const voices = drawer.getByRole('slider', { name: 'Voices' });
+	await voices.fill('50');
+	await expect
+		.poll(() => played(page))
+		.toContainEqual(expect.stringMatching(/^voices\/[wb]-\w+-\w+-\d\.mp3$/));
+	await voices.dblclick();
+	await expect(voices).toHaveValue('100');
+});
+
 test("the computer answers the player's move with a taunt, in a bubble over its piece", async ({
 	page
 }) => {

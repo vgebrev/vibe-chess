@@ -47,15 +47,17 @@ export interface Settings {
 	haptics: boolean;
 }
 
+/** The music sits under the game; voices are the loudest (§4.11). */
+export const DEFAULT_VOLUMES: Volumes = { music: 0.5, sfx: 0.8, voices: 1 };
+
 export const DEFAULT_SETTINGS: Settings = {
 	skinId: DEFAULT_SKIN_ID,
 	showLegalMoves: true,
 	showCoordinates: true,
 	autoFlip: false,
 	lastDifficulty: DEFAULT_DIFFICULTY,
-	// The music sits under the game; voices are the loudest (§4.11).
-	sound: { music: 0.5, sfx: 0.8, voices: 1 },
-	unmuted: { music: 0.5, sfx: 0.8, voices: 1 },
+	sound: DEFAULT_VOLUMES,
+	unmuted: DEFAULT_VOLUMES,
 	haptics: true
 };
 

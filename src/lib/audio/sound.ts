@@ -148,6 +148,22 @@ export class Sound {
 		this.#sfx('select');
 	}
 
+	/**
+	 * A sample of a category at its volume, just set in Settings: a move's SFX, or any one of
+	 * the skin's voice lines, cutting off the last sample. The music is its own sample.
+	 */
+	preview(category: Category) {
+		if (category === 'sfx') {
+			const url = this.#audio?.sfx.move;
+			if (url) void this.#mixer.playSfx(url);
+		} else if (category === 'voices') {
+			this.#hush();
+			const urls = this.#voiceUrls();
+			if (urls.length > 0)
+				void this.#mixer.playVoices([urls[Math.floor(Math.random() * urls.length)]]);
+		}
+	}
+
 	illegal() {
 		this.#sfx('illegal');
 	}
@@ -217,10 +233,15 @@ export class Sound {
 		const mixer = this.#mixer;
 		const urls: string[] = [];
 		if (mixer.volume('sfx') > 0) urls.push(...Object.values(audio.sfx));
-		if (mixer.volume('voices') > 0 && mixer.unlocked)
-			for (const byPiece of Object.values(audio.voices))
-				for (const byEvent of Object.values(byPiece))
-					for (const pool of Object.values(byEvent)) urls.push(...pool);
+		if (mixer.volume('voices') > 0 && mixer.unlocked) urls.push(...this.#voiceUrls());
 		mixer.prefetch(urls);
+	}
+
+	/** Every voice line the skin has. */
+	#voiceUrls(): string[] {
+		const voices = this.#audio?.voices ?? { w: {}, b: {} };
+		return Object.values(voices).flatMap((byPiece) =>
+			Object.values(byPiece).flatMap((byEvent) => Object.values(byEvent).flat())
+		);
 	}
 }

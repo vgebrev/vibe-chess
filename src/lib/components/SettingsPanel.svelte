@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Category, Volumes } from '#lib/audio/mixer.ts';
 	import type { Difficulty } from '#lib/engine/difficulty.ts';
+	import { DEFAULT_VOLUMES } from '#lib/persistence.ts';
 	import type { SkinId, SkinInfo } from '#lib/skins/index.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
 	import Choices from './Choices.svelte';
@@ -26,6 +27,8 @@
 		unmuted: Volumes;
 		/** The categories the skin has sounds for; each gets a slider and a mute toggle. */
 		soundCategories: Category[];
+		/** A category's volume was set, by its slider or toggle: play a sample of it (§4.11). */
+		onpreview?: (category: Category) => void;
 		/** Vibration on events (§4.12), offered only where the device can vibrate. */
 		haptics: boolean;
 		canVibrate: boolean;
@@ -44,6 +47,7 @@
 		sound = $bindable(),
 		unmuted = $bindable(),
 		soundCategories,
+		onpreview,
 		haptics = $bindable(),
 		canVibrate
 	}: Props = $props();
@@ -60,6 +64,12 @@
 	function setVolume(category: Category, volume: number) {
 		sound = { ...sound, [category]: volume };
 		if (volume > 0) unmuted = { ...unmuted, [category]: volume };
+	}
+
+	/** Set a volume the player has settled on, and let them hear it. */
+	function commitVolume(category: Category, volume: number) {
+		setVolume(category, volume);
+		onpreview?.(category);
 	}
 </script>
 
@@ -110,11 +120,14 @@
 							type="checkbox"
 							aria-label="Mute {SOUND_NAMES[category]}"
 							checked={muted}
-							onchange={(e) => setVolume(category, e.currentTarget.checked ? 0 : unmuted[category])}
+							onchange={(e) =>
+								commitVolume(category, e.currentTarget.checked ? 0 : unmuted[category])}
 							data-mute={category}
 						/>
 						<Icon name={muted ? 'muted' : 'sound'} />
 					</label>
+					<!-- Dragging sets the volume as it goes; its sample plays once it is let go.
+					     A double-click puts it back to its default. -->
 					<input
 						id="volume-{category}"
 						class={slider}
@@ -124,6 +137,8 @@
 						step="5"
 						value={Math.round(sound[category] * 100)}
 						oninput={(e) => setVolume(category, e.currentTarget.valueAsNumber / 100)}
+						onchange={() => onpreview?.(category)}
+						ondblclick={() => commitVolume(category, DEFAULT_VOLUMES[category])}
 					/>
 					<output class="w-12 text-right tabular-nums" for="volume-{category}">
 						{muted ? 'Off' : `${Math.round(sound[category] * 100)}%`}
