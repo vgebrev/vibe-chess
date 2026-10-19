@@ -1,8 +1,9 @@
 // Skins and timing for component tests, which run in the browser: the fixture skin
 // (tests/fixtures/skins/test/, inset 0, every optional default) and Pirate as shipped.
-import { loadSkin, type LoadedSkin } from '#lib/skins/loader.ts';
+import { loadSkin } from '#lib/skins/loader.ts';
+import type { SkinManifest } from '#lib/skins/schema.ts';
 
-let skins: Promise<{ fixture: LoadedSkin; pirate: LoadedSkin }> | undefined;
+let skins: Promise<{ fixture: SkinManifest; pirate: SkinManifest }> | undefined;
 
 /** The fixture and Pirate skins, loaded once per test file. */
 export function testSkins() {

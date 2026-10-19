@@ -11,7 +11,7 @@
 		type PresetId
 	} from '#lib/engine/difficulty.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
-	import { option } from './options.ts';
+	import { option } from './styles.ts';
 
 	interface Props {
 		value: Difficulty;

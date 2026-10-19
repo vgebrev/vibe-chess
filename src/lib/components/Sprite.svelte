@@ -13,7 +13,8 @@
 </script>
 
 <!-- One piece sprite filling its (square) parent. Sheet URL and grid size come from CSS
-     variables set by Board; scale and anchor from the manifest; the shadow from the theme. -->
+     variables (piecesSheetStyle) set by Board or PlayerStrip; scale and anchor from the manifest;
+     the shadow from the theme. -->
 <div
 	class="sprite"
 	style:left="{((1 - sheet.scale) / 2) * 100}%"

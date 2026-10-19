@@ -23,12 +23,12 @@ describe('parseBestMove', () => {
 });
 
 describe('parseInfo', () => {
-	it('reads depth, nodes, speed and time', () => {
+	it('reads depth and speed', () => {
 		expect(
 			parseInfo(
 				'info depth 12 seldepth 16 multipv 1 score cp 31 nodes 81234 nps 412345 hashfull 21 tbhits 0 time 197 pv e2e4'
 			)
-		).toEqual({ depth: 12, nodes: 81234, nps: 412345, time: 197 });
+		).toEqual({ depth: 12, nps: 412345 });
 	});
 
 	it('ignores info lines without a depth', () => {

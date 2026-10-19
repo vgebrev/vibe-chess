@@ -4,7 +4,7 @@
 	import { sideName } from '#lib/labels.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
 	import DifficultyPicker from './DifficultyPicker.svelte';
-	import { option } from './options.ts';
+	import { option, primary } from './styles.ts';
 
 	interface Props {
 		/** The choices the form opens with: the last game's. */
@@ -52,5 +52,5 @@
 		<DifficultyPicker bind:value={difficulty} {labels} />
 	{/if}
 
-	<button class="mt-1 rounded bg-accent px-3 py-2 text-bg">Start</button>
+	<button class={[primary, 'mt-1 px-3 py-2']}>Start</button>
 </form>

@@ -4,22 +4,26 @@ import { DEFAULTS, isSkinPath, validateSkin } from './schema.ts';
 
 const read = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
 const fixture = () => read('tests/fixtures/skins/test/skin.json');
+/** The skin folder that asset paths resolve against. */
+const BASE = 'https://chess.test/skins/test/';
+const url = (path: string) => BASE + path;
+const validate = (raw: unknown) => validateSkin(raw, BASE);
 
 function errorsOf(raw: unknown): string[] {
-	const result = validateSkin(raw);
+	const result = validate(raw);
 	if (result.ok) throw new Error('expected validation to fail');
 	return result.errors;
 }
 
 describe('validateSkin', () => {
 	it.each(['default', 'pirate'])('accepts the served %s manifest', (id) => {
-		const result = validateSkin(read(`static/skins/${id}/skin.json`));
+		const result = validate(read(`static/skins/${id}/skin.json`));
 		expect(result.ok && result.skin.id).toBe(id);
 	});
 
 	it('reads the optional disabled flag, enabled by default', () => {
 		const ok = (raw: unknown) => {
-			const result = validateSkin(raw);
+			const result = validate(raw);
 			if (!result.ok) throw new Error(result.errors.join('; '));
 			return result.skin;
 		};
@@ -29,7 +33,7 @@ describe('validateSkin', () => {
 	});
 
 	it('accepts a framed board and keeps its inset', () => {
-		const result = validateSkin(read('static/skins/pirate/skin.json'));
+		const result = validate(read('static/skins/pirate/skin.json'));
 		expect(result.ok && result.skin.board.inset).toEqual({
 			top: 0.059,
 			right: 0.06,
@@ -38,14 +42,21 @@ describe('validateSkin', () => {
 		});
 	});
 
+	it('resolves asset paths against the skin folder', () => {
+		const result = validate(fixture());
+		if (!result.ok) throw new Error(result.errors.join('\n'));
+		expect(result.skin.board.image).toBe('https://chess.test/skins/test/board.webp');
+		expect(result.skin.font.license).toBe('https://chess.test/skins/test/font/OFL.txt');
+	});
+
 	it('accepts inset 0 and fills every optional field with its default', () => {
-		const result = validateSkin(fixture());
+		const result = validate(fixture());
 		if (!result.ok) throw new Error(result.errors.join('\n'));
 		const skin = result.skin;
 		expect(skin.board.inset).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
 		expect(skin.captureIndicator).toBeNull();
 		expect(skin.moveIndicator).toEqual({
-			image: 'indicator-move.webp',
+			image: url('indicator-move.webp'),
 			scale: 1,
 			opacity: DEFAULTS.moveOpacity,
 			hoverOpacity: DEFAULTS.hoverOpacity,
@@ -58,7 +69,7 @@ describe('validateSkin', () => {
 			gutter: DEFAULTS.coordGutter
 		});
 		expect(skin.font.files).toEqual([
-			{ src: 'font/Marcellus-Regular.woff2', weight: 400, style: 'normal' }
+			{ src: url('font/Marcellus-Regular.woff2'), weight: 400, style: 'normal' }
 		]);
 		expect(skin.font.fallback).toBe(DEFAULTS.fontFallback);
 		expect(skin.theme.coordShadow).toBe('none');
@@ -72,9 +83,9 @@ describe('validateSkin', () => {
 	it('defaults the capture indicator opacity when one is given', () => {
 		const raw = fixture();
 		raw.captureIndicator = { image: 'x.webp' };
-		const result = validateSkin(raw);
+		const result = validate(raw);
 		expect(result.ok && result.skin.captureIndicator).toEqual({
-			image: 'x.webp',
+			image: url('x.webp'),
 			scale: DEFAULTS.captureIndicatorScale,
 			opacity: DEFAULTS.captureOpacity,
 			hoverOpacity: DEFAULTS.hoverOpacity
@@ -85,7 +96,7 @@ describe('validateSkin', () => {
 		const raw = fixture();
 		raw.theme.pieceShadow = 'drop-shadow(0 0 1px red)';
 		raw.theme.pieceShadowBlack = 'drop-shadow(0 0 1px white)';
-		const result = validateSkin(raw);
+		const result = validate(raw);
 		expect(result.ok && result.skin.theme.pieceShadowWhite).toBe('drop-shadow(0 0 1px red)');
 		expect(result.ok && result.skin.theme.pieceShadowBlack).toBe('drop-shadow(0 0 1px white)');
 	});
@@ -94,7 +105,7 @@ describe('validateSkin', () => {
 		const raw = fixture();
 		raw.pieces.anchorY = 0.02;
 		raw.pieces.anchorYFor = { p: 0.07 };
-		const result = validateSkin(raw);
+		const result = validate(raw);
 		expect(result.ok && result.skin.pieces.anchorYFor).toEqual({
 			k: 0.02,
 			q: 0.02,
@@ -114,7 +125,7 @@ describe('validateSkin', () => {
 	it('accepts a font stylesheet URL instead of files', () => {
 		const raw = fixture();
 		raw.font = { family: 'Pirata One', css: 'https://fonts.googleapis.com/css2?family=Pirata+One' };
-		const result = validateSkin(raw);
+		const result = validate(raw);
 		expect(result.ok && result.skin.font.css).toBe(raw.font.css);
 	});
 
@@ -170,7 +181,7 @@ describe('validateSkin', () => {
 
 describe('validateSkin: audio (§4.11)', () => {
 	const audioOf = (raw: unknown) => {
-		const result = validateSkin(raw);
+		const result = validate(raw);
 		if (!result.ok) throw new Error(result.errors.join('; '));
 		return result.skin.audio;
 	};
@@ -196,8 +207,8 @@ describe('validateSkin: audio (§4.11)', () => {
 		);
 		expect(pools.flat()).toHaveLength(108);
 		expect(audio.voices.w.k?.check).toEqual([
-			'audio/voices/w-king-check-1.mp3',
-			'audio/voices/w-king-check-2.mp3'
+			url('audio/voices/w-king-check-1.mp3'),
+			url('audio/voices/w-king-check-2.mp3')
 		]);
 		expect(audio.voices.b.n?.taunt).toBeUndefined();
 	});
@@ -235,14 +246,14 @@ describe('validateSkin: audio (§4.11)', () => {
 
 describe('validateSkin emotes (§4.11)', () => {
 	const emotesOf = (raw: unknown) => {
-		const result = validateSkin(raw);
+		const result = validate(raw);
 		if (!result.ok) throw new Error(result.errors.join('\n'));
 		return result.skin.emotes;
 	};
 
 	it("reads Pirate's speech bubbles", () => {
 		expect(emotesOf(read('static/skins/pirate/skin.json'))).toEqual({
-			image: 'emotes.webp',
+			image: url('emotes.webp'),
 			columns: 4,
 			rows: 2,
 			scale: 1.3,
@@ -273,7 +284,7 @@ describe('validateSkin emotes (§4.11)', () => {
 
 describe('validateSkin results (§4.7.1)', () => {
 	const resultsOf = (raw: unknown) => {
-		const result = validateSkin(raw);
+		const result = validate(raw);
 		if (!result.ok) throw new Error(result.errors.join('\n'));
 		return result.skin.results;
 	};
@@ -286,10 +297,10 @@ describe('validateSkin results (§4.7.1)', () => {
 				results: { win: { w: 'win-w.webp', b: 'win-b.webp' }, loss: 'loss.webp', draw: 'd.webp' }
 			})
 		).toEqual({
-			win: { w: 'win-w.webp', b: 'win-b.webp' },
-			loss: { w: 'loss.webp', b: 'loss.webp' },
+			win: { w: url('win-w.webp'), b: url('win-b.webp') },
+			loss: { w: url('loss.webp'), b: url('loss.webp') },
 			resign: null,
-			draw: 'd.webp',
+			draw: url('d.webp'),
 			stalemate: null
 		});
 	});
@@ -310,7 +321,7 @@ describe('validateSkin results (§4.7.1)', () => {
 
 describe('validateSkin splash (§4.13)', () => {
 	const splashOf = (raw: unknown) => {
-		const result = validateSkin(raw);
+		const result = validate(raw);
 		if (!result.ok) throw new Error(result.errors.join('\n'));
 		return result.skin.splash;
 	};
@@ -319,7 +330,7 @@ describe('validateSkin splash (§4.13)', () => {
 	it('reads the picture and the title area, the colour optional', () => {
 		expect(splashOf(fixture())).toBeNull();
 		expect(splashOf({ ...fixture(), splash: { image: 's.webp', title: { inset } } })).toEqual({
-			image: 's.webp',
+			image: url('s.webp'),
 			title: { inset, color: null },
 			buttons: { bottom: DEFAULTS.splashButtonsBottom },
 			portrait: null
@@ -346,7 +357,7 @@ describe('validateSkin splash (§4.13)', () => {
 			}
 		})?.portrait;
 		expect(portrait).toEqual({
-			image: 'p.webp',
+			image: url('p.webp'),
 			title: { inset, color: '#432' },
 			buttons: { bottom: 0.06 }
 		});

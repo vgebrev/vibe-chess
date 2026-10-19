@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { primary } from './styles.ts';
+
 	interface Props {
 		/** Whose turn it is, check, or the result. */
 		status: string;
@@ -20,7 +22,7 @@
 	</p>
 	<p class={gameOver ? 'text-accent' : 'text-muted'} data-status>{status}</p>
 	{#if gameOver}
-		<button class="rounded bg-accent px-3 py-1 text-bg" onclick={onnew}>New game</button>
+		<button class={[primary, 'px-3 py-1']} onclick={onnew}>New game</button>
 	{:else if lastMove}
 		<p class="text-sm text-muted" data-last-move>
 			<span class="sr-only">Last move:</span>

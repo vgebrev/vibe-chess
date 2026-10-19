@@ -9,9 +9,9 @@ afterEach(() => vi.restoreAllMocks());
 describe('loadSkin', () => {
 	it('loads the fixture skin with absolute asset URLs and its font', async () => {
 		const loaded = await loadSkin(`${FIXTURES}/test/`, 'test');
-		expect(loaded.manifest.id).toBe('test');
-		expect(loaded.urls.board).toBe(new URL(`${FIXTURES}/test/board.webp`, location.href).href);
-		expect(loaded.urls.captureIndicator).toBeNull();
+		expect(loaded.id).toBe('test');
+		expect(loaded.board.image).toBe(new URL(`${FIXTURES}/test/board.webp`, location.href).href);
+		expect(loaded.captureIndicator).toBeNull();
 		expect(document.fonts.check('1em "Fixture Serif"')).toBe(true);
 	});
 
@@ -58,7 +58,7 @@ describe('skin store', () => {
 
 		expect(await skin.use(`${FIXTURES}/invalid/`, 'invalid')).toBe(false);
 
-		expect(skin.current?.manifest.id).toBe('test');
+		expect(skin.current?.id).toBe('test');
 		expect(getComputedStyle(document.documentElement).getPropertyValue('--accent')).toBe('#3366ff');
 		expect(skin.errors).toContain(
 			'pieces.order: expected each of "k", "q", "b", "n", "r", "p" exactly once'

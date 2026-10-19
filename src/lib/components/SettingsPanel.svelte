@@ -5,7 +5,7 @@
 	import type { Labels } from '#lib/skins/schema.ts';
 	import DifficultyPicker from './DifficultyPicker.svelte';
 	import Icon from './Icon.svelte';
-	import { option } from './options.ts';
+	import { option } from './styles.ts';
 
 	interface Props {
 		skinId: string;
@@ -47,7 +47,9 @@
 		canVibrate
 	}: Props = $props();
 
+	// A checkbox with its label beside it.
 	const toggle = 'flex cursor-pointer items-center gap-3 py-1';
+	const checkbox = 'size-4 accent-(--accent)';
 	const SOUND_NAMES: Record<Category, string> = {
 		music: 'Music',
 		sfx: 'Effects',
@@ -85,16 +87,16 @@
 	<fieldset class="flex flex-col">
 		<legend class="mb-1 text-sm text-muted">Board</legend>
 		<label class={toggle}>
-			<input class="size-4 accent-(--accent)" type="checkbox" bind:checked={showLegalMoves} />
+			<input class={checkbox} type="checkbox" bind:checked={showLegalMoves} />
 			Show legal moves
 		</label>
 		<label class={toggle}>
-			<input class="size-4 accent-(--accent)" type="checkbox" bind:checked={showCoordinates} />
+			<input class={checkbox} type="checkbox" bind:checked={showCoordinates} />
 			Show coordinates
 		</label>
 		{#if !vsComputer}
 			<label class={toggle}>
-				<input class="size-4 accent-(--accent)" type="checkbox" bind:checked={autoFlip} />
+				<input class={checkbox} type="checkbox" bind:checked={autoFlip} />
 				Auto-flip
 			</label>
 		{/if}
@@ -139,7 +141,7 @@
 			{/each}
 			{#if canVibrate}
 				<label class={toggle}>
-					<input class="size-4 accent-(--accent)" type="checkbox" bind:checked={haptics} />
+					<input class={checkbox} type="checkbox" bind:checked={haptics} />
 					Vibration
 				</label>
 			{/if}

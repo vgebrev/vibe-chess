@@ -2,12 +2,12 @@
 	import type { Square } from 'chess.js';
 	import { cellPosition, type Orientation } from '#lib/board/geometry.ts';
 	import type { Target } from '#lib/game/game.svelte.ts';
-	import type { LoadedSkin } from '#lib/skins/loader.ts';
+	import type { SkinManifest } from '#lib/skins/schema.ts';
 
 	interface Props {
 		targets: Target[];
 		orientation: Orientation;
-		skin: LoadedSkin;
+		skin: SkinManifest;
 		/** The target under the pointer or dragged piece, drawn at the skin's hover opacity. */
 		hover: Square | null;
 	}
@@ -15,30 +15,12 @@
 	let { targets, orientation, skin, hover }: Props = $props();
 
 	// Captures use the capture indicator, or the move indicator upscaled to frame the piece (§4.3).
-	const styles = $derived.by(() => {
-		const { moveIndicator, captureIndicator } = skin.manifest;
-		const capture = captureIndicator
-			? {
-					url: skin.urls.captureIndicator!,
-					scale: captureIndicator.scale,
-					opacity: captureIndicator.opacity,
-					hoverOpacity: captureIndicator.hoverOpacity
-				}
-			: {
-					url: skin.urls.moveIndicator,
-					scale: moveIndicator.captureScale,
-					opacity: moveIndicator.opacity,
-					hoverOpacity: moveIndicator.hoverOpacity
-				};
-		return {
-			move: {
-				url: skin.urls.moveIndicator,
-				scale: moveIndicator.scale,
-				opacity: moveIndicator.opacity,
-				hoverOpacity: moveIndicator.hoverOpacity
-			},
-			capture
-		};
+	const styles = $derived({
+		move: skin.moveIndicator,
+		capture: skin.captureIndicator ?? {
+			...skin.moveIndicator,
+			scale: skin.moveIndicator.captureScale
+		}
 	});
 </script>
 
@@ -55,7 +37,7 @@
 		style:opacity={hover === target.square ? style.hoverOpacity : style.opacity}
 	>
 		<div
-			style:background-image="url({JSON.stringify(style.url)})"
+			style:background-image="url({JSON.stringify(style.image)})"
 			style:width="{style.scale * 100}%"
 			style:height="{style.scale * 100}%"
 		></div>

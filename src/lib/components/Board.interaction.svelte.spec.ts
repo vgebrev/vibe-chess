@@ -4,12 +4,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { Game } from '#lib/game/game.svelte.ts';
-import type { LoadedSkin } from '#lib/skins/loader.ts';
+import type { SkinManifest } from '#lib/skins/schema.ts';
 import { settle, testSkins } from '#lib/testing/skins.ts';
 import Board from './Board.svelte';
 
-let fixture: LoadedSkin;
-let pirate: LoadedSkin;
+let fixture: SkinManifest;
+let pirate: SkinManifest;
 
 beforeAll(async () => {
 	({ fixture, pirate } = await testSkins());
@@ -17,7 +17,7 @@ beforeAll(async () => {
 
 interface Options {
 	fen: string;
-	skin: LoadedSkin;
+	skin: SkinManifest;
 	showLegalMoves: boolean;
 	locked: boolean;
 	canMove: (color: Color) => boolean;
@@ -117,9 +117,7 @@ describe('move guidance', () => {
 		expect(b.indicators()).toEqual(['capture:d5']);
 		const inner = b.root.querySelector<HTMLElement>('[data-indicator="capture"] > div')!;
 		expect(inner.style.backgroundImage).toContain('indicator-move.webp');
-		expect(parseFloat(inner.style.width)).toBeCloseTo(
-			fixture.manifest.moveIndicator.captureScale * 100
-		);
+		expect(parseFloat(inner.style.width)).toBeCloseTo(fixture.moveIndicator.captureScale * 100);
 	});
 
 	it("uses the skin's capture indicator when it has one", async () => {
@@ -129,7 +127,7 @@ describe('move guidance', () => {
 		expect(indicator.querySelector<HTMLElement>('div')!.style.backgroundImage).toContain(
 			'indicator-capture.webp'
 		);
-		expect(Number(indicator.style.opacity)).toBe(pirate.manifest.captureIndicator!.opacity);
+		expect(Number(indicator.style.opacity)).toBe(pirate.captureIndicator!.opacity);
 	});
 
 	it('counts en passant as a capture on the destination square', async () => {
@@ -149,8 +147,8 @@ describe('move guidance', () => {
 			Number(
 				b.root.querySelector<HTMLElement>(`[data-indicator][data-square="${sq}"]`)!.style.opacity
 			);
-		expect(opacity('e4')).toBe(fixture.manifest.moveIndicator.hoverOpacity);
-		expect(opacity('e3')).toBe(fixture.manifest.moveIndicator.opacity);
+		expect(opacity('e4')).toBe(fixture.moveIndicator.hoverOpacity);
+		expect(opacity('e3')).toBe(fixture.moveIndicator.opacity);
 	});
 
 	it('hides indicators when legal-move guidance is off but still enforces legality', async () => {

@@ -39,7 +39,7 @@ describe('Engine', () => {
 		worker.finish();
 		const result = await search;
 		expect(result?.move).toEqual({ from: 'e7', to: 'e5' });
-		expect(result?.info).toEqual({ depth: 9, nodes: 5000, nps: 250000, time: 20 });
+		expect(result?.info).toEqual({ depth: 9, nps: 250000 });
 	});
 
 	it('discards the reply to a stopped search, and drops one still waiting to start', async () => {

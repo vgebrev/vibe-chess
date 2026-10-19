@@ -502,7 +502,7 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 Validation rules (`src/lib/skins/schema.ts`):
 
 - Every problem is reported with its JSON path (e.g. `pieces.order: expected each of …`), so a broken manifest can be fixed in one pass.
-- Asset paths must be relative paths inside the skin folder with an extension: no leading `/`, no scheme, no `..`.
+- Asset paths must be relative paths inside the skin folder with an extension: no leading `/`, no scheme, no `..`. Validation resolves them against the skin folder, so the manifest the app works with holds absolute URLs and nothing else resolves paths.
 - `board.inset` sides are fractions in [0, 0.45]. `pieces.order` must list each of `k q b n r p` exactly once. `pieces.rowFor` rows must exist in the sheet.
 - Optional fields get defaults: `pieces.scale` 1, `pieces.anchorY` 0, `pieces.anchorYFor` each type at `anchorY`, indicator `scale` 1, `moveIndicator.opacity` 0.75, `moveIndicator.captureScale` 1.1, `captureIndicator.opacity` 0.6, indicator `hoverOpacity` 0.85, `disabled` false, font file `weight` 400 and `style` normal, `font.fallback` serif, `coordinates.fontScale` 0.55, `coordinates.gutter` 0.35, `theme.coordShadow` none, `theme.dragScale` 1.15, `theme.pieceShadow` a firm dark outline plus a soft drop shadow, `theme.pieceShadowWhite`/`pieceShadowBlack` the value of `pieceShadow`, `labels` empty, `audio` none. Every other `theme` key is required.
 - `emotes` cells are integers within the sheet, per event a non-empty array; `captured` and unknown events are errors. The art is expected to draw each bubble's tail at its bottom left. The sheet loads in the background, not holding up the skin.
@@ -566,7 +566,7 @@ Asset budget: the board and pieces should also be exported as WebP (keeping PNG 
 ### 5.5 Skin registry & loading
 
 - `src/lib/skins/index.ts` lists the available skin ids. A skin's folder URL comes from `asset('skins/<id>/skin.json')`, which is typed against the files in `static/`, so registering an id without a manifest fails `npm run check`.
-- `loader.ts` fetches, validates and preloads (steps 1–3). The store in `skin.svelte.ts` applies and swaps (steps 4–5), and a newer load supersedes one still in flight.
+- `loader.ts` fetches, validates and preloads (steps 1–3), and returns the validated manifest. The store in `skin.svelte.ts` applies and swaps (steps 4–5), and a newer load supersedes one still in flight.
 - Loading a skin means:
   1. fetch `skin.json`
   2. validate it (a hand-written type guard is enough; zod is optional)
@@ -778,7 +778,7 @@ src/
     +page.svelte            # game screen (responsive layout)
   lib/
     game/
-      game.svelte.ts        # Game class: wraps chess.js; $state fen/history/selection
+      game.svelte.ts        # Game class: wraps chess.js; reactive position, moves, result; history for saving
       pieces.ts             # stable piece-id reconciliation for animation
       material.ts           # captured pieces + material balance (§4.10)
       notation.ts           # move list rows, numbered SAN
@@ -797,7 +797,7 @@ src/
       opponent.svelte.ts    # starts the engine, times and plays its replies, cancellation
     skins/
       index.ts              # registry
-      schema.ts             # Skin type + validation
+      schema.ts             # Skin type + validation (asset paths resolved to URLs)
       loader.ts             # fetch, validate, preload images + FontFace, CSS vars
       skin.svelte.ts        # active skin store: apply + swap
     components/
@@ -817,10 +817,10 @@ src/
       Splash.svelte         # start screen: the skin's picture, title, New Game / Continue
       NewGameForm.svelte    # mode, colour, difficulty (in a Drawer)
       DifficultyPicker.svelte  # presets + custom Elo slider, shared by New game and Settings
-      SettingsPanel.svelte  # skin, guidance, coordinates, auto-flip, difficulty
+      SettingsPanel.svelte  # skin, guidance, coordinates, auto-flip, sound, vibration, difficulty
       Credits.svelte        # who and what made the game, in the Credits drawer
       Icon.svelte           # stroked icons for the control bar, header and drawers
-      options.ts            # shared chip style for radios
+      styles.ts             # shared class strings: option chips, primary/secondary buttons
       dialog.ts             # shared modal dialog: open/focus attachment, Esc handling, class
     audio/
       voices.ts             # which line (if any) a move gets: rules, taunt wait (§4.11)
@@ -855,7 +855,7 @@ type Difficulty =
 interface SavedGame {
 	// persisted (§4.9); everything else is replayed from it
 	startFen: string;
-	moves: { from: Square; to: Square; promotion?: PieceSymbol }[];
+	moves: { from: Square; to: Square; promotion?: 'q' | 'r' | 'b' | 'n' }[];
 	resigned: Color | null; // a resignation isn't on the board
 	setup: { mode: Mode; color: Color | 'random'; difficulty: Difficulty }; // New game choices
 	human: Color; // computer mode: the player's colour after a random choice
@@ -1045,3 +1045,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 52  | Taller drawers                       | Drawers were capped at 70 dvh, so Settings scrolled on a 384×700 phone with room to spare above it. The cap is now the screen's height less 4 rem (§6.4)                                                                                                                                                                                                                                                                                                                                                                                                |
 | 53  | Link previews                        | Shared links showed no picture or description. `app.html` now has Open Graph and Twitter card tags with a 1200×630 picture; static, since crawlers don't run the SPA (§7.1)                                                                                                                                                                                                                                                                                                                                                                             |
 | 54  | Code review cleanup                  | Every voice line always plays: the chance machinery (`ODDS`, `TUNED_ODDS`) is gone, and repetition is answered with more variations per pool in the skin. Alongside: dead code removed (`BoardPiece.leaving`, `difficultyName`, `Playlist.current`, the `#lib` index), one set of piece types (chess.js's), shared helpers for colours and orientation, sprite-sheet cells, JSON guards, modal dialogs and test setup, and test-only code in `lib/testing/` (§4.11, §7.2, §7.3)                                                                         |
+| 55  | Code review, round 2                 | Skin asset paths are resolved to absolute URLs once, during validation, so a loaded skin is just its manifest (the `LoadedSkin` wrapper and its `urls` copy are gone). Buttons share their colours (`components/styles.ts`), and `Game` saves its own move history and finds kings. Dead code removed: unused search statistics, an unread error field, a duplicate icon, redundant cursor rules (§5.1, §5.5, §7.2, §7.3)                                                                                                                               |

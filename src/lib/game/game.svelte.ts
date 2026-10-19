@@ -73,6 +73,15 @@ export class Game {
 		return this.moves.at(-1) ?? null;
 	}
 
+	/** The moves played, in the form `replay` takes, for saving (§4.9). */
+	get history(): MoveInput[] {
+		return this.moves.map(({ from, to, promotion }) => ({
+			from,
+			to,
+			...(promotion && { promotion: promotion as PromotionPiece })
+		}));
+	}
+
 	get fen(): string {
 		void this.#version;
 		return this.#chess.fen();
@@ -118,8 +127,12 @@ export class Game {
 	/** The square of the king in check, if the side to move is in check. */
 	get checkSquare(): Square | null {
 		void this.#version;
-		if (!this.#chess.inCheck()) return null;
-		return this.#chess.findPiece({ type: 'k', color: this.#chess.turn() })[0] ?? null;
+		return this.#chess.inCheck() ? (this.kingSquare(this.#chess.turn()) ?? null) : null;
+	}
+
+	kingSquare(color: Color): Square | undefined {
+		void this.#version;
+		return this.#chess.findPiece({ type: 'k', color })[0];
 	}
 
 	pieceAt(square: Square): { type: PieceSymbol; color: Color } | null {

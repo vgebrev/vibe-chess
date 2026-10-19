@@ -44,7 +44,10 @@ describe('coordinate labels', () => {
 });
 
 describe('spritePosition', () => {
-	const result = validateSkin(JSON.parse(readFileSync('static/skins/pirate/skin.json', 'utf8')));
+	const result = validateSkin(
+		JSON.parse(readFileSync('static/skins/pirate/skin.json', 'utf8')),
+		'https://chess.test/skins/pirate/'
+	);
 	const pieces = (result as { skin: SkinManifest }).skin.pieces;
 
 	it.each([

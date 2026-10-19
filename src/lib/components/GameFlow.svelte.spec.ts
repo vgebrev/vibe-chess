@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import '../../app.css';
-import type { LoadedSkin } from '#lib/skins/loader.ts';
+import type { SkinManifest } from '#lib/skins/schema.ts';
 import { testSkins } from '#lib/testing/skins.ts';
 import Controls from './Controls.svelte';
 import MoveList from './MoveList.svelte';
@@ -11,7 +11,7 @@ import StatusBar from './StatusBar.svelte';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-let pirate: LoadedSkin;
+let pirate: SkinManifest;
 
 beforeAll(async () => {
 	({ pirate } = await testSkins());

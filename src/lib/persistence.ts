@@ -122,7 +122,7 @@ function parseSetup(v: unknown): GameSetup | null {
  * A stored game, or null if it is missing or malformed. Whether the moves are legal is
  * checked when they are replayed.
  */
-export function parseGame(v: unknown): SavedGame | null {
+function parseGame(v: unknown): SavedGame | null {
 	if (!isObj(v) || typeof v.startFen !== 'string' || !Array.isArray(v.moves)) return null;
 	const moves = v.moves.map(parseMove);
 	if (moves.some((m) => m === null)) return null;
@@ -141,7 +141,7 @@ export function parseGame(v: unknown): SavedGame | null {
 }
 
 /** Stored settings, field by field: a bad value falls back to its default only. */
-export function parseSettings(v: unknown): Settings {
+function parseSettings(v: unknown): Settings {
 	const s = isObj(v) ? v : {};
 	const bool = (key: keyof Settings) =>
 		typeof s[key] === 'boolean' ? (s[key] as boolean) : (DEFAULT_SETTINGS[key] as boolean);

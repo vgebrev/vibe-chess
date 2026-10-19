@@ -3,12 +3,14 @@
 	import { motion } from '#lib/board/motion.ts';
 	import type { Splash, SplashLayout } from '#lib/skins/schema.ts';
 	import { cancelWith, dialogClass, modal } from './dialog.ts';
+	import { primary, secondary } from './styles.ts';
 
 	interface Props {
 		open: boolean;
-		/** The skin's pictures: for md and up, and portrait for narrower screens. */
-		images: { wide: string; portrait: string | null };
-		/** Where the title and buttons go on each picture, and the title's colour. */
+		/**
+		 * The skin's pictures (for md and up, and portrait for narrower screens), where the title
+		 * and buttons go on each, and the title's colour.
+		 */
 		splash: Splash;
 		/** There is a game in progress to go back to. */
 		canContinue: boolean;
@@ -17,11 +19,11 @@
 		onclose: () => void;
 	}
 
-	let { open, images, splash, canContinue, onnew, onclose }: Props = $props();
+	let { open, splash, canContinue, onnew, onclose }: Props = $props();
 
 	const id = $props.id();
 	/** With a portrait picture, phones get it and their buttons go on it too. */
-	const portrait = $derived(images.portrait !== null);
+	const portrait = $derived(splash.portrait !== null);
 
 	// Where the title and buttons go, as CSS variables: the narrow screen's picture (portrait if
 	// there is one) unsuffixed, md and up's with -md, switched by breakpoint classes below.
@@ -40,7 +42,7 @@
 		[...place(splash.portrait ?? splash, ''), ...place(splash, '-md')].join('; ')
 	);
 
-	const button = 'rounded px-5 py-2 shadow-lg disabled:opacity-50 sm:text-lg lg:px-6 lg:text-xl';
+	const button = 'px-5 py-2 shadow-lg disabled:opacity-50 sm:text-lg lg:px-6 lg:text-xl';
 </script>
 
 {#if open}
@@ -66,11 +68,11 @@
 				<div class="relative">
 					<!-- Only the picture for this screen is downloaded. -->
 					<picture>
-						{#if images.portrait}
-							<source media="(width >= 48rem)" srcset={images.wide} />
+						{#if splash.portrait}
+							<source media="(width >= 48rem)" srcset={splash.image} />
 						{/if}
 						<img
-							src={images.portrait ?? images.wide}
+							src={splash.portrait?.image ?? splash.image}
 							alt=""
 							class="block max-w-[min(calc(100vw-2rem),64rem)] {portrait
 								? 'max-h-[calc(100dvh-2rem)]'
@@ -97,18 +99,12 @@
 						: 'sm:absolute sm:bottom-(--buttons-bottom) sm:left-1/2 sm:-translate-x-1/2 sm:rounded-xl sm:bg-surface/80 sm:shadow-lg sm:backdrop-blur-sm'}"
 					data-splash-buttons
 				>
-					<button
-						class="{button} {canContinue
-							? 'bg-surface-raised hover:text-accent'
-							: 'bg-accent text-bg'}"
-						onclick={onnew}
-					>
+					<!-- The main action is Continue when there is a game to go back to. -->
+					<button class={[button, canContinue ? secondary : primary]} onclick={onnew}>
 						New Game
 					</button>
 					<button
-						class="{button} {canContinue
-							? 'bg-accent text-bg'
-							: 'bg-surface-raised enabled:hover:text-accent'}"
+						class={[button, canContinue ? primary : secondary]}
 						disabled={!canContinue}
 						onclick={onclose}
 					>

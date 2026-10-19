@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon, { type IconName } from './Icon.svelte';
+	import { secondary } from './styles.ts';
 
 	interface Props {
 		canUndo: boolean;
@@ -22,8 +23,11 @@
 		if (!canResign) confirming = false;
 	});
 
-	const button =
-		'flex min-h-12 flex-col items-center justify-center gap-0.5 rounded bg-surface-raised px-1 py-1 text-xs enabled:hover:text-accent disabled:opacity-50 lg:min-h-0 lg:flex-row lg:gap-2 lg:px-3 lg:text-base';
+	const button = [
+		secondary,
+		'flex min-h-12 flex-col items-center justify-center gap-0.5 px-1 py-1 text-xs disabled:opacity-50 lg:min-h-0 lg:flex-row lg:gap-2 lg:px-3 lg:text-base'
+	];
+	const answer = [secondary, 'flex items-center gap-1 px-3 py-2'];
 </script>
 
 {#snippet control(
@@ -56,7 +60,7 @@
 			Resign?
 			<button
 				{@attach (el: HTMLButtonElement) => el.focus()}
-				class="flex items-center gap-1 rounded bg-surface-raised px-3 py-2 text-danger hover:text-accent"
+				class={[answer, 'text-danger']}
 				aria-label="Yes, resign"
 				onclick={() => {
 					confirming = false;
@@ -64,12 +68,12 @@
 				}}><Icon name="yes" />Yes</button
 			>
 			<button
-				class="flex items-center gap-1 rounded bg-surface-raised px-3 py-2 hover:text-accent"
+				class={answer}
 				aria-label="No, keep playing"
 				onclick={() => {
 					refocus = true;
 					confirming = false;
-				}}><Icon name="no" />No</button
+				}}><Icon name="close" />No</button
 			>
 		</div>
 	{:else}

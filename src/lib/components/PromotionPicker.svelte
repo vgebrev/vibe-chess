@@ -84,7 +84,6 @@
 		height: 12.5%;
 		border-radius: 50%;
 		background: radial-gradient(circle, var(--surface-raised) 55%, transparent 72%);
-		cursor: pointer;
 	}
 
 	.choice:hover,

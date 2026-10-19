@@ -1,5 +1,6 @@
 // Skin manifest type and validation (SPEC §5.1). Hand-written guard: collects every
-// problem with its JSON path so a broken skin.json can be fixed in one pass.
+// problem with its JSON path so a broken skin.json can be fixed in one pass. Asset paths come
+// out resolved against the skin folder, so the rest of the app only sees absolute URLs.
 import type { Color, PieceSymbol } from 'chess.js';
 import { PRESET_IDS, type PresetId } from '#lib/engine/difficulty.ts';
 import { isObj, type Obj } from '#lib/json.ts';
@@ -88,7 +89,7 @@ export type Voices = Record<
 	Partial<Record<PieceSymbol, Partial<Record<VoiceEvent, string[]>>>>
 >;
 
-/** A skin's sounds, as asset paths (§4.11). Every part is optional. */
+/** A skin's sounds (§4.11). Every part is optional. */
 export interface SkinAudio {
 	music: string[];
 	sfx: Partial<Record<SfxName, string>>;
@@ -149,7 +150,10 @@ export interface Labels {
 	difficulty?: Partial<Record<PresetId, string>>;
 }
 
-/** A validated manifest with every optional field filled with its default. */
+/**
+ * A validated manifest with every optional field filled with its default, and every asset path
+ * (images, fonts, sounds) an absolute URL.
+ */
 export interface SkinManifest {
 	manifestVersion: 1;
 	id: string;
@@ -244,8 +248,11 @@ export function isSkinPath(v: unknown): v is string {
 	return typeof v === 'string' && /^[\w-]+(\/[\w-]+)*\.[a-z0-9]+$/i.test(v);
 }
 
-/** Validate raw `skin.json` content and fill in defaults. */
-export function validateSkin(raw: unknown): ValidationResult {
+/**
+ * Validate raw `skin.json` content, fill in defaults, and resolve its asset paths against
+ * `baseUrl`, the skin folder's absolute URL.
+ */
+export function validateSkin(raw: unknown, baseUrl: string): ValidationResult {
 	const errors: string[] = [];
 	const err = (path: string, msg: string) => errors.push(`${path}: ${msg}`);
 
@@ -263,7 +270,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 	const optStr = (v: unknown, path: string): string | undefined =>
 		v === undefined ? undefined : str(v, path);
 	const file = (v: unknown, path: string): string => {
-		if (isSkinPath(v)) return v;
+		if (isSkinPath(v)) return new URL(v, baseUrl).href;
 		err(path, `expected a relative path inside the skin folder, got ${JSON.stringify(v)}`);
 		return '';
 	};

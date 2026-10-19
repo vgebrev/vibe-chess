@@ -1,12 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { Game } from '#lib/game/game.svelte.ts';
-import type { LoadedSkin } from '#lib/skins/loader.ts';
+import type { SkinManifest } from '#lib/skins/schema.ts';
 import { settle, testSkins } from '#lib/testing/skins.ts';
 import Board from './Board.svelte';
 
-let fixture: LoadedSkin;
-let pirate: LoadedSkin;
+let fixture: SkinManifest;
+let pirate: SkinManifest;
 
 beforeAll(async () => {
 	({ fixture, pirate } = await testSkins());
@@ -23,7 +23,7 @@ const centre = (el: Element | null) => {
 
 function setup(
 	props: Partial<{
-		skin: LoadedSkin;
+		skin: SkinManifest;
 		orientation: 'white' | 'black';
 		showCoordinates: boolean;
 	}> = {}
