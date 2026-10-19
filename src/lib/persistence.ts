@@ -2,7 +2,7 @@
 // write is guarded, and anything missing or malformed falls back to the defaults, so the
 // app works without storage (private windows, blocked site data, quota).
 import type { Color, Square } from 'chess.js';
-import type { Volumes } from '#lib/audio/mixer.ts';
+import { CATEGORIES, type Volumes } from '#lib/audio/mixer.ts';
 import type { Orientation } from '#lib/board/geometry.ts';
 import {
 	clampElo,
@@ -13,6 +13,8 @@ import {
 } from '#lib/engine/difficulty.ts';
 import type { MoveInput, PromotionPiece } from '#lib/game/game.svelte.ts';
 import type { ColorChoice, GameSetup } from '#lib/game/setup.ts';
+import { isObj } from '#lib/json.ts';
+import { DEFAULT_SKIN_ID } from '#lib/skins/index.ts';
 
 // Versioned keys: a breaking change to a shape gets a new key rather than a migration.
 export const GAME_KEY = 'chess:game:v1';
@@ -46,7 +48,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-	skinId: 'default',
+	skinId: DEFAULT_SKIN_ID,
 	showLegalMoves: true,
 	showCoordinates: true,
 	autoFlip: false,
@@ -83,8 +85,6 @@ function write(key: string, value: unknown) {
 	}
 }
 
-type Obj = Record<string, unknown>;
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isColor = (v: unknown): v is Color => v === 'w' || v === 'b';
 const SQUARE = /^[a-h][1-8]$/;
 const PROMOTIONS: readonly unknown[] = ['q', 'r', 'b', 'n'];
@@ -164,7 +164,7 @@ function parseVolumes(v: unknown, min: number, defaults: Volumes): Volumes {
 		const x = o[key];
 		return typeof x === 'number' && x >= min && x <= 1 ? x : defaults[key];
 	};
-	return { music: volume('music'), sfx: volume('sfx'), voices: volume('voices') };
+	return Object.fromEntries(CATEGORIES.map((key) => [key, volume(key)])) as Volumes;
 }
 
 export const loadGame = (): SavedGame | null => parseGame(read(GAME_KEY));

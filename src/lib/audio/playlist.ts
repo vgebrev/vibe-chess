@@ -25,9 +25,4 @@ export class Playlist {
 		this.#index = (this.#index + 1) % this.tracks.length;
 		return this.tracks[this.#index];
 	}
-
-	/** The track playing (or last played), if any. */
-	get current(): string | null {
-		return this.tracks[this.#index] ?? null;
-	}
 }

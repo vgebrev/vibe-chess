@@ -1,6 +1,7 @@
 // How a finished game turned out for the game-over overlay (§4.7.1): which picture it shows.
 import type { Color } from 'chess.js';
 import type { ResultImages } from '#lib/skins/schema.ts';
+import { other } from './color.ts';
 import type { Result } from './game.svelte.ts';
 
 export type OutcomeKind = 'win' | 'loss' | 'resign' | 'draw' | 'stalemate';
@@ -40,7 +41,7 @@ export function resultImage(images: ResultImages | null, o: Outcome): string | n
 	if (o.kind === 'draw') return images.draw;
 	if (o.kind === 'stalemate') return images.stalemate ?? images.draw;
 	const winner = o.winner!;
-	const loser = winner === 'w' ? 'b' : 'w';
+	const loser = other(winner);
 	if (o.kind === 'resign') {
 		if (images.resign) return images.resign[loser];
 		return (o.human ? images.loss?.[loser] : images.win?.[winner]) ?? null;

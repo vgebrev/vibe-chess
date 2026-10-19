@@ -1,6 +1,7 @@
 // Game: owns the chess.js instance and exposes reactive state to components, which never
 // touch chess.js directly (§7.3).
 import { Chess, type Color, type Move, type PieceSymbol, type Square } from 'chess.js';
+import { other } from './color.ts';
 import { capturedBy, materialBalance } from './material.ts';
 import { applyMove, piecesFromFen, type BoardPiece } from './pieces.ts';
 
@@ -28,8 +29,6 @@ export interface Result {
 	winner: Color | 'draw';
 	reason: EndReason;
 }
-
-const other = (color: Color): Color => (color === 'w' ? 'b' : 'w');
 
 export class Game {
 	#chess: Chess;

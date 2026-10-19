@@ -10,6 +10,8 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
+	// Local working folders, excluded from git in .git/info/exclude
+	{ ignores: ['scratchpad/', 'brag-output*/'] },
 	js.configs.recommended,
 	ts.configs.recommended,
 	svelte.configs.recommended,
@@ -32,10 +34,5 @@ export default defineConfig(
 				parser: ts.parser
 			}
 		}
-	},
-	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
 	}
 );

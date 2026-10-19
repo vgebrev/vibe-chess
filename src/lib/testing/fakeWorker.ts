@@ -1,5 +1,5 @@
 // A scripted stand-in for the Stockfish worker, for tests.
-import type { EngineWorker } from './engine.ts';
+import type { EngineWorker } from '#lib/engine/engine.ts';
 
 /** `go` searches until `finish()` or `stop`. */
 export class FakeWorker implements EngineWorker {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Game } from '#lib/game/game.svelte.ts';
 import { Engine } from './engine.ts';
-import { FakeWorker } from './fakeWorker.ts';
+import { FakeWorker } from '#lib/testing/fakeWorker.ts';
 import { Opponent } from './opponent.svelte.ts';
 
 const beginner = { kind: 'preset', id: 'p0' } as const;

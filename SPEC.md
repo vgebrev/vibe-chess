@@ -132,7 +132,7 @@ Online multiplayer, accounts, ratings, time controls/clocks, opening books, anal
 - **Stale replies:** a new game, an undo or a mode change sends `stop`. Every request carries a sequence id, and a `bestmove` for an outdated id is discarded.
 - **Load failure:** the app shows an error and falls back to hot-seat mode. A start that hasn't reached `readyok` within 30 s counts as a failure.
 - **Implementation (M6):**
-  - `engine/engine.ts` is the UCI client. It talks to anything shaped like a Worker, so tests drive it with a scripted fake (`engine/fakeWorker.ts`); the browser Worker comes from `engine/worker.ts`. Every `go` gets exactly one `bestmove`, so pending searches form a queue; `stop()` marks them all cancelled and their replies resolve to `null`, including a search still waiting to start. Options are only sent when they change, and only once no search is running.
+  - `engine/engine.ts` is the UCI client. It talks to anything shaped like a Worker, so tests drive it with a scripted fake (`testing/fakeWorker.ts`); the browser Worker comes from `engine/worker.ts`. Every `go` gets exactly one `bestmove`, so pending searches form a queue; `stop()` marks them all cancelled and their replies resolve to `null`, including a search still waiting to start. Options are only sent when they change, and only once no search is running.
   - `engine/opponent.svelte.ts` owns the engine. It starts it when a vs-Computer game begins (not on first paint and not in hot-seat), computes `T`, searches at the difficulty, waits out the rest of `T`, and plays the move if the request is still current and the position unchanged. Its `status` (`idle`, `thinking`, `failed`) drives the status line and the fallback.
   - The page runs the opponent from an effect whenever it is the computer's turn; a new position, undo, resignation or new game cancels the pending reply. The player can only move their own pieces (`Board`'s `canMove`).
   - **New game** opens a form (`NewGameForm.svelte`): opponent (Computer / Two players), colour (the two side names or Random) and difficulty (the six presets or Custom with the Elo slider). It opens with the last game's choices, in a Drawer (§6.4). Playing Black orients the board to Black and the engine opens.
@@ -294,20 +294,12 @@ A move is **voiced from the side of the player who made it**. The rules, in orde
 
 1. **Checkmate:** the losing king's `defeat`, always. A resigning side's king says `defeat` too.
 2. **Check:** the checked king's `check`, always.
-3. **A player's capture:** the capturing piece's `capture` (chance `P_CAPTURE`). The captured piece doesn't answer: by the time the line ends it has left the board, so an answer didn't flow.
-4. **A player's other move:** vs Computer, a **taunt** when one is due (chance `P_TAUNT`, at most one per 30 s), from one of the computer's pieces still on the board: each kind of piece that has taunt lines is as likely, then one piece of that kind. Otherwise (and always in hot-seat) the moved piece's `move` (chance `P_MOVE`). Castling is the king's move and promotion the pawn's; en passant is a capture. The taunt answers your move, so it never seems to come from the computer taunting itself after its own; a capture of yours isn't taunted.
-5. **The computer's capture:** the computer stays silent, and **your** captured piece reacts with its `captured` line (chance `P_REACTION`).
+3. **A player's capture:** the capturing piece's `capture`. The captured piece doesn't answer: by the time the line ends it has left the board, so an answer didn't flow.
+4. **A player's other move:** vs Computer, a **taunt** when one is due (at most one per 30 s), from one of the computer's pieces still on the board: each kind of piece that has taunt lines is as likely, then one piece of that kind. Otherwise (and always in hot-seat) the moved piece's `move`. Castling is the king's move and promotion the pawn's; en passant is a capture. The taunt answers your move, so it never seems to come from the computer taunting itself after its own; a capture of yours isn't taunted.
+5. **The computer's capture:** the computer stays silent, and **your** captured piece reacts with its `captured` line.
 6. **The computer's other moves:** silent. No taunts in hot-seat.
 
-**Every chance is 1** (`ODDS` in `audio/voices.ts`): every move gets its line, which played better than lines by chance. Taunts are still spaced out, at most one per 30 s. The values first tuned by ear are kept as `TUNED_ODDS`, should the lines grow repetitive before the skin has more of them:
-
-| Constant     | In use | First tuned | Effect                    |
-| ------------ | ------ | ----------- | ------------------------- |
-| `P_MOVE`     | 1      | 0.35        |                           |
-| `P_CAPTURE`  | 1      | 0.8         |                           |
-| `P_REACTION` | 1      | 0.5         |                           |
-| `P_TAUNT`    | 1      | 0.07        | Per quiet move of yours   |
-| Taunt wait   | 30 s   | 30 s        | At most one taunt in 30 s |
+**Every line always plays**: each move that has a line says it, which played better than lines by chance. Only taunts are spaced out, at most one per 30 s (`TAUNT_COOLDOWN_MS` in `audio/voices.ts`). Should the lines grow repetitive, the answer is more variations per pool in the skin, not chance (§11 #54).
 
 - **Lines overlap.** Every line plays to its end: a newer move's line starts over one still playing rather than cutting it off (a cut-off taunt felt unnatural). The music stays dipped until the last one ends. Undo, a new game, a skin change and setting Voices to 0 stop every line, with a short fade.
 - A draw has no voice line. Victory and castling lines are possible additions; they would follow the same rules (a castle line replacing the king's `move`).
@@ -792,9 +784,9 @@ src/
       notation.ts           # move list rows, numbered SAN
       setup.ts              # new-game setup: mode, colour choice, difficulty
       outcome.ts            # a result as win/loss/resign/draw/stalemate, and its picture (§4.7.1)
-      types.ts
+      color.ts              # other(): the opposing side
     board/
-      geometry.ts           # square↔grid per orientation, sprite offsets, coordinate labels
+      geometry.ts           # orientation helpers, square↔grid per orientation, sprite-sheet cells, coordinate labels
       motion.ts             # animation durations (zeroed for reduced motion), auto-flip and game-over pauses
     engine/
       engine.ts             # Promise-based UCI client (start, setOptions, search, stop)
@@ -803,7 +795,6 @@ src/
       difficulty.ts         # Skill Level presets + custom Elo → UCI options
       thinkTime.ts          # complexity estimate → think budget (§4.6.1)
       opponent.svelte.ts    # starts the engine, times and plays its replies, cancellation
-      fakeWorker.ts         # scripted stand-in engine for tests
     skins/
       index.ts              # registry
       schema.ts             # Skin type + validation
@@ -830,8 +821,9 @@ src/
       Credits.svelte        # who and what made the game, in the Credits drawer
       Icon.svelte           # stroked icons for the control bar, header and drawers
       options.ts            # shared chip style for radios
+      dialog.ts             # shared modal dialog: open/focus attachment, Esc handling, class
     audio/
-      voices.ts             # which line (if any) a move gets: rules, chances, taunt wait (§4.11)
+      voices.ts             # which line (if any) a move gets: rules, taunt wait (§4.11)
       sfx.ts                # which SFX a move gets
       playlist.ts           # session shuffle + looping order
       mixer.ts              # Web Audio: unlock on first input, buffers, category gains, ducking, music element
@@ -839,6 +831,8 @@ src/
     haptics.ts              # vibration patterns; Vibration API or the iOS switch tick (§4.12)
     labels.ts               # status templates + label fallbacks
     persistence.ts
+    json.ts                 # guards for untrusted JSON (manifests, saved state)
+    testing/                # test-only helpers: fake engine worker, seeded random, test skins
 static/
   favicon.*, icon-*.png, apple-touch-icon.png, site.webmanifest   # app icons (source in scratchpad/)
   og-image.png              # link-preview picture, 1200×630 (source in scratchpad/og/)
@@ -861,7 +855,7 @@ type Difficulty =
 interface SavedGame {
 	// persisted (§4.9); everything else is replayed from it
 	startFen: string;
-	moves: { from: Square; to: Square; promotion?: PieceType }[];
+	moves: { from: Square; to: Square; promotion?: PieceSymbol }[];
 	resigned: Color | null; // a resignation isn't on the board
 	setup: { mode: Mode; color: Color | 'random'; difficulty: Difficulty }; // New game choices
 	human: Color; // computer mode: the player's colour after a random choice
@@ -872,19 +866,8 @@ interface BoardPiece {
 	// render model, for animation
 	id: string; // stable across moves
 	color: Color;
-	type: PieceType;
+	type: PieceSymbol;
 	square: Square;
-	leaving?: boolean; // captured, fading out
-}
-
-interface UiState {
-	orientation: 'white' | 'black';
-	selected: Square | null;
-	legalTargets: { square: Square; capture: boolean }[];
-	dragging: { id: string; x: number; y: number } | null;
-	pendingPromotion: { from: Square; to: Square } | null;
-	engineThinking: boolean;
-	drawerOpen: boolean;
 }
 
 interface Settings {
@@ -899,7 +882,7 @@ interface Settings {
 }
 ```
 
-The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fields. Components never touch chess.js directly.
+The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fields. Components never touch chess.js directly. Colours and piece types are chess.js's own (`Color`, `PieceSymbol`), skin manifests included. UI state is local where it is used: the selection, drag, hover and a pending promotion in `Board`; the orientation, open drawer and overlays in the page.
 
 ## 8. Testing & acceptance
 
@@ -942,7 +925,7 @@ The `Game` class owns the chess.js instance and exposes `$state`/`$derived` fiel
 - Settings panel: skins listed by name, no skin picker with a single skin, auto-flip only in hot-seat, difficulty only vs Computer
 - Skin availability: the `disabled` flag is validated; the start order is the saved skin, the default, then the rest, skipping disabled ones
 - Controls: full accessible names, Moves button, focus back on Resign after "No"
-- Sound rules (§4.11): each SFX case; a player's move and capture voiced by chance (with no answer), the computer's capture answered by the player's piece, taunts (only vs Computer, answering the player's quiet move in place of its line, from pieces that have them, 30 s apart; never on the computer's move or after a capture), check and checkmate always, castling and promotion speakers, missing lines; variations never repeat; the playlist shuffles every track once and loops; the `audio` manifest block and its errors; volumes in [0, 1] falling back on their own, unmute levels above 0; the `emotes` block and its errors
+- Sound rules (§4.11): each SFX case; a player's move and capture always voiced (with no answer), the computer's capture answered by the player's piece, taunts (only vs Computer, answering the player's quiet move in place of its line, from pieces that have them, 30 s apart; never on the computer's move or after a capture), check and checkmate always, castling and promotion speakers, missing lines; variations never repeat; the playlist shuffles every track once and loops; the `audio` manifest block and its errors; volumes in [0, 1] falling back on their own, unmute levels above 0; the `emotes` block and its errors
 - Settings panel: a volume slider and mute toggle per category the skin has sound for, none for a silent skin; muting and unmuting (back to the last level above 0, also after sliding to 0)
 - Haptics (§4.12): each event's pattern, nothing when off or unsupported, no support without a window; the Vibration toggle only where the device can vibrate
 
@@ -1061,3 +1044,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 51  | Taunts answer your move              | The computer taunted after its own moves, which could sound like it taunting itself. A taunt now answers a quiet move of yours vs Computer, in place of your piece's line, still at most one per 30 s; the computer's quiet moves are silent (§4.11)                                                                                                                                                                                                                                                                                                    |
 | 52  | Taller drawers                       | Drawers were capped at 70 dvh, so Settings scrolled on a 384×700 phone with room to spare above it. The cap is now the screen's height less 4 rem (§6.4)                                                                                                                                                                                                                                                                                                                                                                                                |
 | 53  | Link previews                        | Shared links showed no picture or description. `app.html` now has Open Graph and Twitter card tags with a 1200×630 picture; static, since crawlers don't run the SPA (§7.1)                                                                                                                                                                                                                                                                                                                                                                             |
+| 54  | Code review cleanup                  | Every voice line always plays: the chance machinery (`ODDS`, `TUNED_ODDS`) is gone, and repetition is answered with more variations per pool in the skin. Alongside: dead code removed (`BoardPiece.leaving`, `difficultyName`, `Playlist.current`, the `#lib` index), one set of piece types (chess.js's), shared helpers for colours and orientation, sprite-sheet cells, JSON guards, modal dialogs and test setup, and test-only code in `lib/testing/` (§4.11, §7.2, §7.3)                                                                         |

@@ -1,7 +1,8 @@
 // Difficulty: six Stockfish Skill Level presets, or a custom Elo in steps of 50 (§4.6).
 import type { Labels } from '#lib/skins/schema.ts';
 
-export type PresetId = 'p0' | 'p1' | 'p2' | 'p3' | 'p4' | 'p5';
+export const PRESET_IDS = ['p0', 'p1', 'p2', 'p3', 'p4', 'p5'] as const;
+export type PresetId = (typeof PRESET_IDS)[number];
 
 export type Difficulty = { kind: 'preset'; id: PresetId } | { kind: 'custom'; elo: number };
 
@@ -30,9 +31,9 @@ export const DEFAULT_ELO = 1350;
 const preset = (id: PresetId) => PRESETS.find((p) => p.id === id)!;
 
 /** Snap an Elo to the 50 grid and clamp it to the range. */
-export function clampElo(elo: number, range = ELO_RANGE): number {
+export function clampElo(elo: number): number {
 	const snapped = Math.round(elo / ELO_STEP) * ELO_STEP;
-	return Math.min(range.max, Math.max(range.min, snapped));
+	return Math.min(ELO_RANGE.max, Math.max(ELO_RANGE.min, snapped));
 }
 
 /** The Elo the computer plays at, roughly. */
@@ -47,19 +48,17 @@ export function uciOptions(difficulty: Difficulty): Record<string, string | numb
 		: { UCI_LimitStrength: 'true', UCI_Elo: clampElo(difficulty.elo) };
 }
 
-/** Stronger opponents take a little longer to move (§4.6.1): ×0.7 at 1320, ×1.2 from 3150. */
+/**
+ * Stronger opponents take a little longer to move (§4.6.1): ×0.7 at the weakest preset (1320),
+ * ×1.2 from the top of the custom range (3150).
+ */
 export function personality(difficulty: Difficulty): number {
-	const t = Math.min(1, Math.max(0, (targetElo(difficulty) - 1320) / (3150 - 1320)));
+	const weakest = PRESETS[0].elo;
+	const t = Math.min(1, Math.max(0, (targetElo(difficulty) - weakest) / (ELO_RANGE.max - weakest)));
 	return 0.7 + 0.5 * t;
 }
 
 /** A preset's name from the skin, falling back to a generic one (§4.6). */
 export function presetName(id: PresetId, labels: Labels): string {
 	return labels.difficulty?.[id] ?? preset(id).name;
-}
-
-export function difficultyName(difficulty: Difficulty, labels: Labels): string {
-	return difficulty.kind === 'preset'
-		? presetName(difficulty.id, labels)
-		: `Custom (${clampElo(difficulty.elo)} Elo)`;
 }

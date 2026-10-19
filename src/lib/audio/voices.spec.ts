@@ -1,13 +1,11 @@
-import { Chess, type Color, type Square } from 'chess.js';
+import { Chess, type Color, type PieceSymbol, type Square } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import type { Result } from '#lib/game/game.svelte.ts';
-import type { PieceType } from '#lib/skins/schema.ts';
 import {
 	kingSquare,
 	pieceOn,
 	pickVariation,
 	TAUNT_COOLDOWN_MS,
-	TUNED_ODDS,
 	VoiceDirector,
 	type Line,
 	type MoveContext
@@ -24,7 +22,7 @@ const BLACK_QUIET = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1
 /** White can check with Rh8+ or castle. */
 const ROOK = '4k3/8/8/8/8/8/8/4K2R w K - 0 1';
 
-/** Random numbers from a script, then 0.99 (a miss for every chance). */
+/** Random numbers from a script (which taunting piece speaks), then 0.99. */
 const rolls =
 	(...values: number[]) =>
 	() =>
@@ -32,11 +30,11 @@ const rolls =
 
 function director(random: () => number, has: (line: Line) => boolean = () => true) {
 	const clock = { now: 0 };
-	return { voices: new VoiceDirector(has, () => clock.now, random, TUNED_ODDS), clock };
+	return { voices: new VoiceDirector(has, () => clock.now, random), clock };
 }
 
 /** Black's pieces after 1.e4, by type. */
-const BLACK: Record<PieceType, Square[]> = {
+const BLACK: Record<PieceSymbol, Square[]> = {
 	k: ['e8'],
 	q: ['d8'],
 	b: ['c8', 'f8'],
@@ -44,7 +42,7 @@ const BLACK: Record<PieceType, Square[]> = {
 	r: ['a8', 'h8'],
 	p: ['a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7']
 };
-const vsComputer = (human: Color, types: PieceType[] = ['k', 'q', 'b', 'n', 'r', 'p']) =>
+const vsComputer = (human: Color, types: PieceSymbol[] = ['k', 'q', 'b', 'n', 'r', 'p']) =>
 	({
 		result: null,
 		human,
@@ -53,43 +51,35 @@ const vsComputer = (human: Color, types: PieceType[] = ['k', 'q', 'b', 'n', 'r',
 const hotseat: MoveContext = { result: null, human: null, computerPieces: [] };
 
 describe('VoiceDirector (§4.11)', () => {
-	it("voices a player's quiet move sometimes, from the piece that moved", () => {
-		const { voices } = director(rolls(0.3, 0.4));
-		expect(voices.move(play(START, 'Nf3'), hotseat)).toEqual([
+	it("voices a player's quiet move from the piece that moved", () => {
+		expect(director(rolls()).voices.move(play(START, 'Nf3'), hotseat)).toEqual([
 			{ side: 'w', piece: 'n', event: 'move', square: 'f3' }
 		]);
-		const { voices: other } = director(rolls(0.4));
-		expect(other.move(play(START, 'Nf3'), hotseat)).toEqual([]);
 	});
 
 	it("voices a player's capture from the capturing piece, and never the captured one", () => {
 		const capture = { side: 'w', piece: 'p', event: 'capture', square: 'd5' };
-		expect(director(rolls(0.1)).voices.move(play(WHITE_TAKES, 'exd5'), hotseat)).toEqual([capture]);
-		expect(director(rolls(0.1)).voices.move(play(WHITE_TAKES, 'exd5'), vsComputer('w'))).toEqual([
+		expect(director(rolls()).voices.move(play(WHITE_TAKES, 'exd5'), hotseat)).toEqual([capture]);
+		expect(director(rolls()).voices.move(play(WHITE_TAKES, 'exd5'), vsComputer('w'))).toEqual([
 			capture
 		]);
-		expect(director(rolls(0.9)).voices.move(play(WHITE_TAKES, 'exd5'), hotseat)).toEqual([]);
 	});
 
 	it("keeps the computer's capture silent and lets the player's piece react", () => {
-		expect(director(rolls(0.4)).voices.move(play(BLACK_TAKES, 'dxe4'), vsComputer('w'))).toEqual([
+		expect(director(rolls()).voices.move(play(BLACK_TAKES, 'dxe4'), vsComputer('w'))).toEqual([
 			{ side: 'w', piece: 'p', event: 'captured' }
 		]);
-		expect(director(rolls(0.6)).voices.move(play(BLACK_TAKES, 'dxe4'), vsComputer('w'))).toEqual(
-			[]
-		);
 	});
 
 	it('in hot-seat voices both sides as players', () => {
-		const { voices } = director(rolls(0.1, 0.9));
-		expect(voices.move(play(BLACK_TAKES, 'dxe4'), hotseat)).toEqual([
+		expect(director(rolls()).voices.move(play(BLACK_TAKES, 'dxe4'), hotseat)).toEqual([
 			{ side: 'b', piece: 'p', event: 'capture', square: 'e4' }
 		]);
 	});
 
-	it("answers the player's quiet move with a computer taunt now and then, at most every 30 s", () => {
+	it("answers the player's quiet move with a computer taunt, at most every 30 s", () => {
 		const has = (line: Line) => line.event !== 'taunt' || !['n', 'r'].includes(line.piece);
-		const { voices, clock } = director(rolls(0.05, 0.99, 0.3, 0.05, 0.01, 0.05, 0, 0, 0.05), has);
+		const { voices, clock } = director(rolls(0.99, 0.3, 0, 0), has);
 		// The roll picks among the kinds of piece with taunts only (k, q, b, p), so 0.99 is a pawn,
 		// and the next roll which pawn.
 		expect(
@@ -112,7 +102,7 @@ describe('VoiceDirector (§4.11)', () => {
 	});
 
 	it("never taunts in hot-seat, after a player's capture or on the computer's move", () => {
-		const { voices } = director(() => 0); // every chance hits
+		const { voices } = director(() => 0);
 		expect(voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w'))).toEqual([]);
 		expect(voices.move(play(WHITE_TAKES, 'exd5'), vsComputer('w'))).toEqual([
 			{ side: 'w', piece: 'p', event: 'capture', square: 'd5' }
@@ -182,8 +172,8 @@ describe('kingSquare', () => {
 	});
 
 	it('reads the piece on a square, or none', () => {
-		expect(pieceOn(START, 'd8')).toBe('q');
-		expect(pieceOn(START, 'g1')).toBe('N');
+		expect(pieceOn(START, 'd8')).toBe('bq');
+		expect(pieceOn(START, 'g1')).toBe('wn');
 		expect(pieceOn(START, 'e4')).toBe('');
 	});
 });

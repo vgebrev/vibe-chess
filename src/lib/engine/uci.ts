@@ -3,7 +3,7 @@ import type { Square } from 'chess.js';
 import type { MoveInput, PromotionPiece } from '#lib/game/game.svelte.ts';
 
 /** A move in UCI notation (`e7e8q`) → from, to and promotion. */
-export function parseUciMove(text: string): MoveInput | null {
+function parseUciMove(text: string): MoveInput | null {
 	const match = /^([a-h][1-8])([a-h][1-8])([qrbn])?$/.exec(text);
 	if (!match) return null;
 	const [, from, to, promotion] = match;

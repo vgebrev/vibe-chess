@@ -4,17 +4,15 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { Game } from '#lib/game/game.svelte.ts';
-import { loadSkin, type LoadedSkin } from '#lib/skins/loader.ts';
+import type { LoadedSkin } from '#lib/skins/loader.ts';
+import { settle, testSkins } from '#lib/testing/skins.ts';
 import Board from './Board.svelte';
 
 let fixture: LoadedSkin;
 let pirate: LoadedSkin;
 
 beforeAll(async () => {
-	[fixture, pirate] = await Promise.all([
-		loadSkin('/tests/fixtures/skins/test/', 'test'),
-		loadSkin('/skins/pirate/', 'pirate')
-	]);
+	({ fixture, pirate } = await testSkins());
 });
 
 interface Options {
@@ -322,7 +320,6 @@ describe('animation', () => {
 	const pieceEl = (b: ReturnType<typeof setup>, square: string) =>
 		b.root.querySelector<HTMLElement>(`[data-piece][data-square="${square}"]:not([inert])`)!;
 	const slides = (el: Element) => el.getAnimations().filter((a) => a.id === 'slide');
-	const settle = () => Promise.all(document.getAnimations().map((a) => a.finished));
 
 	it('slides a clicked move from its old square', async () => {
 		const b = setup();

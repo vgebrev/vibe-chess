@@ -4,7 +4,8 @@
 // first press or key (browser autoplay rules), when `unlock` creates the AudioContext.
 import { Playlist } from './playlist.ts';
 
-export type Category = 'music' | 'sfx' | 'voices';
+export const CATEGORIES = ['music', 'sfx', 'voices'] as const;
+export type Category = (typeof CATEGORIES)[number];
 export type Volumes = Record<Category, number>;
 
 /** Time constant of volume changes, in seconds: quick, but without clicks. */
@@ -70,7 +71,7 @@ export class Mixer {
 		if (!this.#ctx) {
 			const ctx = new AudioContext();
 			const master = ctx.destination;
-			for (const category of ['music', 'sfx', 'voices'] as const) {
+			for (const category of CATEGORIES) {
 				const gain = ctx.createGain();
 				gain.gain.value = gainOf(this.#volumes[category]);
 				gain.connect(master);

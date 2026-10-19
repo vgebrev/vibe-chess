@@ -3,7 +3,7 @@
 import type { Color, Move, PieceSymbol } from 'chess.js';
 import type { BoardPiece } from './pieces.ts';
 
-export const PIECE_VALUES: Record<PieceSymbol, number> = { q: 9, r: 5, b: 3, n: 3, p: 1, k: 0 };
+const PIECE_VALUES: Record<PieceSymbol, number> = { q: 9, r: 5, b: 3, n: 3, p: 1, k: 0 };
 
 /** Display order of captured pieces. */
 const ORDER: PieceSymbol[] = ['q', 'r', 'b', 'n', 'p'];

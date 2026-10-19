@@ -2,6 +2,7 @@
 	import { fade } from 'svelte/transition';
 	import { motion } from '#lib/board/motion.ts';
 	import type { Splash, SplashLayout } from '#lib/skins/schema.ts';
+	import { cancelWith, dialogClass, modal } from './dialog.ts';
 
 	interface Props {
 		open: boolean;
@@ -39,29 +40,18 @@
 		[...place(splash.portrait ?? splash, ''), ...place(splash, '-md')].join('; ')
 	);
 
-	// A modal dialog, like the game-over overlay (§4.7.1). It opens before any input, so the
-	// dialog itself takes focus and no focus ring shows until Tab.
-	function modal(dialog: HTMLDialogElement) {
-		dialog.showModal();
-		dialog.focus();
-	}
-
-	function oncancel(e: Event) {
-		// Esc: close through the parent, so the splash fades out.
-		e.preventDefault();
-		onclose();
-	}
-
 	const button = 'rounded px-5 py-2 shadow-lg disabled:opacity-50 sm:text-lg lg:px-6 lg:text-xl';
 </script>
 
 {#if open}
+	<!-- Modal, like the game-over overlay (§4.7.1). It opens before any input, so the dialog
+	     itself takes focus and no focus ring shows until Tab. -->
 	<dialog
-		{@attach modal}
-		class="fixed inset-0 m-0 size-full max-h-none max-w-none overflow-hidden bg-transparent p-0 text-text outline-none backdrop:bg-transparent"
+		{@attach modal('dialog')}
+		class={dialogClass}
 		tabindex="-1"
 		aria-labelledby="{id}-title"
-		{oncancel}
+		oncancel={cancelWith(onclose)}
 		onclose={() => onclose()}
 		transition:fade={{ duration: motion.drawer }}
 		data-splash

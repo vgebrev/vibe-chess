@@ -3,6 +3,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { fade, type TransitionConfig } from 'svelte/transition';
 	import { motion } from '#lib/board/motion.ts';
+	import { cancelWith, dialogClass, modal } from './dialog.ts';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -20,16 +21,6 @@
 	const SWIPE_CLOSE_PX = 64;
 	let swipe = $state<{ pointer: number; startY: number; dy: number } | null>(null);
 
-	// A modal dialog makes the rest of the page inert and keeps focus inside (§6.4). The trigger
-	// gets focus back once the sheet has gone, if it is still on the page.
-	function modal(dialog: HTMLDialogElement) {
-		const trigger = document.activeElement;
-		dialog.showModal();
-		return () => {
-			if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
-		};
-	}
-
 	// Up from the bottom below lg, in from the right at lg: the direction comes from CSS
 	// variables the breakpoint classes set, so no media query is needed here.
 	const sheet: (node: Element) => TransitionConfig = () => ({
@@ -38,12 +29,6 @@
 		css: (_t, u) =>
 			`transform: translate(calc(var(--sheet-x) * ${u * 100}%), calc(var(--sheet-y) * ${u * 100}%))`
 	});
-
-	function oncancel(e: Event) {
-		// Esc: close through the parent, so the sheet slides out.
-		e.preventDefault();
-		onclose();
-	}
 
 	function onpointerdown(e: PointerEvent) {
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -63,13 +48,12 @@
 </script>
 
 {#if open}
-	<!-- The dialog fills the viewport; its own scrim and sheet are drawn inside so both can be
-	     animated. -->
+	<!-- Modal (§6.4); the control that opened it gets focus back once it has gone. -->
 	<dialog
-		{@attach modal}
-		class="fixed inset-0 m-0 size-full max-h-none max-w-none overflow-hidden bg-transparent p-0 text-text backdrop:bg-transparent"
+		{@attach modal()}
+		class={dialogClass}
 		aria-labelledby="{id}-title"
-		{oncancel}
+		oncancel={cancelWith(onclose)}
 		onclose={() => onclose()}
 		data-drawer
 	>

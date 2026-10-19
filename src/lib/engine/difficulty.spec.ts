@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	clampElo,
-	difficultyName,
-	personality,
-	presetName,
-	targetElo,
-	uciOptions
-} from './difficulty.ts';
+import { clampElo, personality, presetName, targetElo, uciOptions } from './difficulty.ts';
 
 describe('Elo', () => {
 	it('snaps to 50 and clamps to the range', () => {
@@ -49,6 +42,5 @@ describe('names', () => {
 	it('come from the skin, falling back to generic ones', () => {
 		expect(presetName('p0', { difficulty: { p0: 'Cabin Boy' } })).toBe('Cabin Boy');
 		expect(presetName('p5', { difficulty: { p0: 'Cabin Boy' } })).toBe('Master');
-		expect(difficultyName({ kind: 'custom', elo: 1600 }, {})).toBe('Custom (1600 Elo)');
 	});
 });

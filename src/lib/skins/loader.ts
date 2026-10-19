@@ -166,6 +166,15 @@ async function loadFontCss(family: string, href: string): Promise<void> {
 	await document.fonts.load(`1em "${family}"`);
 }
 
+/**
+ * The CSS variables piece sprites read (Sprite.svelte), for the element that holds them: the
+ * sheet's URL and its size in cells.
+ */
+export function piecesSheetStyle(skin: LoadedSkin): string {
+	const { columns, rows } = skin.manifest.pieces;
+	return `--pieces-url: url(${JSON.stringify(skin.urls.pieces)}); --sheet-size: ${columns * 100}% ${rows * 100}%`;
+}
+
 const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
 /** The CSS custom properties a skin sets on :root (§5.4, mapped into Tailwind in app.css). */

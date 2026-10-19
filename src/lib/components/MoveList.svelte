@@ -5,11 +5,10 @@
 		startFen: string;
 		/** SAN of the moves played, oldest first. */
 		moves: string[];
-		/** Sizing from the container: the list scrolls within it. */
-		class?: string;
 	}
 
-	let { startFen, moves, class: className = 'max-h-48' }: Props = $props();
+	/** Sized by its container, within which it scrolls. */
+	let { startFen, moves }: Props = $props();
 
 	const rows = $derived(moveRows(startFen, moves));
 
@@ -24,12 +23,7 @@
 </script>
 
 <!-- SAN in numbered pairs, the current (last) move highlighted (§4.7). -->
-<ol
-	bind:this={list}
-	class={['w-full overflow-y-auto tabular-nums', className]}
-	aria-label="Moves"
-	data-moves
->
+<ol bind:this={list} class="w-full overflow-y-auto tabular-nums" aria-label="Moves" data-moves>
 	{#each rows as row, i (row.number)}
 		{@const last = i === rows.length - 1}
 		<li class="grid grid-cols-[3rem_1fr_1fr] gap-x-2 px-2 odd:bg-surface">

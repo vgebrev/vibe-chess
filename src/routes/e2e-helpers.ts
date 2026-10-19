@@ -12,3 +12,16 @@ export async function enableAllSkins(page: Page) {
 		await route.fulfill({ response, json });
 	});
 }
+
+/** A board square's button, for clicks, drags and focus. */
+export const cell = (page: Page, square: string) => page.locator(`[data-cell="${square}"]`);
+
+/** Open the settings drawer. Radios and checkboxes are picked by their label text. */
+export async function settings(page: Page) {
+	await page.getByRole('button', { name: 'Settings' }).click();
+	return page.getByRole('dialog', { name: 'Settings' });
+}
+
+/** Wait for piece slides and fades to finish. */
+export const settle = (page: Page) =>
+	page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));

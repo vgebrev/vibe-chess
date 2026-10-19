@@ -2,7 +2,8 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import '../../app.css';
-import { loadSkin, type LoadedSkin } from '#lib/skins/loader.ts';
+import type { LoadedSkin } from '#lib/skins/loader.ts';
+import { testSkins } from '#lib/testing/skins.ts';
 import Controls from './Controls.svelte';
 import MoveList from './MoveList.svelte';
 import PlayerStrip from './PlayerStrip.svelte';
@@ -13,7 +14,7 @@ const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 let pirate: LoadedSkin;
 
 beforeAll(async () => {
-	pirate = await loadSkin('/skins/pirate/', 'pirate');
+	({ pirate } = await testSkins());
 });
 
 describe('PlayerStrip', () => {
@@ -105,8 +106,10 @@ describe('MoveList', () => {
 
 	it('keeps the latest move scrolled into view', async () => {
 		const sans = Array.from({ length: 60 }, (_, i) => (i % 2 ? 'Ng8' : 'Nf3'));
-		const screen = render(MoveList, { startFen: START, moves: sans });
+		const screen = render(MoveList, { startFen: START, moves: sans.slice(0, -1) });
 		const list = screen.container.querySelector('ol')!;
+		list.style.maxHeight = '12rem'; // the page's panel or drawer sizes it
+		await screen.rerender({ moves: sans });
 		expect(list.scrollHeight).toBeGreaterThan(list.clientHeight);
 		expect(list.scrollTop + list.clientHeight).toBeCloseTo(list.scrollHeight, -1);
 	});
