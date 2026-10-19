@@ -59,8 +59,8 @@
 						data-result-image
 					/>
 				{/if}
-				<h2 id="{id}-title" class="text-4xl text-accent" data-result-title>{title}</h2>
-				<p id="{id}-reason" class="text-lg text-muted" data-result-reason>{reason}</p>
+				<h2 id="{id}-title" class="text-4xl text-accent">{title}</h2>
+				<p id="{id}-reason" class="text-lg text-muted">{reason}</p>
 				<div class="mt-3 flex gap-2">
 					<button class={[primary, 'px-4 py-2']} onclick={onnew}>New game</button>
 					<button class={[secondary, 'px-4 py-2']} onclick={onclose}>View board</button>

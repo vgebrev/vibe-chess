@@ -11,6 +11,7 @@
 	} from '#lib/board/geometry.ts';
 	import type { Game, PromotionPiece } from '#lib/game/game.svelte.ts';
 	import { squareLabel } from '#lib/labels.ts';
+	import { clamp } from '#lib/math.ts';
 	import { cssUrl, piecesSheetStyle } from '#lib/skins/loader.ts';
 	import type { SkinManifest } from '#lib/skins/schema.ts';
 	import Coordinates from './Coordinates.svelte';
@@ -253,10 +254,9 @@
 	function navigate(e: KeyboardEvent, square: Square) {
 		if (e.altKey || e.ctrlKey || e.metaKey) return;
 		const { col, row } = squareToGrid(square, orientation);
-		const clamp = (n: number) => Math.min(7, Math.max(0, n));
 		const step = STEPS[e.key];
 		let next: [number, number];
-		if (step) next = [clamp(col + step[0]), clamp(row + step[1])];
+		if (step) next = [clamp(col + step[0], 0, 7), clamp(row + step[1], 0, 7)];
 		else if (e.key === 'Home') next = [0, row];
 		else if (e.key === 'End') next = [7, row];
 		else return;
@@ -346,12 +346,7 @@
 			{#if drag?.active}
 				{@const piece = game.pieces.find((p) => p.id === drag?.id)}
 				{#if piece}
-					<div
-						class="dragged"
-						data-dragging={piece.id}
-						style:left="{drag.x}px"
-						style:top="{drag.y}px"
-					>
+					<div class="dragged" style:left="{drag.x}px" style:top="{drag.y}px">
 						<Sprite type={piece.type} color={piece.color} {sheet} />
 					</div>
 				{/if}

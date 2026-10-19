@@ -81,7 +81,9 @@ SFX_EVENTS = {"game-start": "start", "castling": "castle", "illegal-move": "ille
 SFX_KNOWN = {"start", "select", "move", "capture", "castle", "promotion", "check", "checkmate", "draw", "illegal", "click"}
 SIDES = {"white": "w", "black": "b"}
 PIECES = {"king": "k", "queen": "q", "bishop": "b", "knight": "n", "rook": "r", "pawn": "p"}
-VOICE_FILE = re.compile(r"(white|black)-(king|queen|bishop|knight|rook|pawn)-(move|capture|captured|check|defeat|taunt)(-alt)?\.mp3")
+VOICE_EVENTS = ("move", "capture", "captured", "check", "defeat", "taunt")
+VOICE_FILE = re.compile(rf"({'|'.join(SIDES)})-({'|'.join(PIECES)})-({'|'.join(VOICE_EVENTS)})(-alt)?\.mp3")
+PARTS = ("images", "fonts", "audio")
 
 
 def runs(values, min_gap):
@@ -522,10 +524,10 @@ def convert_fonts(src, out):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert skin source art (SPEC §5.6).")
     parser.add_argument("skins", nargs="*", help="skin ids (default: every skin with source assets)")
-    parser.add_argument("--only", default="images,fonts,audio", help="comma-separated parts to convert")
+    parser.add_argument("--only", default=",".join(PARTS), help="comma-separated parts to convert")
     args = parser.parse_args()
     parts = set(args.only.split(","))
-    if parts - {"images", "fonts", "audio"}:
-        raise SystemExit(f"--only: unknown part(s) {sorted(parts - {'images', 'fonts', 'audio'})}")
+    if parts - set(PARTS):
+        raise SystemExit(f"--only: unknown part(s) {sorted(parts - set(PARTS))}")
     for skin in args.skins or [d.name for d in SRC_DIR.iterdir() if (d / "assets").is_dir()]:
         convert(skin, parts)

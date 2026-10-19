@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Color, PieceSymbol } from 'chess.js';
 	import { other } from '#lib/game/color.ts';
+	import { countByType } from '#lib/game/material.ts';
 	import { capturesLabel, sideName } from '#lib/labels.ts';
 	import { piecesSheetStyle } from '#lib/skins/loader.ts';
 	import type { SkinManifest } from '#lib/skins/schema.ts';
@@ -25,14 +26,7 @@
 	const sheet = $derived(skin.pieces);
 	// Same-type captures overlap, and squeeze closer when space runs out, so a full set fits on
 	// a phone (§4.10).
-	const groups = $derived(
-		captured.reduce<{ type: PieceSymbol; count: number }[]>((groups, type) => {
-			const last = groups.at(-1);
-			if (last?.type === type) last.count++;
-			else groups.push({ type, count: 1 });
-			return groups;
-		}, [])
-	);
+	const groups = $derived(countByType(captured));
 </script>
 
 <!-- One side's name, its captures and its material lead (§4.10). The top strip belongs to the

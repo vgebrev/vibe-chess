@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { clampElo, personality, presetName, targetElo, uciOptions } from './difficulty.ts';
+import {
+	clampElo,
+	personality,
+	PRESET_IDS,
+	presetName,
+	targetElo,
+	uciOptions
+} from './difficulty.ts';
 
 describe('Elo', () => {
 	it('snaps to 50 and clamps to the range', () => {
@@ -10,9 +17,7 @@ describe('Elo', () => {
 	});
 
 	it("gives each preset its Skill Level's Elo, and custom its own clamped value", () => {
-		const presets = (['p0', 'p1', 'p2', 'p3', 'p4', 'p5'] as const).map((id) =>
-			targetElo({ kind: 'preset', id })
-		);
+		const presets = PRESET_IDS.map((id) => targetElo({ kind: 'preset', id }));
 		expect(presets).toEqual([1320, 1444, 1566, 1729, 1953, 2197]);
 		expect(targetElo({ kind: 'custom', elo: 2333 })).toBe(2350);
 	});

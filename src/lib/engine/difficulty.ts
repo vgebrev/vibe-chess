@@ -1,4 +1,5 @@
 // Difficulty: six Stockfish Skill Level presets, or a custom Elo in steps of 50 (§4.6).
+import { clamp } from '#lib/math.ts';
 import type { Labels } from '#lib/skins/schema.ts';
 
 export const PRESET_IDS = ['p0', 'p1', 'p2', 'p3', 'p4', 'p5'] as const;
@@ -32,8 +33,7 @@ const preset = (id: PresetId) => PRESETS.find((p) => p.id === id)!;
 
 /** Snap an Elo to the 50 grid and clamp it to the range. */
 export function clampElo(elo: number): number {
-	const snapped = Math.round(elo / ELO_STEP) * ELO_STEP;
-	return Math.min(ELO_RANGE.max, Math.max(ELO_RANGE.min, snapped));
+	return clamp(Math.round(elo / ELO_STEP) * ELO_STEP, ELO_RANGE.min, ELO_RANGE.max);
 }
 
 /** The Elo the computer plays at, roughly. */
@@ -54,7 +54,7 @@ export function uciOptions(difficulty: Difficulty): Record<string, string | numb
  */
 export function personality(difficulty: Difficulty): number {
 	const weakest = PRESETS[0].elo;
-	const t = Math.min(1, Math.max(0, (targetElo(difficulty) - weakest) / (ELO_RANGE.max - weakest)));
+	const t = clamp((targetElo(difficulty) - weakest) / (ELO_RANGE.max - weakest), 0, 1);
 	return 0.7 + 0.5 * t;
 }
 

@@ -3,9 +3,10 @@
 	import type { Difficulty } from '#lib/engine/difficulty.ts';
 	import type { SkinId, SkinInfo } from '#lib/skins/index.ts';
 	import type { Labels } from '#lib/skins/schema.ts';
+	import Choices from './Choices.svelte';
 	import DifficultyPicker from './DifficultyPicker.svelte';
 	import Icon from './Icon.svelte';
-	import { legend, option, slider } from './styles.ts';
+	import { legend, slider } from './styles.ts';
 
 	interface Props {
 		skinId: string;
@@ -65,23 +66,14 @@
 <!-- Settings apply as they change: skin (when there is a choice), guidance, coordinates, auto-flip,
      sound volumes (for what the skin has), vibration (where it works), difficulty (§4.7, §4.11,
      §4.12). -->
-<div class="flex flex-col gap-4" data-settings>
+<div class="flex flex-col gap-4">
 	{#if skins.length > 1}
-		<fieldset class="flex flex-wrap gap-2">
-			<legend class={legend}>Skin</legend>
-			{#each skins as { id, name } (id)}
-				<label class={option}>
-					<input
-						class="sr-only"
-						type="radio"
-						name="skin"
-						checked={skinId === id}
-						onchange={() => onskin(id)}
-					/>
-					{name}
-				</label>
-			{/each}
-		</fieldset>
+		<Choices
+			legend="Skin"
+			choices={skins.map(({ id, name }) => ({ value: id, label: name }))}
+			value={skinId as SkinId}
+			onchange={onskin}
+		/>
 	{/if}
 
 	<fieldset class="flex flex-col">
@@ -132,7 +124,6 @@
 						step="5"
 						value={Math.round(sound[category] * 100)}
 						oninput={(e) => setVolume(category, e.currentTarget.valueAsNumber / 100)}
-						data-volume={category}
 					/>
 					<output class="w-12 text-right tabular-nums" for="volume-{category}">
 						{muted ? 'Off' : `${Math.round(sound[category] * 100)}%`}

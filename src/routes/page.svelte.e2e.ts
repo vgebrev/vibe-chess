@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { cell, enableAllSkins, settings, settle } from './e2e-helpers.ts';
+import { cell, enableAllSkins, hotseatAt, settings, settle } from './e2e-helpers.ts';
 
 const centre = async (locator: Locator) => {
 	const box = await locator.boundingBox();
@@ -99,7 +99,7 @@ test('moves by click and by drag', async ({ page }) => {
 });
 
 test('plays a promotion through the picker', async ({ page }) => {
-	await page.goto('/?mode=hotseat&fen=' + encodeURIComponent('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
+	await page.goto(hotseatAt('4k3/P7/8/8/8/8/8/4K3 w - - 0 1'));
 	await cell(page, 'a7').click();
 	await cell(page, 'a8').click();
 	await expect(page.locator('[data-promote]')).toHaveCount(4);
@@ -219,7 +219,7 @@ test('the game-over overlay closes on Esc, and goes on undo', async ({ page }) =
 });
 
 test('a stalemate shows a draw', async ({ page }) => {
-	await page.goto('/?mode=hotseat&fen=' + encodeURIComponent('7k/8/6Q1/8/8/8/8/K7 w - - 0 1'));
+	await page.goto(hotseatAt('7k/8/6Q1/8/8/8/8/K7 w - - 0 1'));
 	await play(page, ['g6', 'f7']);
 	const over = page.getByRole('dialog', { name: 'Draw' });
 	await expect(over).toContainText('Stalemate');

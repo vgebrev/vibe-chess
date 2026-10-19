@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cell, settings } from './e2e-helpers.ts';
+import { cell, hotseatAt, settings } from './e2e-helpers.ts';
 
 // Sound (§4.11), in Pirate as shipped. The browser is instrumented rather than the app: each
 // fetched MP3's bytes are followed through decoding to the buffer a sound plays, so the test
@@ -81,9 +81,7 @@ test('lines overlap rather than cut each other off', async ({ page }) => {
 });
 
 test('a capture is voiced by the capturing piece alone', async ({ page }) => {
-	await page.goto(
-		'/?mode=hotseat&fen=rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2'
-	);
+	await page.goto(hotseatAt('rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2'));
 	await cell(page, 'e4').click();
 	await cell(page, 'd5').click();
 	await expect
@@ -92,7 +90,7 @@ test('a capture is voiced by the capturing piece alone', async ({ page }) => {
 });
 
 test('check is answered by the king in check', async ({ page }) => {
-	await page.goto('/?mode=hotseat&fen=4k3/8/8/8/8/8/8/4K2R w K - 0 1');
+	await page.goto(hotseatAt('4k3/8/8/8/8/8/8/4K2R w K - 0 1'));
 	await cell(page, 'h1').click();
 	await cell(page, 'h8').click();
 	await expect

@@ -55,7 +55,6 @@
 		aria-labelledby="{id}-title"
 		oncancel={cancelWith(onclose)}
 		onclose={() => onclose()}
-		data-drawer
 	>
 		<!-- Tapping the scrim closes; Esc and the close button cover the keyboard. -->
 		<div
@@ -75,7 +74,6 @@
 			]}
 			style:translate={swipe ? `0 ${swipe.dy}px` : undefined}
 			transition:sheet
-			data-sheet
 		>
 			<!-- Swipe down on the handle to close (narrow screens only). -->
 			<div

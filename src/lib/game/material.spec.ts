@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
-import { capturedBy, materialBalance } from './material.ts';
+import { capturedBy, countByType, materialBalance } from './material.ts';
 import { piecesFromFen } from './pieces.ts';
 
 const movesOf = (fen: string | undefined, ...sans: string[]) => {
@@ -30,6 +30,17 @@ describe('capturedBy', () => {
 		expect(capturedBy(movesOf('1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1', 'a8=Q', 'Rxa8')).b).toEqual([
 			'q'
 		]);
+	});
+});
+
+describe('countByType', () => {
+	it('gives each type once, with its count, in the order given', () => {
+		expect(countByType(['q', 'n', 'p', 'p', 'p'])).toEqual([
+			{ type: 'q', count: 1 },
+			{ type: 'n', count: 1 },
+			{ type: 'p', count: 3 }
+		]);
+		expect(countByType([])).toEqual([]);
 	});
 });
 

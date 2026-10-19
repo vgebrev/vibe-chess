@@ -1,70 +1,77 @@
-# Code review refactor, round 3: plan and progress
+# Code review refactor, round 4: plan and progress
 
-Branch `refactor/code-review-3`. A third pass after rounds 1 and 2 (decision log #54, #55):
-remove what is still dead, simplify, and share what is still duplicated, with behaviour
-unchanged. Each phase ends with `npm run check`, `npm run lint` and the unit tests passing; e2e
-at the end.
+Branch `refactor/code-review-4`. A fourth pass after rounds 1–3 (decision log #54–#56): remove
+what is still dead, simplify, and share what is still duplicated, with behaviour unchanged. Each
+phase ends with `npm run check`, `npm run lint` and the unit tests passing; e2e at the end.
 
 ## Decisions
 
-- **Fixed lists are `as const` arrays with the type derived from them**, as `PRESET_IDS` and
-  `CATEGORIES` already are: `SFX_NAMES`/`SfxName`, `VOICE_EVENTS`/`VoiceEvent` and the new
-  `PROMOTION_PIECES`/`PromotionPiece`, so a list and its type can't drift apart.
-- **Skin URLs into CSS go through one helper**, `cssUrl()` in `skins/loader.ts` beside
-  `piecesSheetStyle`, which already does the same quoting.
+- **Option chips are a component, `Choices.svelte`**, not a class string: the skin, opponent,
+  colour and difficulty pickers were four copies of the same fieldset, legend and hidden-radio
+  markup. It is generic over the value type and works bound (`bind:value`) or with `onchange`.
+  The `option` class moves into it, so `styles.ts` keeps only what several components share.
+- **Small numeric helpers live in `#lib/math.ts`**, beside `json.ts`: for now just `clamp()`.
 
 ## Phase 1: dead code
 
-- [x] Indicators: `flex: none` on a grid child does nothing
-- [x] The page's `<svelte:head><title>` repeats `app.html`'s
-- [x] convert-skin.py: `save_webp`'s unused `lossless` and the unused return values of
-      `save_webp`/`encode`; `projection`'s unused per-column branch
+- [x] Twelve `data-` attributes that no code, CSS or test reads (`board-column`, `dragging`,
+      `drawer`, `emote`, `new-game`, `panel`, `result-reason`, `result-title`, `settings`,
+      `sheet`, `splash-buttons`, `volume`)
+- [x] `passWithNoTests` in the Vitest config: both projects have tests
+- [x] thinkTime: the clamp around the complexity sum, whose terms are each 0..1 with weights
+      adding up to 1
 
 ## Phase 2: one definition each
 
-- [x] `PROMOTION_PIECES` in `game.svelte.ts`; persistence validates against it
-- [x] Schema: `SfxName` / `VoiceEvent` derived from their arrays
-- [x] Schema: one `known()` unknown-key check for `pieces.anchorYFor`, `audio.*` and
-      `results` (results and anchorYFor had their own loops); the audio `files` helper, which
-      shadowed the font's `files`, becomes `paths`
-- [x] `cssUrl()` for the board, indicator, emote and pieces sheet images
-- [x] The splash's `md` media query: one constant for the preload and the `<picture>`
-- [x] `styles.ts`: the fieldset `legend` (six copies) and the range `slider` (two)
-- [x] convert-skin.py: `alpha_mask()` for the four alpha-threshold masks
-- [x] Tests: chess.js's `DEFAULT_POSITION` instead of five copies of the start FEN; e2e use
-      the `cell()` helper where they spelled out the locator
+- [x] `clamp()` for the five hand-written `Math.min(…, Math.max(…))` (board keys, Elo snapping,
+      personality, the think budget)
+- [x] `countByType()` in `material.ts` for the captured pieces grouped by type, which PlayerStrip
+      and `capturesLabel` each worked out their own way
+- [x] `Choices.svelte` for the four option-chip radio groups
+- [x] vite.config.ts: the dev and preview servers' network options once
+- [x] convert-skin.py: `PARTS` for the three copies of the `--only` choices; the voice file
+      pattern built from `SIDES`, `PIECES` and `VOICE_EVENTS`
+- [x] Tests: `centre()` in `testing/skins.ts` for the two Board specs; `hotseatAt(fen)` in the
+      e2e helpers for five hand-built URLs (two of them unencoded); `PRESET_IDS` in
+      difficulty.spec
 
 ## Phase 3: smaller simplifications
 
-- [x] DifficultyPicker: the slider's `oninput` calls `pick('custom')`, which does the same
-- [x] Board: `promote` destructures the pending promotion once
-- [x] Comments: loader's two stacked preload comments as one; `Mixer.playVoices`' over-long line
+- [x] persistence: `parseSetup` checks the cheap fields before parsing the difficulty, and needs
+      no cast
+- [x] voices: the taunt's two random picks through one local `pick()`
 
 ## Phase 4: spec
 
-- [x] §7.2 (`styles.ts`), decision log #56
+- [x] §4.6.1 pseudocode (no clamp on the complexity), §7.2 (`Choices.svelte`, `math.ts`,
+      `styles.ts`), decision log #57
 
 ## Looked at and kept
 
-- Previous rounds' "kept" items still hold (dialog wrapper, the `.x` cell rule per board
-  layer, separate `decode()` per Python script, explicit default values in manifests,
-  `font.license`).
-- The scrim `<div>` shared by Drawer and GameOver: a component would put its transition one
-  component deeper; two copies of five attributes don't earn that.
-- `voices.kingSquare(fen)` beside `Game.kingSquare`: the voices work from a move's FENs, not a
-  live game, and stay pure.
-- The `--drag-scale` fallback in Board's `.dragged`: component tests mount the board without
-  the skin's variables on `:root`.
-- Coordinates' own `font-family`: in the app it inherits the same from the body, but the board
-  sets it itself so it is right wherever it is mounted (Board.svelte.spec checks it).
-- Test-only exports (`MOVE_MS`, `PATTERNS`, `complexity`, `resultText`, …): the tests check
-  them directly.
+- Previous rounds' "kept" items still hold (dialog wrapper, the `.x` cell rule per board layer,
+  separate `decode()` per Python script, explicit default values in manifests, `font.license`,
+  the scrim per dialog, `voices.kingSquare(fen)`, the `--drag-scale` fallback, Coordinates' own
+  `font-family`, test-only exports).
+- The page's two "previous value" effects (sounds from game changes, the game-over overlay): they
+  track different snapshots and one owns a timer, so a shared helper would hide more than it
+  saves.
+- Settings' four checkbox toggles: `bind:checked` can't pass through a snippet, and a component
+  for a label and a checkbox doesn't earn its place.
+- PromotionPicker's `q n r b` beside `PROMOTION_PIECES` (`q r b n`): the picker's order is a
+  display choice.
+- Exported types only used in their own module (`EndReason`, `MoveRow`, `SearchResult`, …):
+  they name the types of exported functions and fields.
+- `SFX_KNOWN` in convert-skin.py beside `SFX_NAMES` in the schema: one is Python, one
+  TypeScript, and the converter is a manual one-off.
+- SvelteKit's empty `app.d.ts`: where `App` types go when there are some.
+- The cast in SettingsPanel's skin choice (`skinId as SkinId`): a loaded skin's id is a plain
+  string, and registry ids are what `onskin` takes.
 
 ## Progress log
 
-- Branch created; plan written. Baseline: 256 unit/component tests pass.
-- Phases 1–4 done: check and lint pass, 256 unit/component tests pass. Coordinates'
-  `font-family` turned out not to be dead (see "Looked at and kept") and stays.
-- Final verification: `npm run check`, `npm run lint`, 256 unit/component tests and the e2e
-  suite (110 passed, 2 skipped, both viewports) all pass; convert-skin.py's changed helpers
-  smoke-tested in the venv (not re-run on the skins). Nothing is committed yet.
+- Branch created. Baseline: check and lint pass, 256 unit/component tests pass.
+- Phases 1–4 done: check and lint pass, 257 unit/component tests pass (one new, for
+  `countByType`). convert-skin.py's new constants checked in the venv (same voice file pattern,
+  `--only` still rejects unknown parts); not re-run on the skins.
+- Final verification: `npm run check`, `npm run lint`, 257 unit/component tests and the e2e
+  suite (110 passed, 2 skipped, both viewports) all pass. Nothing is committed yet.

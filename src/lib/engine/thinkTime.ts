@@ -2,6 +2,7 @@
 // player would. The budget is passed to the engine as `go movetime`, so it really searches
 // that long (§4.6.1). Constants are tuned by feel.
 import { Chess, type Move } from 'chess.js';
+import { clamp } from '#lib/math.ts';
 import { personality, type Difficulty } from './difficulty.ts';
 
 const THINK = {
@@ -32,12 +33,12 @@ export function complexity(chess: Chess, lastMove?: ThinkInput['lastMove']): num
 		.board()
 		.flat()
 		.filter((p) => p && p.type !== 'p' && p.type !== 'k').length;
-	let c = clamp01(
+	// Each term is 0..1 and the weights add up to 1.
+	let c =
 		0.4 * Math.min(moves.length / 40, 1) +
-			0.3 * Math.min(captures.length / 6, 1) +
-			0.15 * (chess.inCheck() || checks.length > 0 ? 1 : 0) +
-			0.15 * Math.min(nonPawnPieces / 10, 1)
-	);
+		0.3 * Math.min(captures.length / 6, 1) +
+		0.15 * (chess.inCheck() || checks.length > 0 ? 1 : 0) +
+		0.15 * Math.min(nonPawnPieces / 10, 1);
 	// The opponent just captured and we can take back on that square.
 	if (lastMove?.captured && captures.some((m) => m.to === lastMove.to)) c *= THINK.recapture;
 	return c;
@@ -63,10 +64,8 @@ export function thinkTime(
 		t = (lo + (hi - lo) * c) * Math.exp(THINK.jitter * gaussian(random));
 	}
 	const [min, max] = THINK.clamp;
-	return Math.round(Math.min(max, Math.max(min, t * personality(difficulty))));
+	return Math.round(clamp(t * personality(difficulty), min, max));
 }
-
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
 /** A standard normal sample (Box–Muller). */
 function gaussian(random: () => number): number {

@@ -4,12 +4,14 @@ import { playwright } from '@vitest/browser-playwright';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 
+// On the network too, for phones: vibe-chess.test resolves to this machine via the local
+// dnsmasq (CLAUDE.md), and Vite only answers hosts it is told about.
+const network = { strictPort: true, host: true, allowedHosts: ['.vibe-chess.test'] };
+
 export default defineConfig({
 	// 24377 spells CHESS on a phone keypad; own ports keep localStorage separate from other projects
-	// On the network too, for phones: vibe-chess.test resolves to this machine via the local
-	// dnsmasq (CLAUDE.md), and Vite only answers hosts it is told about.
-	server: { port: 24377, strictPort: true, host: true, allowedHosts: ['.vibe-chess.test'] },
-	preview: { port: 24378, strictPort: true, host: true, allowedHosts: ['.vibe-chess.test'] },
+	server: { port: 24377, ...network },
+	preview: { port: 24378, ...network },
 	plugins: [
 		tailwindcss(),
 		sveltekit({
@@ -24,7 +26,6 @@ export default defineConfig({
 	],
 	test: {
 		expect: { requireAssertions: true },
-		passWithNoTests: true,
 		projects: [
 			{
 				extends: './vite.config.ts',
