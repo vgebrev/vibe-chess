@@ -109,14 +109,22 @@ export interface Emotes {
 }
 
 /**
- * The start screen (§4.13): a picture, with the game's title over the area at `title`, given as
+ * A start screen picture (§4.13), with the game's title over the area at `title`, given as
  * fractions of the picture inset from each edge, in `color` (default: the theme's text colour),
  * and the buttons centred `buttons.bottom` (a fraction of its height) up from its bottom edge.
  */
-export interface Splash {
+export interface SplashLayout {
 	image: string;
 	title: { inset: Inset; color: string | null };
 	buttons: { bottom: number };
+}
+
+/**
+ * The start screen (§4.13): the picture for `md` and up, and optionally a portrait one for
+ * narrower screens, whose title colour defaults to the main one's.
+ */
+export interface Splash extends SplashLayout {
+	portrait: SplashLayout | null;
 }
 
 /** The events whose speaker is on the board, so can have a bubble. */
@@ -528,13 +536,12 @@ export function validateSkin(raw: unknown): ValidationResult {
 		};
 	}
 
-	// splash (optional): the start screen's picture and where its title goes
-	const splashRaw = optObj(root.splash, 'splash');
-	let splash: Splash | null = null;
-	if (splashRaw) {
-		const title = obj(splashRaw.title, 'splash.title') ?? {};
-		const insetRaw = obj(title.inset, 'splash.title.inset') ?? {};
-		const side = (key: keyof Inset) => num(insetRaw[key], `splash.title.inset.${key}`, 0, 0.95);
+	// splash (optional): the start screen's picture, where its title and buttons go, and an
+	// optional portrait picture for narrow screens laid out the same way
+	const splashLayout = (raw: Obj, path: string, color: string | null): SplashLayout => {
+		const title = obj(raw.title, `${path}.title`) ?? {};
+		const insetRaw = obj(title.inset, `${path}.title.inset`) ?? {};
+		const side = (key: keyof Inset) => num(insetRaw[key], `${path}.title.inset.${key}`, 0, 0.95);
 		const titleInset: Inset = {
 			top: side('top'),
 			right: side('right'),
@@ -542,14 +549,24 @@ export function validateSkin(raw: unknown): ValidationResult {
 			left: side('left')
 		};
 		if (titleInset.left + titleInset.right >= 1 || titleInset.top + titleInset.bottom >= 1)
-			err('splash.title.inset', 'leaves no room for the title');
-		const buttons = optObj(splashRaw.buttons, 'splash.buttons') ?? {};
-		splash = {
-			image: file(splashRaw.image, 'splash.image'),
-			title: { inset: titleInset, color: optStr(title.color, 'splash.title.color') ?? null },
+			err(`${path}.title.inset`, 'leaves no room for the title');
+		const buttons = optObj(raw.buttons, `${path}.buttons`) ?? {};
+		return {
+			image: file(raw.image, `${path}.image`),
+			title: { inset: titleInset, color: optStr(title.color, `${path}.title.color`) ?? color },
 			buttons: {
-				bottom: num(buttons.bottom, 'splash.buttons.bottom', 0, 0.8, DEFAULTS.splashButtonsBottom)
+				bottom: num(buttons.bottom, `${path}.buttons.bottom`, 0, 0.8, DEFAULTS.splashButtonsBottom)
 			}
+		};
+	};
+	const splashRaw = optObj(root.splash, 'splash');
+	let splash: Splash | null = null;
+	if (splashRaw) {
+		const wide = splashLayout(splashRaw, 'splash', null);
+		const portraitRaw = optObj(splashRaw.portrait, 'splash.portrait');
+		splash = {
+			...wide,
+			portrait: portraitRaw && splashLayout(portraitRaw, 'splash.portrait', wide.title.color)
 		};
 	}
 

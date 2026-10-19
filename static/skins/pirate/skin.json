@@ -87,7 +87,14 @@
       "inset": { "top": 0.0605, "right": 0.312, "bottom": 0.8115, "left": 0.311 },
       "color": "#4a2a12"
     },
-    "buttons": { "bottom": 0.15 }
+    "buttons": { "bottom": 0.15 },
+    "portrait": {
+      "image": "splash-mobile.webp",
+      "title": {
+        "inset": { "top": 0.066, "right": 0.182, "bottom": 0.85, "left": 0.186 }
+      },
+      "buttons": { "bottom": 0.06 }
+    }
   },
   "audio": {
     "music": ["audio/music/battle-alt.mp3", "audio/music/battle.mp3", "audio/music/midnight.mp3", "audio/music/sailing.mp3", "audio/music/shanty.mp3", "audio/music/tavern-alt.mp3", "audio/music/tavern.mp3"],

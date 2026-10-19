@@ -321,7 +321,8 @@ describe('validateSkin splash (§4.13)', () => {
 		expect(splashOf({ ...fixture(), splash: { image: 's.webp', title: { inset } } })).toEqual({
 			image: 's.webp',
 			title: { inset, color: null },
-			buttons: { bottom: DEFAULTS.splashButtonsBottom }
+			buttons: { bottom: DEFAULTS.splashButtonsBottom },
+			portrait: null
 		});
 		expect(
 			splashOf({
@@ -333,6 +334,35 @@ describe('validateSkin splash (§4.13)', () => {
 			splashOf({ ...fixture(), splash: { image: 's.webp', title: { inset, color: '#432' } } })
 				?.title.color
 		).toBe('#432');
+	});
+
+	it('reads a portrait picture, whose title colour defaults to the main one', () => {
+		const portrait = splashOf({
+			...fixture(),
+			splash: {
+				image: 's.webp',
+				title: { inset, color: '#432' },
+				portrait: { image: 'p.webp', title: { inset }, buttons: { bottom: 0.06 } }
+			}
+		})?.portrait;
+		expect(portrait).toEqual({
+			image: 'p.webp',
+			title: { inset, color: '#432' },
+			buttons: { bottom: 0.06 }
+		});
+		expect(
+			errorsOf({
+				...fixture(),
+				splash: { image: 's.webp', title: { inset }, portrait: { title: {} } }
+			})
+		).toEqual([
+			'splash.portrait.title.inset: expected an object',
+			'splash.portrait.title.inset.top: expected a number in [0, 0.95]',
+			'splash.portrait.title.inset.right: expected a number in [0, 0.95]',
+			'splash.portrait.title.inset.bottom: expected a number in [0, 0.95]',
+			'splash.portrait.title.inset.left: expected a number in [0, 0.95]',
+			'splash.portrait.image: expected a relative path inside the skin folder, got undefined'
+		]);
 	});
 
 	it('reports a missing picture, a bad inset and an area with no room', () => {

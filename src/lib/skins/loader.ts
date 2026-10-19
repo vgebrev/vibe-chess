@@ -14,8 +14,8 @@ export interface LoadedSkin {
 		emotes: string | null;
 		/** The game-over pictures (§4.7.1), as absolute URLs. */
 		results: ResultImages | null;
-		/** The start screen's picture (§4.13). */
-		splash: string | null;
+		/** The start screen's pictures (§4.13): for `md` and up, and portrait for narrower screens. */
+		splash: { wide: string; portrait: string | null } | null;
 	};
 }
 
@@ -61,16 +61,21 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Lo
 			captureIndicator: manifest.captureIndicator && url(manifest.captureIndicator.image),
 			emotes: manifest.emotes && url(manifest.emotes.image),
 			results: manifest.results && resultUrls(manifest.results, url),
-			splash: manifest.splash && url(manifest.splash.image)
+			splash: manifest.splash && {
+				wide: url(manifest.splash.image),
+				portrait: manifest.splash.portrait && url(manifest.splash.portrait.image)
+			}
 		}
 	};
 
 	// Speech bubbles and game-over pictures are only needed later, so they load without holding
 	// up the skin.
+	// The splash is on screen first, so the picture for this screen holds up the skin like the
+	// board does. The other is left to the <picture> element, should the window change.
+	const splash = splashShown(skin.urls.splash);
 	const later = [skin.urls.emotes, ...resultImageList(skin.urls.results)];
 	for (const src of new Set(later)) if (src) void preloadImage(src).catch(() => {});
-	// The splash is on screen first, so it holds up the skin like the board does.
-	const { board, pieces, moveIndicator, captureIndicator, splash } = skin.urls;
+	const { board, pieces, moveIndicator, captureIndicator } = skin.urls;
 	const images = [board, pieces, moveIndicator, captureIndicator, splash].filter(
 		(u): u is string => u !== null
 	);
@@ -97,6 +102,12 @@ function resultUrls(results: ResultImages, url: (path: string) => string): Resul
 		draw: results.draw && url(results.draw),
 		stalemate: results.stalemate && url(results.stalemate)
 	};
+}
+
+/** The splash picture this screen shows (§4.13): portrait below md, if there is one. */
+function splashShown(splash: LoadedSkin['urls']['splash']): string | null {
+	if (!splash?.portrait) return splash?.wide ?? null;
+	return matchMedia('(width >= 48rem)').matches ? splash.wide : splash.portrait;
 }
 
 function resultImageList(results: ResultImages | null): (string | null)[] {

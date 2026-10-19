@@ -394,7 +394,7 @@
 {#if skin.current?.urls.splash && skin.current.manifest.splash}
 	<Splash
 		open={showSplash}
-		image={skin.current.urls.splash}
+		images={skin.current.urls.splash}
 		splash={skin.current.manifest.splash}
 		{canContinue}
 		onnew={() => {

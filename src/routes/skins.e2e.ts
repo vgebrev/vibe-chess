@@ -59,11 +59,15 @@ test("Pirate's game-over overlay shows its picture for the result", async ({ pag
 test.describe("Pirate's splash (§4.13)", () => {
 	test('opens at startup with the title on the banner, and New Game opens the drawer', async ({
 		page
-	}) => {
+	}, info) => {
 		await page.goto('/');
 		const splash = page.getByRole('dialog', { name: 'Vibe Chess' });
 		const image = splash.locator('[data-splash-image]');
-		await expect(image).toHaveAttribute('src', /splash\.webp$/);
+		// The portrait picture on a phone, the landscape one from md.
+		const file = info.project.name === 'phone' ? 'splash-mobile.webp' : 'splash.webp';
+		await expect
+			.poll(() => image.evaluate((img: HTMLImageElement) => img.currentSrc))
+			.toMatch(new RegExp(`/${file}$`));
 		await expect(page.locator('[data-splash-title]')).toHaveCSS('font-family', /Pirata One/);
 		// The title sits on the banner: centred across, in the top fifth.
 		const box = (await image.boundingBox())!;

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { motion } from '#lib/board/motion.ts';
-	import type { Splash } from '#lib/skins/schema.ts';
+	import type { Splash, SplashLayout } from '#lib/skins/schema.ts';
 
 	interface Props {
 		open: boolean;
-		/** The skin's picture. */
-		image: string;
-		/** Where the title goes on the picture, and its colour. */
+		/** The skin's pictures: for md and up, and portrait for narrower screens. */
+		images: { wide: string; portrait: string | null };
+		/** Where the title and buttons go on each picture, and the title's colour. */
 		splash: Splash;
 		/** There is a game in progress to go back to. */
 		canContinue: boolean;
@@ -16,11 +16,28 @@
 		onclose: () => void;
 	}
 
-	let { open, image, splash, canContinue, onnew, onclose }: Props = $props();
+	let { open, images, splash, canContinue, onnew, onclose }: Props = $props();
 
 	const id = $props.id();
-	const { inset, color } = $derived(splash.title);
-	const bottom = $derived(splash.buttons.bottom);
+	/** With a portrait picture, phones get it and their buttons go on it too. */
+	const portrait = $derived(images.portrait !== null);
+
+	// Where the title and buttons go, as CSS variables: the narrow screen's picture (portrait if
+	// there is one) unsuffixed, md and up's with -md, switched by breakpoint classes below.
+	const place = (layout: SplashLayout, suffix: string) => {
+		const { inset, color } = layout.title;
+		return [
+			`--title-top${suffix}: ${inset.top * 100}%`,
+			`--title-right${suffix}: ${inset.right * 100}%`,
+			`--title-bottom${suffix}: ${inset.bottom * 100}%`,
+			`--title-left${suffix}: ${inset.left * 100}%`,
+			`--title-color${suffix}: ${color ?? 'var(--text)'}`,
+			`--buttons-bottom${suffix}: ${layout.buttons.bottom * 100}%`
+		];
+	};
+	const vars = $derived(
+		[...place(splash.portrait ?? splash, ''), ...place(splash, '-md')].join('; ')
+	);
 
 	// A modal dialog, like the game-over overlay (§4.7.1). It opens before any input, so the
 	// dialog itself takes focus and no focus ring shows until Tab.
@@ -51,28 +68,32 @@
 	>
 		<div class="absolute inset-0 bg-bg/85" role="presentation"></div>
 		<div class="absolute inset-0 flex items-center justify-center p-4">
-			<!-- Shrinks to the picture, so the title and buttons can be placed over it. Below sm the
-			     picture is too small to put buttons on, so they go under it. -->
-			<div class="relative overflow-hidden rounded-xl bg-surface shadow-lg">
+			<!-- Shrinks to the picture, so the title and buttons can be placed over it. Without a
+			     portrait picture, the landscape one is too small below sm to put buttons on, so they
+			     go under it. -->
+			<div class="relative overflow-hidden rounded-xl bg-surface shadow-lg" style={vars}>
 				<!-- The picture alone, so the title's % are of the picture even with buttons below. -->
 				<div class="relative">
-					<img
-						src={image}
-						alt=""
-						class="block max-h-[calc(100dvh-7rem)] max-w-[min(calc(100vw-2rem),64rem)] sm:max-h-[calc(100dvh-2rem)]"
-						data-splash-image
-					/>
+					<!-- Only the picture for this screen is downloaded. -->
+					<picture>
+						{#if images.portrait}
+							<source media="(width >= 48rem)" srcset={images.wide} />
+						{/if}
+						<img
+							src={images.portrait ?? images.wide}
+							alt=""
+							class="block max-w-[min(calc(100vw-2rem),64rem)] {portrait
+								? 'max-h-[calc(100dvh-2rem)]'
+								: 'max-h-[calc(100dvh-7rem)] sm:max-h-[calc(100dvh-2rem)]'}"
+							data-splash-image
+						/>
+					</picture>
 					<div
-						class="[container-type:size] absolute flex items-center justify-center"
-						style:top="{inset.top * 100}%"
-						style:right="{inset.right * 100}%"
-						style:bottom="{inset.bottom * 100}%"
-						style:left="{inset.left * 100}%"
+						class="[container-type:size] absolute top-(--title-top) right-(--title-right) bottom-(--title-bottom) left-(--title-left) flex items-center justify-center md:top-(--title-top-md) md:right-(--title-right-md) md:bottom-(--title-bottom-md) md:left-(--title-left-md)"
 					>
 						<h2
 							id="{id}-title"
-							class="text-[min(75cqh,18cqw)] leading-none whitespace-nowrap"
-							style:color={color ?? 'var(--text)'}
+							class="text-[min(75cqh,18cqw)] leading-none whitespace-nowrap text-(--title-color) md:text-(--title-color-md)"
 							data-splash-title
 						>
 							Vibe Chess
@@ -81,8 +102,9 @@
 				</div>
 				<!-- On the picture, a panel keeps the buttons from getting lost in the art. -->
 				<div
-					class="flex justify-center gap-3 p-3 sm:absolute sm:bottom-(--buttons-bottom) sm:left-1/2 sm:-translate-x-1/2 sm:rounded-xl sm:bg-surface/80 sm:shadow-lg sm:backdrop-blur-sm"
-					style:--buttons-bottom="{bottom * 100}%"
+					class="flex w-max justify-center gap-3 p-3 md:bottom-(--buttons-bottom-md) {portrait
+						? 'absolute bottom-(--buttons-bottom) left-1/2 -translate-x-1/2 rounded-xl bg-surface/80 shadow-lg backdrop-blur-sm'
+						: 'sm:absolute sm:bottom-(--buttons-bottom) sm:left-1/2 sm:-translate-x-1/2 sm:rounded-xl sm:bg-surface/80 sm:shadow-lg sm:backdrop-blur-sm'}"
 					data-splash-buttons
 				>
 					<button
