@@ -1,6 +1,5 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '#lib/assets/favicon.svg';
 	import { loadSettings } from '#lib/persistence.ts';
 	import { availableSkins, skinBaseUrl, startOrder } from '#lib/skins/index.ts';
 	import { skin } from '#lib/skins/skin.svelte.ts';
@@ -15,10 +14,6 @@
 		for (const id of order) if (await skin.use(skinBaseUrl(id), id)) return;
 	})();
 </script>
-
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
 
 {#if skin.current}
 	{@render children()}
