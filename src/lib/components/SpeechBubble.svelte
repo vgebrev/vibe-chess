@@ -1,6 +1,11 @@
 <script lang="ts">
 	import type { Square } from 'chess.js';
-	import { cellPosition, squareToGrid, type Orientation } from '#lib/board/geometry.ts';
+	import {
+		cellPosition,
+		sheetPosition,
+		squareToGrid,
+		type Orientation
+	} from '#lib/board/geometry.ts';
 	import type { Emotes } from '#lib/skins/schema.ts';
 
 	interface Props {
@@ -29,7 +34,6 @@
 			: pos.left + 12.5 * HEAD.x - size * TIP.x
 	);
 	const top = $derived(pos.top + 12.5 * HEAD.y - size * TIP.y);
-	const pct = (i: number, n: number) => (n > 1 ? (i / (n - 1)) * 100 : 0);
 </script>
 
 <!-- Decorative: the line it shows is heard, not read. -->
@@ -48,10 +52,12 @@
 		class="art"
 		style:background-image="url({JSON.stringify(url)})"
 		style:background-size="{emotes.columns * 100}% {emotes.rows * 100}%"
-		style:background-position="{pct(emote % emotes.columns, emotes.columns)}% {pct(
+		style:background-position={sheetPosition(
+			emote % emotes.columns,
 			Math.floor(emote / emotes.columns),
+			emotes.columns,
 			emotes.rows
-		)}%"
+		)}
 	></div>
 </div>
 

@@ -1,17 +1,15 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { Game } from '#lib/game/game.svelte.ts';
-import { loadSkin, type LoadedSkin } from '#lib/skins/loader.ts';
+import type { LoadedSkin } from '#lib/skins/loader.ts';
+import { settle, testSkins } from '#lib/testing/skins.ts';
 import Board from './Board.svelte';
 
 let fixture: LoadedSkin;
 let pirate: LoadedSkin;
 
 beforeAll(async () => {
-	[fixture, pirate] = await Promise.all([
-		loadSkin('/tests/fixtures/skins/test/', 'test'),
-		loadSkin('/skins/pirate/', 'pirate')
-	]);
+	({ fixture, pirate } = await testSkins());
 });
 
 const rect = (el: Element | null) => {
@@ -22,9 +20,6 @@ const centre = (el: Element | null) => {
 	const r = rect(el);
 	return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 };
-
-/** Wait for running animations (slides, fades) to finish. */
-const settle = () => Promise.all(document.getAnimations().map((a) => a.finished));
 
 function setup(
 	props: Partial<{

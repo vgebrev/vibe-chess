@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	// Who and what made the game (§6.3), shown in the Credits drawer.
-	export const CREDITS = [
+	const CREDITS = [
 		{ role: 'Meat Proxy', name: 'Veli Gebrev', href: 'https://veli.gebrev.com' },
 		{ role: 'Code', name: 'Claude', href: 'https://claude.ai' },
 		{ role: 'Graphics', name: 'ChatGPT', href: 'https://chatgpt.com' },

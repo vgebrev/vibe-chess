@@ -7,7 +7,6 @@ export interface BoardPiece {
 	color: Color;
 	type: PieceSymbol;
 	square: Square;
-	leaving?: boolean;
 }
 
 /** Pieces of a position, each with an id derived from its colour, type and starting square. */

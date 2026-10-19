@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { settings } from './e2e-helpers.ts';
 
 // The skins as shipped (§5.5): Marble is disabled in its manifest, so Pirate is the only
 // skin on offer. The other e2e files enable every skin to play in the default one.
@@ -13,8 +14,7 @@ test('starts in Pirate, the only enabled skin, with its labels', async ({ page }
 });
 
 test('with only one skin there is no skin picker', async ({ page }) => {
-	await page.getByRole('button', { name: 'Settings' }).click();
-	const drawer = page.getByRole('dialog', { name: 'Settings' });
+	const drawer = await settings(page);
 	await expect(drawer.getByRole('group', { name: 'Board' })).toBeVisible();
 	await expect(drawer.getByRole('group', { name: 'Skin' })).toHaveCount(0);
 });

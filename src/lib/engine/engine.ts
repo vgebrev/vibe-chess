@@ -53,9 +53,9 @@ export class Engine {
 			};
 		});
 		try {
-			const options = engine.#collect((line) => line === 'uciok');
+			const uciok = engine.#waitFor((line) => line === 'uciok');
 			engine.#send('uci');
-			await Promise.race([options, failed]);
+			await Promise.race([uciok, failed]);
 			await Promise.race([engine.#ready(), failed]);
 			return engine;
 		} catch (error) {
@@ -130,27 +130,25 @@ export class Engine {
 		this.#worker.postMessage(command);
 	}
 
-	/** Lines up to and including the first one that matches. */
-	#collect(done: (line: string) => boolean): Promise<string[]> {
-		const lines: string[] = [];
+	/** Resolves on the first line that matches. */
+	#waitFor(match: (line: string) => boolean): Promise<void> {
 		return new Promise((resolve) => {
 			const listener = (line: string) => {
-				lines.push(line);
-				if (!done(line)) return;
+				if (!match(line)) return;
 				this.#listeners.delete(listener);
-				resolve(lines);
+				resolve();
 			};
 			this.#listeners.add(listener);
 		});
 	}
 
 	async #ready() {
-		const ready = this.#collect((line) => line === 'readyok');
+		const ready = this.#waitFor((line) => line === 'readyok');
 		this.#send('isready');
 		await ready;
 	}
 
 	async #idle() {
-		while (this.#searches.length) await this.#collect((line) => line.startsWith('bestmove'));
+		while (this.#searches.length) await this.#waitFor((line) => line.startsWith('bestmove'));
 	}
 }

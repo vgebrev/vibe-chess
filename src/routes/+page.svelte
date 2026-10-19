@@ -3,7 +3,7 @@
 	import { untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { Sound, type Bubble } from '#lib/audio/sound.ts';
-	import type { Orientation } from '#lib/board/geometry.ts';
+	import { bottomSide, flipped, orientationOf, type Orientation } from '#lib/board/geometry.ts';
 	import { AUTO_FLIP_DELAY_MS, GAME_OVER_DELAY_MS } from '#lib/board/motion.ts';
 	import Board from '#lib/components/Board.svelte';
 	import Controls from '#lib/components/Controls.svelte';
@@ -19,6 +19,7 @@
 	import StatusBar from '#lib/components/StatusBar.svelte';
 	import { targetElo } from '#lib/engine/difficulty.ts';
 	import { Opponent } from '#lib/engine/opponent.svelte.ts';
+	import { other } from '#lib/game/color.ts';
 	import { Game, type PromotionPiece } from '#lib/game/game.svelte.ts';
 	import { numberedMove } from '#lib/game/notation.ts';
 	import { outcome, resultImage } from '#lib/game/outcome.ts';
@@ -26,6 +27,7 @@
 	import { outcomeTitle, reasonText, statusText } from '#lib/labels.ts';
 	import { loadGame, loadSettings, saveGame, saveSettings } from '#lib/persistence.ts';
 	import { availableSkins, skinBaseUrl, type SkinId, type SkinInfo } from '#lib/skins/index.ts';
+	import type { LoadedSkin } from '#lib/skins/loader.ts';
 	import { skin } from '#lib/skins/skin.svelte.ts';
 
 	// The game screen (§6): header, strips, board and control bar in one column below lg; the
@@ -51,7 +53,7 @@
 	let human = $state<Color>(untrack(() => resumed?.human ?? pickColor(setup.color)));
 	let game = $state(resumed?.game ?? newGame());
 	let orientation = $state<Orientation>(
-		untrack(() => resumed?.orientation ?? (human === 'w' ? 'white' : 'black'))
+		untrack(() => resumed?.orientation ?? orientationOf(human))
 	);
 	/** The open drawer, if any (§6.3). */
 	let drawer = $state<'new' | 'settings' | 'moves' | 'credits' | null>(null);
@@ -92,6 +94,8 @@
 
 	const opponent = new Opponent();
 	const vsComputer = $derived(setup.mode === 'computer');
+	/** The player's colour vs the computer; null in hot-seat, where both sides are players. */
+	const player = $derived(vsComputer ? human : null);
 	/** The computer is to move. */
 	const engineTurn = $derived(vsComputer && !game.isGameOver && game.turn !== human);
 
@@ -100,12 +104,12 @@
 		setup = next;
 		human = pickColor(next.color);
 		game = newGame();
-		orientation = vsComputer && human === 'b' ? 'black' : 'white';
+		orientation = orientationOf(vsComputer ? human : 'w');
 		closeDrawer();
 		notice = null;
 	}
 
-	const flip = () => (orientation = orientation === 'white' ? 'black' : 'white');
+	const flip = () => (orientation = flipped(orientation));
 	// vs Computer, Undo takes back the player's move and the reply (§4.7).
 	const canUndo = $derived(vsComputer ? game.canUndoTurn(human) : game.canUndo);
 	function undo() {
@@ -166,9 +170,9 @@
 			else if (current.moves === was.moves + 1 && g.lastMove)
 				sound.move(g.lastMove, {
 					result: g.result,
-					human: vsComputer ? human : null,
+					human: player,
 					computerPieces: g.pieces
-						.filter((p) => p.color !== human && !p.leaving)
+						.filter((p) => p.color !== human)
 						.map(({ square, type }) => ({ square, type }))
 				});
 			else if (current.moves < was.moves) sound.undo();
@@ -200,24 +204,21 @@
 		const timer = setTimeout(() => (showResult = true), GAME_OVER_DELAY_MS);
 		return () => clearTimeout(timer);
 	});
-	const ending = $derived(game.result && outcome(game.result, vsComputer ? human : null));
+	const ending = $derived(game.result && outcome(game.result, player));
 
 	const lastMove = $derived(
 		game.lastMove ? numberedMove(game.startFen, game.moves.length - 1, game.lastMove.san) : null
 	);
 
 	// Strips follow the board: the top one belongs to the side drawn at the top (§4.10).
-	const bottom = $derived<Color>(orientation === 'white' ? 'w' : 'b');
-	const top = $derived<Color>(bottom === 'w' ? 'b' : 'w');
-	const advantage = (color: Color) => (color === 'w' ? game.material : -game.material);
-	/** The computer's strip shows the Elo it plays at (§4.6). */
-	const eloOf = (color: Color) =>
-		vsComputer && color !== human ? targetElo(setup.difficulty) : null;
+	const bottom = $derived(bottomSide(orientation));
+	const top = $derived(other(bottom));
+	const sans = $derived(game.moves.map((m) => m.san));
 
 	// Hot-seat auto-flip (§3): once a move has landed, turn the board to the side to move.
 	$effect(() => {
 		if (!autoFlip || vsComputer) return;
-		const side: Orientation = game.turn === 'w' ? 'white' : 'black';
+		const side = orientationOf(game.turn);
 		if (untrack(() => orientation) === side) return;
 		turning = true;
 		const timer = setTimeout(() => {
@@ -287,6 +288,18 @@
 
 <svelte:window {onkeydown} />
 
+<!-- The computer's strip shows the Elo it plays at (§4.6). -->
+{#snippet strip(color: Color, current: LoadedSkin)}
+	<PlayerStrip
+		{color}
+		skin={current}
+		captured={game.captured[color]}
+		advantage={color === 'w' ? game.material : -game.material}
+		elo={player !== null && color !== player ? targetElo(setup.difficulty) : null}
+		active={!game.isGameOver && game.turn === color}
+	/>
+{/snippet}
+
 <div class="flex min-h-dvh flex-col">
 	<header class="flex h-12 shrink-0 items-center justify-between px-4">
 		<h1 class="text-xl">Vibe Chess</h1>
@@ -318,14 +331,7 @@
 				class="flex w-[min(100%,calc(100dvh-16rem))] flex-col gap-1 lg:w-[min(calc(100vw-23.5rem),calc(100dvh-10rem))]"
 				data-board-column
 			>
-				<PlayerStrip
-					color={top}
-					skin={skin.current}
-					captured={game.captured[top]}
-					advantage={advantage(top)}
-					elo={eloOf(top)}
-					active={!game.isGameOver && game.turn === top}
-				/>
+				{@render strip(top, skin.current)}
 				<Board
 					skin={skin.current}
 					{game}
@@ -338,14 +344,7 @@
 					onillegal={() => sound.illegal()}
 					{bubble}
 				/>
-				<PlayerStrip
-					color={bottom}
-					skin={skin.current}
-					captured={game.captured[bottom]}
-					advantage={advantage(bottom)}
-					elo={eloOf(bottom)}
-					active={!game.isGameOver && game.turn === bottom}
-				/>
+				{@render strip(bottom, skin.current)}
 			</div>
 		{/if}
 
@@ -358,7 +357,7 @@
 				{/if}
 
 				<div class="hidden min-h-0 flex-1 lg:flex">
-					<MoveList startFen={game.startFen} moves={game.moves.map((m) => m.san)} class="" />
+					<MoveList startFen={game.startFen} moves={sans} />
 				</div>
 
 				<div class="mt-auto lg:mt-0">
@@ -434,7 +433,7 @@
 </Drawer>
 
 <Drawer open={drawer === 'moves'} title="Moves" onclose={closeDrawer}>
-	<MoveList startFen={game.startFen} moves={game.moves.map((m) => m.san)} class="" />
+	<MoveList startFen={game.startFen} moves={sans} />
 </Drawer>
 
 <Drawer open={drawer === 'credits'} title="Credits" onclose={closeDrawer}>

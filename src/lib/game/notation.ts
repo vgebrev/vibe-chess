@@ -9,7 +9,7 @@ export interface MoveRow {
 }
 
 /** The side to move and move number a FEN starts from. */
-export function fenStart(fen: string): { color: Color; number: number } {
+function fenStart(fen: string): { color: Color; number: number } {
 	const fields = fen.split(' ');
 	return { color: fields[1] === 'b' ? 'b' : 'w', number: Number(fields[5]) || 1 };
 }

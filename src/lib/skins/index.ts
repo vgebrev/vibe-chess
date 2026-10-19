@@ -2,7 +2,7 @@
 // Adding a skin = dropping its folder in static/skins/ and listing its id here.
 import { asset } from '$app/paths';
 
-export const SKIN_IDS = ['default', 'pirate'] as const;
+const SKIN_IDS = ['default', 'pirate'] as const;
 export type SkinId = (typeof SKIN_IDS)[number];
 
 export const DEFAULT_SKIN_ID: SkinId = 'default';

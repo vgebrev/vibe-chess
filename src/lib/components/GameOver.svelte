@@ -2,6 +2,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { fade, scale } from 'svelte/transition';
 	import { motion } from '#lib/board/motion.ts';
+	import { cancelWith, dialogClass, modal } from './dialog.ts';
 
 	interface Props {
 		open: boolean;
@@ -18,35 +19,18 @@
 	let { open, title, reason, image, onnew, onclose }: Props = $props();
 
 	const id = $props.id();
-
-	// A modal dialog, like the drawers (§6.4). New game takes focus only when the game ended
-	// from the keyboard; after a tap the dialog itself does, so no focus ring shows. Focus
-	// goes back to where it was once the overlay has gone.
-	function modal(dialog: HTMLDialogElement) {
-		const trigger = document.activeElement;
-		const keyboard = trigger?.matches(':focus-visible') ?? false;
-		dialog.showModal();
-		if (!keyboard) dialog.focus();
-		return () => {
-			if (keyboard && trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
-		};
-	}
-
-	function oncancel(e: Event) {
-		// Esc: close through the parent, so the overlay fades out.
-		e.preventDefault();
-		onclose();
-	}
 </script>
 
 {#if open}
+	<!-- Modal, like the drawers (§6.4). New game takes focus only when the game ended from the
+	     keyboard; after a tap the dialog itself does, so no focus ring shows. -->
 	<dialog
-		{@attach modal}
-		class="fixed inset-0 m-0 size-full max-h-none max-w-none overflow-hidden bg-transparent p-0 text-text outline-none backdrop:bg-transparent"
+		{@attach modal('keyboard')}
+		class={dialogClass}
 		tabindex="-1"
 		aria-labelledby="{id}-title"
 		aria-describedby="{id}-reason"
-		{oncancel}
+		oncancel={cancelWith(onclose)}
 		onclose={() => onclose()}
 		data-game-over
 	>

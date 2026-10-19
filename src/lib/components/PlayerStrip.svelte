@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { Color, PieceSymbol } from 'chess.js';
+	import { other } from '#lib/game/color.ts';
 	import { capturesLabel, sideName } from '#lib/labels.ts';
-	import type { LoadedSkin } from '#lib/skins/loader.ts';
+	import { piecesSheetStyle, type LoadedSkin } from '#lib/skins/loader.ts';
 	import Sprite from './Sprite.svelte';
 
 	interface Props {
@@ -39,8 +40,7 @@
 	class="flex h-8 min-w-0 items-center gap-2"
 	data-strip={color}
 	data-active={active || undefined}
-	style:--pieces-url="url({JSON.stringify(skin.urls.pieces)})"
-	style:--sheet-size="{sheet.columns * 100}% {sheet.rows * 100}%"
+	style={piecesSheetStyle(skin)}
 >
 	<span
 		class={[
@@ -65,7 +65,7 @@
 				{#each { length: group.count }, i (i)}
 					<span class="captured" data-captured={group.type}>
 						<span class="sprite-box">
-							<Sprite type={group.type} color={color === 'w' ? 'b' : 'w'} {sheet} />
+							<Sprite type={group.type} color={other(color)} {sheet} />
 						</span>
 					</span>
 				{/each}

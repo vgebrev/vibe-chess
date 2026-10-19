@@ -5,11 +5,9 @@ import type { Color, Move, Square } from 'chess.js';
 import { Haptics } from '#lib/haptics.ts';
 import type { LoadedSkin } from '#lib/skins/loader.ts';
 import type { BubbleEvent, Emotes, SfxName, SkinAudio } from '#lib/skins/schema.ts';
-import { Mixer, type Category, type Timing, type Volumes } from './mixer.ts';
+import { CATEGORIES, Mixer, type Category, type Timing, type Volumes } from './mixer.ts';
 import { moveSfx } from './sfx.ts';
 import { pickVariation, pieceOn, VoiceDirector, type Line, type MoveContext } from './voices.ts';
-
-export type { Volumes };
 
 /** A speech bubble over the piece that is speaking: a cell of the skin's emote sheet. */
 export interface Bubble {
@@ -79,8 +77,7 @@ export class Sound {
 	}
 
 	setVolumes(volumes: Volumes) {
-		for (const category of ['music', 'sfx', 'voices'] as const)
-			this.#mixer.setVolume(category, volumes[category]);
+		for (const category of CATEGORIES) this.#mixer.setVolume(category, volumes[category]);
 		if (volumes.voices === 0) this.#hush();
 		this.#volumes = { ...volumes };
 		this.#prefetch();

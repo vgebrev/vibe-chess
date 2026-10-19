@@ -1,7 +1,8 @@
 import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import type { Difficulty } from './difficulty.ts';
-import { complexity, seeded, thinkTime, type ThinkInput } from './thinkTime.ts';
+import { seeded } from '#lib/testing/random.ts';
+import { complexity, thinkTime, type ThinkInput } from './thinkTime.ts';
 
 const firstMate: Difficulty = { kind: 'custom', elo: 1650 }; // personality 1
 const budgets = (input: ThinkInput, difficulty: Difficulty = firstMate, n = 200) => {

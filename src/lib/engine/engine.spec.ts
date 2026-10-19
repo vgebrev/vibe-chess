@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Engine } from './engine.ts';
-import { FakeWorker } from './fakeWorker.ts';
+import { FakeWorker } from '#lib/testing/fakeWorker.ts';
 
 const START = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
 

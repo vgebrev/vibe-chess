@@ -51,8 +51,7 @@ export function thinkTime(
 ): number {
 	const chess = new Chess(fen);
 	const legal = chess.moves().length;
-	const [, turn, , , , fullmove] = fen.split(' ');
-	const ply = (Number(fullmove) - 1) * 2 + (turn === 'b' ? 1 : 0);
+	const ply = (chess.moveNumber() - 1) * 2 + (chess.turn() === 'b' ? 1 : 0);
 	const between = ([lo, hi]: readonly [number, number]) => lo + random() * (hi - lo);
 
 	let t: number;
@@ -73,14 +72,4 @@ const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 function gaussian(random: () => number): number {
 	const u = 1 - random(); // (0, 1], so the log is finite
 	return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random());
-}
-
-/** A small seeded generator (mulberry32) for repeatable budgets in tests. */
-export function seeded(seed: number): () => number {
-	return () => {
-		seed = (seed + 0x6d2b79f5) | 0;
-		let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
 }

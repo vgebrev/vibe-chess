@@ -1,15 +1,11 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { enableAllSkins } from './e2e-helpers.ts';
+import { cell, enableAllSkins, settings, settle } from './e2e-helpers.ts';
 
 const centre = async (locator: Locator) => {
 	const box = await locator.boundingBox();
 	if (!box) throw new Error('not visible');
 	return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
-
-/** Wait for piece slides and fades to finish. */
-const settle = (page: Page) =>
-	page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
 
 // Most tests play both sides; the vs-Computer ones navigate again. Every skin is enabled, so
 // play starts in the default skin with its White/Black labels; skins.e2e.ts covers the
@@ -88,13 +84,6 @@ for (const how of ['button', 'F key'] as const) {
 	});
 }
 
-/** Open the settings drawer. Radios and checkboxes are picked by their label text. */
-const settings = async (page: Page) => {
-	await page.getByRole('button', { name: 'Settings' }).click();
-	return page.getByRole('dialog', { name: 'Settings' });
-};
-
-const cell = (page: Page, square: string) => page.locator(`[data-cell="${square}"]`);
 const pieceOn = (page: Page, square: string) =>
 	page.locator(`[data-piece][data-square="${square}"]:not([inert])`);
 

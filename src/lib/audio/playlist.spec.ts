@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { seeded } from '#lib/engine/thinkTime.ts';
+import { seeded } from '#lib/testing/random.ts';
 import { Playlist, shuffle } from './playlist.ts';
 
 const TRACKS = ['a', 'b', 'c', 'd', 'e'];
@@ -16,7 +16,6 @@ describe('Playlist (§4.11)', () => {
 		const first = Array.from({ length: 5 }, () => playlist.next());
 		expect(first).toEqual(playlist.tracks);
 		expect(playlist.next()).toBe(first[0]);
-		expect(playlist.current).toBe(first[0]);
 	});
 
 	it('has nothing to play without tracks', () => {

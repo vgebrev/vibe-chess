@@ -1,10 +1,10 @@
 // Skin manifest type and validation (SPEC §5.1). Hand-written guard: collects every
 // problem with its JSON path so a broken skin.json can be fixed in one pass.
+import type { Color, PieceSymbol } from 'chess.js';
+import { PRESET_IDS, type PresetId } from '#lib/engine/difficulty.ts';
+import { isObj, type Obj } from '#lib/json.ts';
 
-export type PieceType = 'k' | 'q' | 'b' | 'n' | 'r' | 'p';
-export type Color = 'w' | 'b';
-
-export const PIECE_TYPES: readonly PieceType[] = ['k', 'q', 'b', 'n', 'r', 'p'];
+const PIECE_TYPES: readonly PieceSymbol[] = ['k', 'q', 'b', 'n', 'r', 'p'];
 
 export interface Inset {
 	top: number;
@@ -57,7 +57,7 @@ export type SfxName =
 	| 'draw'
 	| 'illegal'
 	| 'click';
-export const SFX_NAMES: readonly SfxName[] = [
+const SFX_NAMES: readonly SfxName[] = [
 	'start',
 	'select',
 	'move',
@@ -73,7 +73,7 @@ export const SFX_NAMES: readonly SfxName[] = [
 
 /** What a piece's voice line is about (§4.11). */
 export type VoiceEvent = 'move' | 'capture' | 'captured' | 'check' | 'defeat' | 'taunt';
-export const VOICE_EVENTS: readonly VoiceEvent[] = [
+const VOICE_EVENTS: readonly VoiceEvent[] = [
 	'move',
 	'capture',
 	'captured',
@@ -85,7 +85,7 @@ export const VOICE_EVENTS: readonly VoiceEvent[] = [
 /** Pools of variations per side, piece type and event; any level may be missing. */
 export type Voices = Record<
 	Color,
-	Partial<Record<PieceType, Partial<Record<VoiceEvent, string[]>>>>
+	Partial<Record<PieceSymbol, Partial<Record<VoiceEvent, string[]>>>>
 >;
 
 /** A skin's sounds, as asset paths (§4.11). Every part is optional. */
@@ -146,7 +146,7 @@ export interface ResultImages {
 export interface Labels {
 	white?: string;
 	black?: string;
-	difficulty?: Partial<Record<'p0' | 'p1' | 'p2' | 'p3' | 'p4' | 'p5', string>>;
+	difficulty?: Partial<Record<PresetId, string>>;
 }
 
 /** A validated manifest with every optional field filled with its default. */
@@ -161,12 +161,12 @@ export interface SkinManifest {
 		image: string;
 		columns: number;
 		rows: number;
-		order: PieceType[];
+		order: PieceSymbol[];
 		rowFor: Record<Color, number>;
 		scale: number;
 		anchorY: number;
 		/** Per-type anchor, `anchorY` unless overridden by the manifest's `anchorYFor`. */
-		anchorYFor: Record<PieceType, number>;
+		anchorYFor: Record<PieceSymbol, number>;
 	};
 	moveIndicator: {
 		image: string;
@@ -235,20 +235,13 @@ const REQUIRED_THEME_KEYS = [
 
 export type ValidationResult = { ok: true; skin: SkinManifest } | { ok: false; errors: string[] };
 
-type Obj = Record<string, unknown>;
-
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-
 /**
  * A skin asset path: relative to the skin folder, no scheme, no leading slash, no `..`.
  * Keeps a skin from reaching outside its own folder.
  */
 export function isSkinPath(v: unknown): v is string {
-	return (
-		typeof v === 'string' &&
-		/^[\w-]+(\/[\w-]+)*\.[a-z0-9]+$/i.test(v) &&
-		!v.split('/').some((part) => part === '..')
-	);
+	// Segments are word characters and dashes only, so `..` and `/x` can't match.
+	return typeof v === 'string' && /^[\w-]+(\/[\w-]+)*\.[a-z0-9]+$/i.test(v);
 }
 
 /** Validate raw `skin.json` content and fill in defaults. */
@@ -280,6 +273,11 @@ export function validateSkin(raw: unknown): ValidationResult {
 		err(path, `expected a number in [${min}, ${max}]`);
 		return fallback ?? min;
 	};
+	const inset = (v: unknown, path: string, max: number): Inset => {
+		const raw = obj(v, path) ?? {};
+		const side = (key: keyof Inset) => num(raw[key], `${path}.${key}`, 0, max);
+		return { top: side('top'), right: side('right'), bottom: side('bottom'), left: side('left') };
+	};
 	const int = (v: unknown, path: string, min: number, max: number): number => {
 		if (Number.isInteger(v) && (v as number) >= min && (v as number) <= max) return v as number;
 		err(path, `expected an integer in [${min}, ${max}]`);
@@ -299,26 +297,20 @@ export function validateSkin(raw: unknown): ValidationResult {
 
 	// board
 	const board = obj(root.board, 'board') ?? {};
-	const insetRaw = obj(board.inset, 'board.inset') ?? {};
-	const inset: Inset = {
-		top: num(insetRaw.top, 'board.inset.top', 0, 0.45),
-		right: num(insetRaw.right, 'board.inset.right', 0, 0.45),
-		bottom: num(insetRaw.bottom, 'board.inset.bottom', 0, 0.45),
-		left: num(insetRaw.left, 'board.inset.left', 0, 0.45)
-	};
+	const boardInset = inset(board.inset, 'board.inset', 0.45);
 	const boardImage = file(board.image, 'board.image');
 
 	// pieces
 	const pieces = obj(root.pieces, 'pieces') ?? {};
 	const columns = int(pieces.columns, 'pieces.columns', 1, 12);
 	const rows = int(pieces.rows, 'pieces.rows', 1, 12);
-	let order: PieceType[] = [];
+	let order: PieceSymbol[] = [];
 	if (
 		Array.isArray(pieces.order) &&
 		pieces.order.length === PIECE_TYPES.length &&
 		PIECE_TYPES.every((t) => (pieces.order as unknown[]).includes(t))
 	) {
-		order = pieces.order as PieceType[];
+		order = pieces.order as PieceSymbol[];
 		if (order.length > columns)
 			err('pieces.order', `has ${order.length} entries but only ${columns} columns`);
 	} else {
@@ -337,7 +329,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 	}
 	const anchorYFor = Object.fromEntries(
 		PIECE_TYPES.map((t) => [t, num(anchorYForRaw[t], `pieces.anchorYFor.${t}`, 0, 0.5, anchorY)])
-	) as Record<PieceType, number>;
+	) as Record<PieceSymbol, number>;
 	const piecesOut = {
 		image: file(pieces.image, 'pieces.image'),
 		columns,
@@ -439,7 +431,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 	const diff = optObj(labelsRaw.difficulty, 'labels.difficulty');
 	if (diff) {
 		labels.difficulty = {};
-		for (const key of ['p0', 'p1', 'p2', 'p3', 'p4', 'p5'] as const) {
+		for (const key of PRESET_IDS) {
 			const v = optStr(diff[key], `labels.difficulty.${key}`);
 			if (v !== undefined) labels.difficulty[key] = v;
 		}
@@ -540,14 +532,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 	// optional portrait picture for narrow screens laid out the same way
 	const splashLayout = (raw: Obj, path: string, color: string | null): SplashLayout => {
 		const title = obj(raw.title, `${path}.title`) ?? {};
-		const insetRaw = obj(title.inset, `${path}.title.inset`) ?? {};
-		const side = (key: keyof Inset) => num(insetRaw[key], `${path}.title.inset.${key}`, 0, 0.95);
-		const titleInset: Inset = {
-			top: side('top'),
-			right: side('right'),
-			bottom: side('bottom'),
-			left: side('left')
-		};
+		const titleInset = inset(title.inset, `${path}.title.inset`, 0.95);
 		if (titleInset.left + titleInset.right >= 1 || titleInset.top + titleInset.bottom >= 1)
 			err(`${path}.title.inset`, 'leaves no room for the title');
 		const buttons = optObj(raw.buttons, `${path}.buttons`) ?? {};
@@ -578,7 +563,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 			id,
 			name,
 			disabled,
-			board: { image: boardImage, inset },
+			board: { image: boardImage, inset: boardInset },
 			pieces: piecesOut,
 			moveIndicator,
 			captureIndicator,

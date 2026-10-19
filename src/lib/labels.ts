@@ -1,6 +1,7 @@
 // Display names and status text. Templates are fixed here; skins only supply side names,
 // which fall back to generic text (§4.8).
 import type { Color, PieceSymbol, Square } from 'chess.js';
+import { other } from '#lib/game/color.ts';
 import type { Result } from '#lib/game/game.svelte.ts';
 import type { Outcome } from '#lib/game/outcome.ts';
 import type { Labels } from '#lib/skins/schema.ts';
@@ -26,8 +27,6 @@ export function squareLabel(
 ): string {
 	return piece ? `${square}, ${sideName(piece.color, labels)} ${PIECE_NAMES[piece.type]}` : square;
 }
-
-const other = (color: Color): Color => (color === 'w' ? 'b' : 'w');
 
 /** Why a finished game ended, e.g. "Checkmate" or "Red Crew resigns". */
 export function reasonText(result: Result, labels: Labels): string {

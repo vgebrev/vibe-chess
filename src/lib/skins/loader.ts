@@ -34,14 +34,13 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Lo
 	const base = new URL(baseUrl, location.href).href;
 	const fail = (...errors: string[]) => new SkinError(base, errors);
 
-	let raw: unknown;
-	try {
-		const res = await fetch(new URL('skin.json', base));
-		if (!res.ok) throw fail(`skin.json: HTTP ${res.status}`);
-		raw = await res.json();
-	} catch (e) {
-		throw e instanceof SkinError ? e : fail(`skin.json: ${(e as Error).message}`);
-	}
+	// A network error or a manifest that isn't JSON.
+	const unreadable = (e: Error): never => {
+		throw fail(`skin.json: ${e.message}`);
+	};
+	const res = await fetch(new URL('skin.json', base)).catch(unreadable);
+	if (!res.ok) throw fail(`skin.json: HTTP ${res.status}`);
+	const raw: unknown = await res.json().catch(unreadable);
 
 	const result = validateSkin(raw);
 	if (!result.ok) throw fail(...result.errors);
@@ -164,6 +163,15 @@ async function loadFontCss(family: string, href: string): Promise<void> {
 		});
 	}
 	await document.fonts.load(`1em "${family}"`);
+}
+
+/**
+ * The CSS variables piece sprites read (Sprite.svelte), for the element that holds them: the
+ * sheet's URL and its size in cells.
+ */
+export function piecesSheetStyle(skin: LoadedSkin): string {
+	const { columns, rows } = skin.manifest.pieces;
+	return `--pieces-url: url(${JSON.stringify(skin.urls.pieces)}); --sheet-size: ${columns * 100}% ${rows * 100}%`;
 }
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);

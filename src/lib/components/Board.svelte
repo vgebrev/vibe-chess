@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Color, Square } from 'chess.js';
+	import type { Bubble } from '#lib/audio/sound.ts';
 	import {
 		cellPosition,
 		FILES,
@@ -10,7 +11,7 @@
 	} from '#lib/board/geometry.ts';
 	import type { Game, PromotionPiece } from '#lib/game/game.svelte.ts';
 	import { squareLabel } from '#lib/labels.ts';
-	import type { LoadedSkin } from '#lib/skins/loader.ts';
+	import { piecesSheetStyle, type LoadedSkin } from '#lib/skins/loader.ts';
 	import Coordinates from './Coordinates.svelte';
 	import Highlights, { type Highlight } from './Highlights.svelte';
 	import Indicators from './Indicators.svelte';
@@ -34,7 +35,7 @@
 		/** A dragged piece was dropped where it can't go and slides back. */
 		onillegal?: () => void;
 		/** A speech bubble over the piece that is speaking (§4.11). */
-		bubble?: { square: Square; emote: number } | null;
+		bubble?: Bubble | null;
 	}
 
 	let {
@@ -116,13 +117,13 @@
 		return list;
 	});
 
-	// Flipping or a new game cancels a drag in progress (§4.4).
+	// Flipping cancels a drag in progress (§4.4).
 	$effect(() => {
 		void orientation;
-		void game;
 		drag = null;
 	});
-	// So does any change of position from outside (undo, a new game).
+	// So does any change of position from outside (undo, a new game), which also drops the
+	// selection and a pending promotion.
 	$effect(() => {
 		void game.fen;
 		selected = null;
@@ -292,8 +293,7 @@
 			style:right="{inset.right * 100}%"
 			style:bottom="{inset.bottom * 100}%"
 			style:left="{inset.left * 100}%"
-			style:--pieces-url="url({JSON.stringify(skin.urls.pieces)})"
-			style:--sheet-size="{sheet.columns * 100}% {sheet.rows * 100}%"
+			style={piecesSheetStyle(skin)}
 			{onpointerdown}
 			{onpointermove}
 			{onpointerup}

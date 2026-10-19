@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { cell, settings } from './e2e-helpers.ts';
 
 // Sound (§4.11), in Pirate as shipped. The browser is instrumented rather than the app: each
 // fetched MP3's bytes are followed through decoding to the buffer a sound plays, so the test
@@ -13,7 +14,7 @@ declare global {
 
 test.beforeEach(async ({ page }) => {
 	await page.addInitScript(() => {
-		Math.random = () => 0; // every chance hits, and the first variation is chosen
+		Math.random = () => 0; // the first variation and taunting piece are chosen
 		window.played = [];
 		window.stopped = [];
 		window.music = [];
@@ -60,12 +61,6 @@ test.beforeEach(async ({ page }) => {
 
 const played = (page: Page) => page.evaluate(() => window.played);
 const music = (page: Page) => page.evaluate(() => window.music);
-const cell = (page: Page, square: string) => page.locator(`[data-cell="${square}"]`);
-
-async function settings(page: Page) {
-	await page.getByRole('button', { name: 'Settings' }).click();
-	return page.getByRole('dialog', { name: 'Settings' });
-}
 
 test('a move plays its sound and a line from the piece that moved', async ({ page }) => {
 	await cell(page, 'e2').click();
@@ -150,7 +145,7 @@ test('a mute toggle silences a category and brings its level back', async ({ pag
 test("the computer answers the player's move with a taunt, in a bubble over its piece", async ({
 	page
 }) => {
-	// With every chance hitting, the player's first quiet move gets the computer's taunt.
+	// The player's first quiet move gets the computer's taunt.
 	await page.goto('/?mode=computer&color=w');
 	await cell(page, 'e2').click(); // unlocks audio, so the line can play
 	await cell(page, 'e4').click();
