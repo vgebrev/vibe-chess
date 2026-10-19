@@ -67,27 +67,7 @@ export class VoiceDirector {
 	 * The lines for a move just played, in the order said: none, one, or the player's line and
 	 * then the computer's taunt in answer.
 	 */
-	move(move: Move, context: MoveContext): Line[] {
-		return this.#pick(move, context);
-	}
-
-	/** A new game: the count to the first taunt starts again. */
-	reset() {
-		this.#lastTaunt = -Infinity;
-		this.#untilTaunt = this.#gap();
-	}
-
-	/** A resigning side's king concedes, always (§4.11 rule 1). */
-	resign(side: Color, square?: Square): Line[] {
-		return this.#say({ side, piece: 'k', event: 'defeat', square });
-	}
-
-	/** The line, if the skin has it. */
-	#say(line: Line): Line[] {
-		return this.#has(line) ? [line] : [];
-	}
-
-	#pick(move: Move, { result, human, computerPieces }: MoveContext): Line[] {
+	move(move: Move, { result, human, computerPieces }: MoveContext): Line[] {
 		const mover = move.color;
 		const opponent = other(mover);
 		const king = (event: VoiceEvent): Line => ({
@@ -116,6 +96,22 @@ export class VoiceDirector {
 		if (move.captured)
 			return this.#say({ side: opponent, piece: move.captured, event: 'captured' });
 		return [];
+	}
+
+	/** A new game: the count to the first taunt starts again. */
+	reset() {
+		this.#lastTaunt = -Infinity;
+		this.#untilTaunt = this.#gap();
+	}
+
+	/** A resigning side's king concedes, always (§4.11 rule 1). */
+	resign(side: Color, square?: Square): Line[] {
+		return this.#say({ side, piece: 'k', event: 'defeat', square });
+	}
+
+	/** The line, if the skin has it. */
+	#say(line: Line): Line[] {
+		return this.#has(line) ? [line] : [];
 	}
 
 	/**

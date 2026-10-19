@@ -52,6 +52,13 @@ const vsComputer = (human: Color, types: PieceSymbol[] = ['k', 'q', 'b', 'n', 'r
 const has = (line: Line) => line.event !== 'taunt' || !['n', 'r'].includes(line.piece);
 const hotseat: MoveContext = { result: null, human: null, computerPieces: [] };
 
+/** The player's quiet move Nf3 vs Computer, with the computer's pieces of `types` left. */
+const quiet = (voices: VoiceDirector, types?: PieceSymbol[]) =>
+	voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w', types));
+/** The quiet moves before a taunt `gap` moves away is due, and the lines each got. */
+const beforeTaunt = (voices: VoiceDirector, gap: number = TAUNT_GAP.min) =>
+	Array.from({ length: gap - 1 }, () => quiet(voices));
+
 describe('VoiceDirector (§4.11)', () => {
 	it("voices a player's quiet move from the piece that moved", () => {
 		expect(director(rolls()).voices.move(play(DEFAULT_POSITION, 'Nf3'), hotseat)).toEqual([
@@ -83,18 +90,17 @@ describe('VoiceDirector (§4.11)', () => {
 		// The first roll sets the gap: 0 is the shortest.
 		const { voices, clock } = director(rolls(0, 0.99, 0.3, 0.99, 0), has);
 		const knight = { side: 'w', piece: 'n', event: 'move', square: 'f3' };
-		for (let i = 1; i < TAUNT_GAP.min; i++)
-			expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'))).toEqual([knight]);
+		for (const lines of beforeTaunt(voices)) expect(lines).toEqual([knight]);
 		// The roll picks among the kinds of piece with taunts only (k, q, b, p), so 0.99 is a pawn,
 		// and the next roll which pawn.
-		expect(
-			voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w', ['n', 'r', 'k', 'q', 'b', 'p']))
-		).toEqual([knight, { side: 'b', piece: 'p', event: 'taunt', square: 'c7' }]);
+		expect(quiet(voices, ['n', 'r', 'k', 'q', 'b', 'p'])).toEqual([
+			knight,
+			{ side: 'b', piece: 'p', event: 'taunt', square: 'c7' }
+		]);
 		// 0.99 makes the next gap the longest.
 		clock.now = 10 * TAUNT_FLOOR_MS;
-		for (let i = 1; i < TAUNT_GAP.max; i++)
-			expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'))).toEqual([knight]);
-		expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w', ['k']))).toEqual([
+		for (const lines of beforeTaunt(voices, TAUNT_GAP.max)) expect(lines).toEqual([knight]);
+		expect(quiet(voices, ['k'])).toEqual([
 			knight,
 			{ side: 'b', piece: 'k', event: 'taunt', square: 'e8' }
 		]);
@@ -102,53 +108,43 @@ describe('VoiceDirector (§4.11)', () => {
 
 	it('taunts alone when the moved piece has no line', () => {
 		const { voices } = director(rolls(0), (line) => line.event === 'taunt');
-		for (let i = 1; i < TAUNT_GAP.min; i++)
-			expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'))).toEqual([]);
-		expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w', ['q']))).toEqual([
-			{ side: 'b', piece: 'q', event: 'taunt', square: 'd8' }
-		]);
+		for (const lines of beforeTaunt(voices)) expect(lines).toEqual([]);
+		expect(quiet(voices, ['q'])).toEqual([{ side: 'b', piece: 'q', event: 'taunt', square: 'd8' }]);
 	});
 
 	it("counts only the player's quiet moves towards a taunt", () => {
 		const { voices } = director(rolls(0));
-		const due = (n: number) => {
-			for (let i = 0; i < n; i++) voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'));
-		};
-		due(TAUNT_GAP.min - 1);
+		beforeTaunt(voices);
 		voices.move(play(WHITE_TAKES, 'exd5'), vsComputer('w'));
 		voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w'));
 		voices.move(play(BLACK_TAKES, 'dxe4'), vsComputer('w'));
-		expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'))).toHaveLength(2);
+		expect(quiet(voices)).toHaveLength(2);
 	});
 
 	it('holds a due taunt until the floor has passed, or a piece can say it', () => {
 		const { voices, clock } = director(rolls(0, 0, 0, 0), has);
-		const quiet = (types?: PieceSymbol[]) =>
-			voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w', types));
-		for (let i = 1; i < TAUNT_GAP.min; i++) quiet();
-		expect(quiet()).toHaveLength(2); // the first taunt, at 0 s
-		for (let i = 1; i < TAUNT_GAP.min; i++) quiet();
+		beforeTaunt(voices);
+		expect(quiet(voices)).toHaveLength(2); // the first taunt, at 0 s
+		beforeTaunt(voices);
 		// Due again, but too soon after the last.
 		clock.now = TAUNT_FLOOR_MS - 1;
-		expect(quiet()).toHaveLength(1);
+		expect(quiet(voices)).toHaveLength(1);
 		clock.now = TAUNT_FLOOR_MS;
 		// Due, but nothing to taunt with: the player's line, and the taunt still waits.
-		expect(quiet(['n'])).toEqual([{ side: 'w', piece: 'n', event: 'move', square: 'f3' }]);
-		expect(quiet()).toHaveLength(2);
+		expect(quiet(voices, ['n'])).toEqual([{ side: 'w', piece: 'n', event: 'move', square: 'f3' }]);
+		expect(quiet(voices)).toHaveLength(2);
 	});
 
 	it('starts the count to the first taunt again in a new game', () => {
 		const { voices } = director(rolls(0, 0, 0, 0));
-		for (let i = 1; i < TAUNT_GAP.min; i++)
-			voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'));
+		beforeTaunt(voices);
 		voices.reset();
-		expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'))).toHaveLength(1);
+		expect(quiet(voices)).toHaveLength(1);
 	});
 
 	it("never taunts in hot-seat, after a player's capture or on the computer's move", () => {
 		const { voices } = director(() => 0);
-		for (let i = 1; i < TAUNT_GAP.min; i++)
-			voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'));
+		beforeTaunt(voices);
 		// A taunt is due from here on.
 		expect(voices.move(play(BLACK_QUIET, 'Nf6'), vsComputer('w'))).toEqual([]);
 		expect(voices.move(play(WHITE_TAKES, 'exd5'), vsComputer('w'))).toEqual([
@@ -157,7 +153,7 @@ describe('VoiceDirector (§4.11)', () => {
 		expect(voices.move(play(BLACK_QUIET, 'Nf6'), hotseat)).toEqual([
 			{ side: 'b', piece: 'n', event: 'move', square: 'f6' }
 		]);
-		expect(voices.move(play(DEFAULT_POSITION, 'Nf3'), vsComputer('w'))).toHaveLength(2);
+		expect(quiet(voices)).toHaveLength(2);
 	});
 
 	it('always voices check, from the king in check, even by the computer', () => {

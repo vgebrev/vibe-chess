@@ -1,28 +1,28 @@
-# Code review, round 7: plan and progress
+# Code review, round 8: plan and progress
 
-Branch `feat/volume-previews`. A seventh pass after rounds 1–6 (decision log #54–#58) found
-two small things, done here alongside the volume samples (#59). Behaviour is unchanged apart
-from the samples.
+Branch `refactor/code-review-8`. An eighth pass after rounds 1–7 (decision log #54–#59) looked
+mainly at the taunt changes (#60, #61), the only code since round 7. It found three small
+things left over from them. Behaviour is unchanged.
 
 ## Done
 
-- [x] `app.css`: the pointer cursor for `[role='button']:not([aria-disabled='true'])` is gone;
-      nothing has `role="button"`
-- [x] persistence: `DEFAULT_VOLUMES`, one constant for `sound` and `unmuted`, which were two
-      copies of the same literal (a changed default in one would unmute to the old level)
-- [x] Volume samples (§4.11): `Sound.preview(category)`, called by Settings once a volume is set;
-      a double-click on a slider resets it. `Sound` lists the skin's voice lines in one place
-      (`#voiceUrls`) for the prefetch and the sample
+- [x] mixer: `ANSWER_GAP`'s comment still described a capture line and its answer, which went
+      in #35; the gap is now between a player's line and the taunt answering it
+- [x] `VoiceDirector.move` was a bare pass-through to `#pick` once the taunt bookkeeping moved
+      into `#taunt`; `#pick`'s body is now `move`
+- [x] voices tests: the quiet moves before a taunt is due were written out seven times, with two
+      local helpers doing the same thing; now one `quiet()` and one `beforeTaunt()`
 
 ## Looked at and kept
 
 - Previous rounds' "kept" items still hold.
-- Unused exports are all test-only or types named by exported functions.
-- The e2e `settle(page)` beside the component tests' `settle()`: one runs through
-  `page.evaluate`, the other in the browser.
-- The per-file `setup()` helpers in the tests: each builds something different.
+- `Sound.#hideBubble` beside `#dropBubble`: rewriting one through the other saves nothing.
+- `VoiceDirector`'s start state in both the field initialisers and `reset()`: calling `reset()`
+  from the constructor needs a placeholder initialiser for TypeScript.
+- `kingSquare(fen, side)` in `voices.ts` beside `Game.kingSquare`: the director has only the
+  move's FEN, not a `Game`.
 
 ## Progress log
 
-- `npm run check`, `npm run lint`, 258 unit/component tests and the e2e suite (112 passed,
-  2 skipped, both viewports) pass. Nothing is committed yet.
+- `npm run check`, `npm run lint`, 263 unit/component tests and `sound.e2e.ts` (20 passed, both
+  viewports) pass. Nothing is committed yet.
