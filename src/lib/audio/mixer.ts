@@ -12,7 +12,7 @@ export type Volumes = Record<Category, number>;
 const RAMP = 0.015;
 /** Music level while a voice speaks. */
 const DUCK = 0.5;
-/** Pause between a capture line and its answer, in seconds. */
+/** Pause between a player's line and the taunt answering it, in seconds. */
 const ANSWER_GAP = 0.15;
 /** A voice cut off (undo, a new game, …) fades over this long, in seconds. */
 const VOICE_FADE = 0.08;
