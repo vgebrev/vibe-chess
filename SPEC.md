@@ -770,6 +770,7 @@ On wide screens, New Game and Settings could be shown as a centred dialog instea
   - `static/_headers` caches `/_app/immutable/*` (hashed) for a year; `index.html` and the skins keep the default revalidation.
   - Checked locally with `wrangler pages dev build`, which serves deep links as `index.html`, the WASM as `application/wasm` and the cache header; the whole e2e suite passes against it. Wrangler isn't a project dependency; run it with `npx`.
   - **Deploy:** served at `https://chess.gebrev.com` from a Pages project connected to the GitHub repo: every push to `main` builds (`npm run build`, output `build/`) and goes live, and other branches get preview URLs. `.node-version` pins the build's Node to 24 (SvelteKit 3 needs ≥ 22.17).
+  - **Link previews:** `src/app.html` carries a description and Open Graph / Twitter card tags with `og-image.png` (1200×630). They are static and use absolute `https://chess.gebrev.com/` URLs, since link crawlers don't run the SPA.
 - **chess.js**: rules
 - **stockfish** (npm, single-threaded lite WASM): engine
 - **Vitest** for unit tests, **Playwright** for end-to-end smoke tests
@@ -840,6 +841,7 @@ src/
     persistence.ts
 static/
   favicon.*, icon-*.png, apple-touch-icon.png, site.webmanifest   # app icons (source in scratchpad/)
+  og-image.png              # link-preview picture, 1200×630 (source in scratchpad/og/)
   skins/
     default/ pirate/        # skin.json, board.webp, pieces.webp, indicator-*.webp, font/…
 tests/
@@ -1058,3 +1060,4 @@ None at the moment. Remaining tuning items, such as the board inset, think-time 
 | 50  | Portrait splash                      | Phones get a portrait splash picture (`splash.portrait`) below `md`, with its own title area and button height, and the buttons on it rather than under it; the landscape one is for `md` and up, phones held sideways included. A `<picture>` element, so each screen downloads one (§4.13)                                                                                                                                                                                                                                                            |
 | 51  | Taunts answer your move              | The computer taunted after its own moves, which could sound like it taunting itself. A taunt now answers a quiet move of yours vs Computer, in place of your piece's line, still at most one per 30 s; the computer's quiet moves are silent (§4.11)                                                                                                                                                                                                                                                                                                    |
 | 52  | Taller drawers                       | Drawers were capped at 70 dvh, so Settings scrolled on a 384×700 phone with room to spare above it. The cap is now the screen's height less 4 rem (§6.4)                                                                                                                                                                                                                                                                                                                                                                                                |
+| 53  | Link previews                        | Shared links showed no picture or description. `app.html` now has Open Graph and Twitter card tags with a 1200×630 picture; static, since crawlers don't run the SPA (§7.1)                                                                                                                                                                                                                                                                                                                                                                             |
