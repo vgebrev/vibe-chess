@@ -472,7 +472,7 @@ Each skin is a folder at `static/skins/<id>/` holding a `skin.json` manifest and
 	"splash": {
 		"image": "splash.webp",
 		"title": {
-			"inset": { "top": 0.053, "right": 0.312, "bottom": 0.819, "left": 0.311 },
+			"inset": { "top": 0.0605, "right": 0.312, "bottom": 0.8115, "left": 0.311 },
 			"color": "#4a2a12"
 		},
 		"buttons": { "bottom": 0.15 } // the buttons' distance up from the bottom edge (default 0.04)
