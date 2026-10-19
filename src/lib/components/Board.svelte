@@ -28,7 +28,7 @@
 		orientation: Orientation;
 		showCoordinates?: boolean;
 		showLegalMoves?: boolean;
-		/** No input at all, e.g. while the engine is thinking (§4.2). */
+		/** No input at all, e.g. while an auto-flip is due (§4.7). */
 		locked?: boolean;
 		/** Whether the human may move this side's pieces (vs-Computer: only their own). */
 		canMove?: (color: Color) => boolean;
