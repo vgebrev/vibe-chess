@@ -31,7 +31,8 @@ function setup(
 		unmuted: { music: 0.5, sfx: 0.8, voices: 1 },
 		haptics: true,
 		canVibrate,
-		soundCategories
+		soundCategories,
+		onpreview: vi.fn()
 	};
 	render(SettingsPanel, props);
 	return props;
@@ -98,6 +99,26 @@ describe('SettingsPanel', () => {
 		await expect.element(mute).toBeChecked();
 		await mute.click();
 		await expect.element(slider).toHaveValue('30');
+	});
+
+	it('plays a sample once a volume is set, and a double-click resets it (§4.11)', async () => {
+		const { onpreview } = setup(false, BOTH, ['sfx']);
+		const slider = page.getByRole('slider', { name: 'Effects' });
+		const sfx = slider.element() as HTMLInputElement;
+		// While dragging, the volume follows; the sample waits for the slider to be let go.
+		sfx.value = '30';
+		sfx.dispatchEvent(new Event('input', { bubbles: true }));
+		expect(onpreview).not.toHaveBeenCalled();
+		sfx.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(onpreview).toHaveBeenCalledWith('sfx');
+
+		await slider.dblClick();
+		await expect.element(slider).toHaveValue('80');
+		expect(onpreview).toHaveBeenLastCalledWith('sfx');
+
+		onpreview.mockClear();
+		await page.getByRole('checkbox', { name: 'Mute Effects' }).click();
+		expect(onpreview).toHaveBeenCalledWith('sfx');
 	});
 
 	it('offers vibration only where the device can vibrate', async () => {

@@ -38,7 +38,6 @@ html {
 	/* Tailwind v4 gives buttons the default cursor; enabled ones (and sliders) get the pointer,
 	   like links and the option chips. Disabled ones keep the arrow. */
 	button:not(:disabled),
-	[role='button']:not([aria-disabled='true']),
 	input[type='range']:not(:disabled) {
 		cursor: pointer;
 	}

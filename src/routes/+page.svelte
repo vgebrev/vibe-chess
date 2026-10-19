@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Color } from 'chess.js';
-	import { untrack } from 'svelte';
+	import { flushSync, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { Sound, type Bubble } from '#lib/audio/sound.ts';
 	import { bottomSide, flipped, orientationOf, type Orientation } from '#lib/board/geometry.ts';
@@ -410,6 +410,10 @@
 		bind:haptics
 		canVibrate={sound.haptics.support !== null}
 		{soundCategories}
+		onpreview={(category) => {
+			flushSync(); // the mixer gets the new volume before the sample plays
+			sound.preview(category);
+		}}
 	/>
 </Drawer>
 
