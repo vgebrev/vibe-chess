@@ -55,3 +55,67 @@ test("Pirate's game-over overlay shows its picture for the result", async ({ pag
 		)
 		.toBe(512);
 });
+
+test.describe("Pirate's splash (§4.13)", () => {
+	test('opens at startup with the title on the banner, and New Game opens the drawer', async ({
+		page
+	}) => {
+		await page.goto('/');
+		const splash = page.getByRole('dialog', { name: 'Vibe Chess' });
+		const image = splash.locator('[data-splash-image]');
+		await expect(image).toHaveAttribute('src', /splash\.webp$/);
+		await expect(page.locator('[data-splash-title]')).toHaveCSS('font-family', /Pirata One/);
+		// The title sits on the banner: centred across, in the top fifth.
+		const box = (await image.boundingBox())!;
+		const title = (await page.locator('[data-splash-title]').boundingBox())!;
+		expect(Math.abs(title.x + title.width / 2 - (box.x + box.width / 2))).toBeLessThan(
+			box.width * 0.02
+		);
+		expect(title.y + title.height / 2).toBeLessThan(box.y + box.height * 0.2);
+		// No game in progress: nothing to continue.
+		await expect(splash.getByRole('button', { name: 'Continue' })).toBeDisabled();
+
+		await splash.getByRole('button', { name: 'New Game' }).click();
+		await expect(page.locator('[data-splash]')).toHaveCount(0);
+		await expect(page.getByRole('dialog', { name: 'New game' })).toBeVisible();
+	});
+
+	test('Continue, or Esc, goes back to the game in progress; New Game offers the computer', async ({
+		page
+	}) => {
+		await page.locator('[data-cell="e2"]').click();
+		await page.locator('[data-cell="e4"]').click();
+		await expect(page.locator('[data-status]')).toHaveText('Red Crew to move');
+
+		await page.goto('/');
+		await page.getByRole('button', { name: 'Continue' }).click();
+		await expect(page.locator('[data-splash]')).toHaveCount(0);
+		await expect(page.locator('[data-piece][data-square="e4"]:not([inert])')).toHaveAttribute(
+			'data-piece',
+			'wp'
+		);
+
+		await page.goto('/');
+		await expect(page.locator('[data-splash]')).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(page.locator('[data-splash]')).toHaveCount(0);
+		await expect(page.locator('[data-status]')).toHaveText('Red Crew to move');
+		// New Game offers a game vs the computer, though the one in progress is two players; the
+		// game's own New game button keeps its setup.
+		await page.goto('/');
+		await page
+			.getByRole('dialog', { name: 'Vibe Chess' })
+			.getByRole('button', { name: 'New Game' })
+			.click();
+		const form = page.getByRole('dialog', { name: 'New game' });
+		await expect(form.getByRole('radio', { name: 'Computer' })).toBeChecked();
+		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'New game' }).first().click();
+		await expect(form.getByRole('radio', { name: 'Two players' })).toBeChecked();
+	});
+
+	test('a link that sets up the game skips it', async ({ page }) => {
+		await expect(page.locator('[data-skin="pirate"]')).toBeVisible();
+		await expect(page.locator('[data-splash]')).toHaveCount(0);
+	});
+});

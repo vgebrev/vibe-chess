@@ -81,6 +81,14 @@
     "resign": "result-resign.webp",
     "draw": "result-draw.webp"
   },
+  "splash": {
+    "image": "splash.webp",
+    "title": {
+      "inset": { "top": 0.053, "right": 0.312, "bottom": 0.819, "left": 0.311 },
+      "color": "#4a2a12"
+    },
+    "buttons": { "bottom": 0.15 }
+  },
   "audio": {
     "music": ["audio/music/battle-alt.mp3", "audio/music/battle.mp3", "audio/music/midnight.mp3", "audio/music/sailing.mp3", "audio/music/shanty.mp3", "audio/music/tavern-alt.mp3", "audio/music/tavern.mp3"],
     "sfx": {

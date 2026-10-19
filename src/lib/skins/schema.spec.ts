@@ -308,6 +308,49 @@ describe('validateSkin results (§4.7.1)', () => {
 	});
 });
 
+describe('validateSkin splash (§4.13)', () => {
+	const splashOf = (raw: unknown) => {
+		const result = validateSkin(raw);
+		if (!result.ok) throw new Error(result.errors.join('\n'));
+		return result.skin.splash;
+	};
+	const inset = { top: 0.1, right: 0.3, bottom: 0.75, left: 0.3 };
+
+	it('reads the picture and the title area, the colour optional', () => {
+		expect(splashOf(fixture())).toBeNull();
+		expect(splashOf({ ...fixture(), splash: { image: 's.webp', title: { inset } } })).toEqual({
+			image: 's.webp',
+			title: { inset, color: null },
+			buttons: { bottom: DEFAULTS.splashButtonsBottom }
+		});
+		expect(
+			splashOf({
+				...fixture(),
+				splash: { image: 's.webp', title: { inset }, buttons: { bottom: 0.2 } }
+			})?.buttons.bottom
+		).toBe(0.2);
+		expect(
+			splashOf({ ...fixture(), splash: { image: 's.webp', title: { inset, color: '#432' } } })
+				?.title.color
+		).toBe('#432');
+	});
+
+	it('reports a missing picture, a bad inset and an area with no room', () => {
+		expect(errorsOf({ ...fixture(), splash: { title: { inset } } })).toEqual([
+			'splash.image: expected a relative path inside the skin folder, got undefined'
+		]);
+		expect(
+			errorsOf({
+				...fixture(),
+				splash: { image: 's.webp', title: { inset: { ...inset, top: -1, left: 0.7 } } }
+			})
+		).toEqual([
+			'splash.title.inset.top: expected a number in [0, 0.95]',
+			'splash.title.inset: leaves no room for the title'
+		]);
+	});
+});
+
 describe('isSkinPath', () => {
 	it.each(['board.webp', 'font/PirataOne-Regular.woff2', 'a/b/c_d-e.png'])('accepts %s', (p) => {
 		expect(isSkinPath(p)).toBe(true);

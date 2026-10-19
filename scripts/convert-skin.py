@@ -15,6 +15,8 @@ the hand-maintained manifest in static/skins/<id>/:
                             grid: background cut out, repacked into square cells)
   result-*.png           -> result-*.webp (optional; game-over pictures: cropped to the art,
                             centred in a square, RESULT_PX)
+  splash.png             -> splash.webp (optional; the start screen's picture: opaque,
+                            at most SPLASH_PX wide)
   font/*.ttf             -> font/*.woff2, font/OFL.txt copied
   audio/music/*.mp3      -> audio/music/*.mp3 (stereo, levelled)
   audio/sfx/*.mp3        -> audio/sfx/<event>.mp3 (mono, trimmed, levelled)
@@ -55,6 +57,8 @@ BASE_FRACTION = 0.15  # bottom part of a sprite treated as its base when centrin
 GRID_SEARCH = 0.18  # how far from the even grid to look for a drawn line, fraction of a square
 INDICATOR_PX = 320
 RESULT_PX = 512  # output size of a game-over picture
+SPLASH_PX = 1920  # widest splash picture; it is shown at most about 64rem wide, 2x on HiDPI
+SPLASH_QUALITY = 75  # busy, opaque art that is on screen at first load: a third smaller than at WEBP_QUALITY
 RESULT_PAD = 0.04  # padding around a game-over picture's art, fraction of its size
 EMOTE_PX = 256  # output size of one speech-bubble cell
 EMOTE_WHITE = 232  # every channel at least this counts as the white background around emotes
@@ -335,9 +339,9 @@ def fit_grid(board, inset):
     return board
 
 
-def save_webp(im, path, lossless=False):
+def save_webp(im, path, lossless=False, quality=WEBP_QUALITY):
     path.parent.mkdir(parents=True, exist_ok=True)
-    im.save(path, "WEBP", quality=WEBP_QUALITY, alpha_quality=100, method=6, lossless=lossless)
+    im.save(path, "WEBP", quality=quality, alpha_quality=100, method=6, lossless=lossless)
     return path
 
 
@@ -487,6 +491,12 @@ def convert_images(src, out, pieces, inset, emotes):
         if (src / f"{name}.png").exists():
             im = Image.open(src / f"{name}.png").convert("RGBA")
             save_webp(resize_rgba(im, (INDICATOR_PX, INDICATOR_PX)), out / f"{name}.webp")
+
+    if (src / "splash.png").exists():
+        splash = Image.open(src / "splash.png").convert("RGB")
+        if splash.width > SPLASH_PX:
+            splash = splash.resize((SPLASH_PX, round(splash.height * SPLASH_PX / splash.width)), Image.LANCZOS)
+        save_webp(splash, out / "splash.webp", quality=SPLASH_QUALITY)
 
     for picture in sorted(src.glob("result-*.png")):
         save_webp(result_picture(picture), out / f"{picture.stem}.webp")

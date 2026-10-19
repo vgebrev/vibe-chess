@@ -14,6 +14,8 @@ export interface LoadedSkin {
 		emotes: string | null;
 		/** The game-over pictures (§4.7.1), as absolute URLs. */
 		results: ResultImages | null;
+		/** The start screen's picture (§4.13). */
+		splash: string | null;
 	};
 }
 
@@ -58,7 +60,8 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Lo
 			moveIndicator: url(manifest.moveIndicator.image),
 			captureIndicator: manifest.captureIndicator && url(manifest.captureIndicator.image),
 			emotes: manifest.emotes && url(manifest.emotes.image),
-			results: manifest.results && resultUrls(manifest.results, url)
+			results: manifest.results && resultUrls(manifest.results, url),
+			splash: manifest.splash && url(manifest.splash.image)
 		}
 	};
 
@@ -66,8 +69,9 @@ export async function loadSkin(baseUrl: string, expectedId?: string): Promise<Lo
 	// up the skin.
 	const later = [skin.urls.emotes, ...resultImageList(skin.urls.results)];
 	for (const src of new Set(later)) if (src) void preloadImage(src).catch(() => {});
-	const { board, pieces, moveIndicator, captureIndicator } = skin.urls;
-	const images = [board, pieces, moveIndicator, captureIndicator].filter(
+	// The splash is on screen first, so it holds up the skin like the board does.
+	const { board, pieces, moveIndicator, captureIndicator, splash } = skin.urls;
+	const images = [board, pieces, moveIndicator, captureIndicator, splash].filter(
 		(u): u is string => u !== null
 	);
 	const fonts = manifest.font.css

@@ -108,12 +108,24 @@ export interface Emotes {
 	events: Partial<Record<BubbleEvent, number[]>>;
 }
 
+/**
+ * The start screen (§4.13): a picture, with the game's title over the area at `title`, given as
+ * fractions of the picture inset from each edge, in `color` (default: the theme's text colour),
+ * and the buttons centred `buttons.bottom` (a fraction of its height) up from its bottom edge.
+ */
+export interface Splash {
+	image: string;
+	title: { inset: Inset; color: string | null };
+	buttons: { bottom: number };
+}
+
 /** The events whose speaker is on the board, so can have a bubble. */
 export type BubbleEvent = Exclude<VoiceEvent, 'captured'>;
 
 /**
- * Pictures for the game-over overlay (§4.7.1). Win, loss and resignation pictures are per winning
- * side; a single path in the manifest serves both. Stalemate falls back to the draw picture.
+ * Pictures for the game-over overlay (§4.7.1). Win, loss and resignation pictures are per side: the
+ * winner's for a win, the loser's for a loss or resignation; a single path in the manifest serves
+ * both. Stalemate falls back to the draw picture.
  */
 export interface ResultImages {
 	win: Record<Color, string> | null;
@@ -173,6 +185,8 @@ export interface SkinManifest {
 	emotes: Emotes | null;
 	/** Null for a text-only game-over overlay. */
 	results: ResultImages | null;
+	/** Null for no start screen. */
+	splash: Splash | null;
 }
 
 export const DEFAULTS = {
@@ -182,6 +196,8 @@ export const DEFAULTS = {
 	captureScale: 1.1,
 	captureIndicatorScale: 1,
 	fontFallback: 'serif',
+	/** The splash buttons' distance up from the picture's bottom edge, a fraction of its height. */
+	splashButtonsBottom: 0.04,
 	coordFontScale: 0.55,
 	coordGutter: 0.35,
 	coordShadow: 'none',
@@ -486,7 +502,7 @@ export function validateSkin(raw: unknown): ValidationResult {
 		}
 	}
 
-	// results (optional): game-over pictures, each either one path or one per winning side
+	// results (optional): game-over pictures, each either one path or one per side
 	const resultsRaw = optObj(root.results, 'results');
 	let results: ResultImages | null = null;
 	if (resultsRaw) {
@@ -512,6 +528,31 @@ export function validateSkin(raw: unknown): ValidationResult {
 		};
 	}
 
+	// splash (optional): the start screen's picture and where its title goes
+	const splashRaw = optObj(root.splash, 'splash');
+	let splash: Splash | null = null;
+	if (splashRaw) {
+		const title = obj(splashRaw.title, 'splash.title') ?? {};
+		const insetRaw = obj(title.inset, 'splash.title.inset') ?? {};
+		const side = (key: keyof Inset) => num(insetRaw[key], `splash.title.inset.${key}`, 0, 0.95);
+		const titleInset: Inset = {
+			top: side('top'),
+			right: side('right'),
+			bottom: side('bottom'),
+			left: side('left')
+		};
+		if (titleInset.left + titleInset.right >= 1 || titleInset.top + titleInset.bottom >= 1)
+			err('splash.title.inset', 'leaves no room for the title');
+		const buttons = optObj(splashRaw.buttons, 'splash.buttons') ?? {};
+		splash = {
+			image: file(splashRaw.image, 'splash.image'),
+			title: { inset: titleInset, color: optStr(title.color, 'splash.title.color') ?? null },
+			buttons: {
+				bottom: num(buttons.bottom, 'splash.buttons.bottom', 0, 0.8, DEFAULTS.splashButtonsBottom)
+			}
+		};
+	}
+
 	if (errors.length > 0) return { ok: false, errors };
 	return {
 		ok: true,
@@ -530,7 +571,8 @@ export function validateSkin(raw: unknown): ValidationResult {
 			labels,
 			audio,
 			emotes,
-			results
+			results,
+			splash
 		}
 	};
 }

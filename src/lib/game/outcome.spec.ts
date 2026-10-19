@@ -31,10 +31,14 @@ describe('outcome', () => {
 });
 
 describe('resultImage', () => {
-	it("picks the picture in the winner's colours", () => {
+	it("picks a win in the winner's colours, a loss or resignation in the loser's", () => {
 		expect(resultImage(ALL, outcome({ winner: 'w', reason: 'checkmate' }, 'w'))).toBe('win-w');
-		expect(resultImage(ALL, outcome({ winner: 'b', reason: 'checkmate' }, 'w'))).toBe('loss-b');
-		expect(resultImage(ALL, outcome({ winner: 'b', reason: 'resignation' }, 'w'))).toBe('resign-b');
+		expect(resultImage(ALL, outcome({ winner: 'b', reason: 'checkmate' }, 'w'))).toBe('loss-w');
+		expect(resultImage(ALL, outcome({ winner: 'w', reason: 'checkmate' }, 'b'))).toBe('loss-b');
+		expect(resultImage(ALL, outcome({ winner: 'b', reason: 'resignation' }, 'w'))).toBe('resign-w');
+		expect(resultImage(ALL, outcome({ winner: 'w', reason: 'resignation' }, null))).toBe(
+			'resign-b'
+		);
 		expect(resultImage(ALL, outcome({ winner: 'draw', reason: 'stalemate' }, 'w'))).toBe(
 			'stalemate'
 		);
@@ -44,7 +48,7 @@ describe('resultImage', () => {
 	it('falls back: stalemate to draw, resignation to loss (vs computer) or win (hot-seat)', () => {
 		const some: ResultImages = { ...ALL, resign: null, stalemate: null };
 		expect(resultImage(some, outcome({ winner: 'draw', reason: 'stalemate' }, 'w'))).toBe('draw');
-		expect(resultImage(some, outcome({ winner: 'b', reason: 'resignation' }, 'w'))).toBe('loss-b');
+		expect(resultImage(some, outcome({ winner: 'b', reason: 'resignation' }, 'w'))).toBe('loss-w');
 		expect(resultImage(some, outcome({ winner: 'b', reason: 'resignation' }, null))).toBe('win-b');
 	});
 

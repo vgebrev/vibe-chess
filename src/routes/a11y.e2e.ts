@@ -64,6 +64,13 @@ for (const skin of ['Marble', 'Pirate']) {
 	});
 }
 
+test('no axe violations on the splash', async ({ page }) => {
+	// Pirate as shipped has one (§4.13).
+	await page.goto('/');
+	await expect(page.getByRole('dialog', { name: 'Vibe Chess' })).toBeVisible();
+	await scan(page, 'splash');
+});
+
 test('a game can be played with the keyboard alone', async ({ page }) => {
 	await enableAllSkins(page);
 	await page.goto('/?mode=hotseat');

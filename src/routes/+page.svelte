@@ -15,6 +15,7 @@
 	import PlayerStrip from '#lib/components/PlayerStrip.svelte';
 	import NewGameForm from '#lib/components/NewGameForm.svelte';
 	import SettingsPanel from '#lib/components/SettingsPanel.svelte';
+	import Splash from '#lib/components/Splash.svelte';
 	import StatusBar from '#lib/components/StatusBar.svelte';
 	import { targetElo } from '#lib/engine/difficulty.ts';
 	import { Opponent } from '#lib/engine/opponent.svelte.ts';
@@ -32,11 +33,12 @@
 	// the move list open in drawers. The game and settings are saved as they change and resumed
 	// on reload (§4.9). `?fen=` starts from a given position (handy for testing promotion,
 	// mates, …), and `?mode=hotseat` / `?color=b` pick the first game's setup; any of them
-	// starts a new game instead of resuming the saved one.
+	// starts a new game instead of resuming the saved one, and skips the splash.
 	const params = page.url.searchParams;
 	const startFen = params.get('fen') ?? undefined;
 	const settings = loadSettings();
-	const resumed = ['fen', 'mode', 'color'].some((p) => params.has(p)) ? null : resume();
+	const linked = ['fen', 'mode', 'color'].some((p) => params.has(p));
+	const resumed = linked ? null : resume();
 	let setup = $state<GameSetup>(
 		resumed?.setup ?? {
 			...DEFAULT_SETUP,
@@ -61,6 +63,15 @@
 	let volumes = $state(settings.sound);
 	let unmuted = $state(settings.unmuted);
 	let haptics = $state(settings.haptics);
+	// The splash (§4.13) at startup, over the resumed or a new game; Continue needs a game in
+	// progress to go back to. A skin without one has no splash.
+	let showSplash = $state(!linked);
+	const canContinue = resumed !== null && resumed.game.moves.length > 0 && !resumed.game.isGameOver;
+	$effect(() => {
+		if (skin.current && !skin.current.urls.splash) showSplash = false;
+	});
+	/** The New game form was opened from the splash, so it offers a game vs the computer. */
+	let newFromSplash = $state(false);
 	/** An auto-flip is due; input waits for it. */
 	let turning = $state(false);
 
@@ -90,7 +101,7 @@
 		human = pickColor(next.color);
 		game = newGame();
 		orientation = vsComputer && human === 'b' ? 'black' : 'white';
-		drawer = null;
+		closeDrawer();
 		notice = null;
 	}
 
@@ -264,7 +275,10 @@
 	const changeSkin = (id: SkinId) => skin.use(skinBaseUrl(id), id);
 	let skins = $state<SkinInfo[]>([]);
 	availableSkins().then((s) => (skins = s));
-	const closeDrawer = () => (drawer = null);
+	const closeDrawer = () => {
+		drawer = null;
+		newFromSplash = false;
+	};
 </script>
 
 <svelte:head>
@@ -377,8 +391,27 @@
 	/>
 {/if}
 
+{#if skin.current?.urls.splash && skin.current.manifest.splash}
+	<Splash
+		open={showSplash}
+		image={skin.current.urls.splash}
+		splash={skin.current.manifest.splash}
+		{canContinue}
+		onnew={() => {
+			showSplash = false;
+			newFromSplash = true;
+			drawer = 'new';
+		}}
+		onclose={() => (showSplash = false)}
+	/>
+{/if}
+
 <Drawer open={drawer === 'new'} title="New game" onclose={closeDrawer}>
-	<NewGameForm initial={setup} {labels} onstart={startGame} />
+	<NewGameForm
+		initial={newFromSplash ? { ...setup, mode: 'computer' } : setup}
+		{labels}
+		onstart={startGame}
+	/>
 </Drawer>
 
 <Drawer open={drawer === 'settings'} title="Settings" onclose={closeDrawer}>

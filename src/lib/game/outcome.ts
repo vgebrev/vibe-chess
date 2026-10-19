@@ -30,16 +30,21 @@ export function outcome(result: Result, human: Color | null): Outcome {
 }
 
 /**
- * The outcome's picture in the winning side's colours, or null for none. Stalemate falls back
- * to the draw picture, and a resignation to the loss picture vs the computer (the player
- * resigned) or the win picture in hot-seat.
+ * The outcome's picture, or null for none: a win in the winner's colours, a loss or resignation
+ * in the loser's (theirs is the skull, or the white flag). Stalemate falls back to the draw
+ * picture, and a resignation to the loss picture vs the computer (the player resigned) or the
+ * win picture in hot-seat.
  */
 export function resultImage(images: ResultImages | null, o: Outcome): string | null {
 	if (!images) return null;
 	if (o.kind === 'draw') return images.draw;
 	if (o.kind === 'stalemate') return images.stalemate ?? images.draw;
 	const winner = o.winner!;
-	if (o.kind === 'resign')
-		return (images.resign ?? (o.human ? images.loss : images.win))?.[winner] ?? null;
-	return images[o.kind]?.[winner] ?? null;
+	const loser = winner === 'w' ? 'b' : 'w';
+	if (o.kind === 'resign') {
+		if (images.resign) return images.resign[loser];
+		return (o.human ? images.loss?.[loser] : images.win?.[winner]) ?? null;
+	}
+	if (o.kind === 'loss') return images.loss?.[loser] ?? null;
+	return images.win?.[winner] ?? null;
 }
