@@ -150,7 +150,7 @@ export class Game {
 			if (targets.some((t) => t.square === m.to)) continue;
 			targets.push({
 				square: m.to,
-				capture: m.isCapture() || m.isEnPassant(),
+				capture: m.captured !== undefined,
 				promotion: m.isPromotion()
 			});
 		}
@@ -207,8 +207,8 @@ export class Game {
 		return undone;
 	}
 
-	/** The side to move resigns (hot-seat), or the given side. */
-	resign(color: Color = this.turn) {
+	/** `color` resigns. */
+	resign(color: Color) {
 		if (this.isGameOver) return;
 		this.#resigned = color;
 	}

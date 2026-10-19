@@ -119,6 +119,10 @@ export class Mixer {
 		return bytes;
 	}
 
+	volume(category: Category): number {
+		return this.#volumes[category];
+	}
+
 	setVolume(category: Category, volume: number) {
 		this.#volumes[category] = volume;
 		const gain = this.#gains[category];

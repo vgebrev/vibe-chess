@@ -19,6 +19,14 @@ export const hotseatAt = (fen: string) => `/?mode=hotseat&fen=${encodeURICompone
 /** A board square's button, for clicks, drags and focus. */
 export const cell = (page: Page, square: string) => page.locator(`[data-cell="${square}"]`);
 
+/** Play moves by clicking each piece and then its destination. */
+export async function play(page: Page, ...moves: [string, string][]) {
+	for (const [from, to] of moves) {
+		await cell(page, from).click();
+		await cell(page, to).click();
+	}
+}
+
 /** Open the settings drawer. Radios and checkboxes are picked by their label text. */
 export async function settings(page: Page) {
 	await page.getByRole('button', { name: 'Settings' }).click();

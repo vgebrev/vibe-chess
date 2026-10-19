@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { cell, enableAllSkins, hotseatAt, settings, settle } from './e2e-helpers.ts';
+import { cell, enableAllSkins, hotseatAt, play, settings, settle } from './e2e-helpers.ts';
 
 const centre = async (locator: Locator) => {
 	const box = await locator.boundingBox();
@@ -142,13 +142,6 @@ test("scholar's mate ends the game", async ({ page }) => {
 	await expect(page.locator('[data-status]')).toHaveText('White to move');
 	await expect(pieceOn(page, 'd1')).toHaveAttribute('data-piece', 'wq');
 });
-
-const play = async (page: Page, ...moves: [string, string][]) => {
-	for (const [from, to] of moves) {
-		await cell(page, from).click();
-		await cell(page, to).click();
-	}
-};
 
 test('undo takes back moves, by button and by Ctrl+Z', async ({ page }) => {
 	const undo = page.getByRole('button', { name: 'Undo' });

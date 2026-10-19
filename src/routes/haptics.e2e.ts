@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cell, settings } from './e2e-helpers.ts';
+import { play, settings } from './e2e-helpers.ts';
 
 // Haptics (§4.12). The browser is made to look like a phone that can vibrate: a coarse pointer
 // and a recording navigator.vibrate.
@@ -29,16 +29,14 @@ test.beforeEach(async ({ page }) => {
 const vibrations = (page: Page) => page.evaluate(() => window.vibrations);
 
 test('picking up and moving a piece vibrate, and the setting turns it off', async ({ page }) => {
-	await cell(page, 'e2').click();
-	await cell(page, 'e4').click();
+	await play(page, ['e2', 'e4']);
 	await expect.poll(() => vibrations(page)).toEqual([[30], [60]]);
 
 	const drawer = await settings(page);
 	await drawer.getByLabel('Vibration').uncheck();
 	await page.reload();
 	await page.evaluate(() => (window.vibrations = []));
-	await cell(page, 'e7').click();
-	await cell(page, 'e5').click();
+	await play(page, ['e7', 'e5']);
 	await page.waitForTimeout(300);
 	expect(await vibrations(page)).toEqual([]);
 });

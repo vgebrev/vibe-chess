@@ -7,7 +7,7 @@ import type { Orientation } from '#lib/board/geometry.ts';
 import {
 	clampElo,
 	DEFAULT_DIFFICULTY,
-	PRESETS,
+	PRESET_IDS,
 	type Difficulty,
 	type PresetId
 } from '#lib/engine/difficulty.ts';
@@ -90,7 +90,7 @@ const SQUARE = /^[a-h][1-8]$/;
 
 export function parseDifficulty(v: unknown): Difficulty | null {
 	if (!isObj(v)) return null;
-	if (v.kind === 'preset' && PRESETS.some((p) => p.id === v.id))
+	if (v.kind === 'preset' && PRESET_IDS.includes(v.id as PresetId))
 		return { kind: 'preset', id: v.id as PresetId };
 	if (v.kind === 'custom' && typeof v.elo === 'number' && Number.isFinite(v.elo))
 		return { kind: 'custom', elo: clampElo(v.elo) };

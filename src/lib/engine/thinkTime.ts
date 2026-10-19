@@ -27,7 +27,7 @@ export interface ThinkInput {
 /** Complexity 0..1 from breadth, captures, checks and how much material is left. */
 export function complexity(chess: Chess, lastMove?: ThinkInput['lastMove']): number {
 	const moves = chess.moves({ verbose: true });
-	const captures = moves.filter((m) => m.isCapture() || m.isEnPassant());
+	const captures = moves.filter((m) => m.captured);
 	const checks = moves.filter((m) => m.san.endsWith('+') || m.san.endsWith('#'));
 	const nonPawnPieces = chess
 		.board()

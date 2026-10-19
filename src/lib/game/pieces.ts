@@ -24,22 +24,20 @@ export function piecesFromFen(fen?: string): BoardPiece[] {
 		}));
 }
 
-export type MoveRecord = Pick<Move, 'from' | 'to' | 'flags' | 'promotion'>;
-
 /**
  * Pieces after a move, reconciled against chess.js's move record so the mover keeps its id:
  * the captured piece is removed (from its own square for en passant), castling also moves
  * the rook, and a promoted pawn keeps its id with its new type.
  */
-export function applyMove(pieces: BoardPiece[], move: MoveRecord): BoardPiece[] {
+export function applyMove(pieces: BoardPiece[], move: Move): BoardPiece[] {
 	const rank = move.from[1];
 	let captured: Square | null = null;
-	if (move.flags.includes('e')) captured = `${move.to[0]}${rank}` as Square;
-	else if (move.flags.includes('c')) captured = move.to;
+	if (move.isEnPassant()) captured = `${move.to[0]}${rank}` as Square;
+	else if (move.captured) captured = move.to;
 
 	let rook: { from: Square; to: Square } | null = null;
-	if (move.flags.includes('k')) rook = { from: `h${rank}` as Square, to: `f${rank}` as Square };
-	if (move.flags.includes('q')) rook = { from: `a${rank}` as Square, to: `d${rank}` as Square };
+	if (move.isKingsideCastle()) rook = { from: `h${rank}` as Square, to: `f${rank}` as Square };
+	if (move.isQueensideCastle()) rook = { from: `a${rank}` as Square, to: `d${rank}` as Square };
 
 	return pieces
 		.filter((p) => p.square !== captured)
