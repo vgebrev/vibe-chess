@@ -37,7 +37,13 @@ MIN_GAP = 0.1  # word timings closer than this get widened by GAP_PAD to search 
 GAP_PAD = 0.15
 CHECK_RATIO = 0.75  # a re-transcribed cut matching its line less than this is flagged
 SIDES = {"white": "w", "black": "b"}
-EVENTS = {"checkmate_defeat": "defeat"}  # CSV action -> manifest event (SPEC §5.1)
+# CSV action -> manifest event (SPEC §5.1)
+EVENTS = {
+    "taunt_good_move": "taunt-good",
+    "taunt_neutral": "taunt-neutral",
+    "taunt_bad_move": "taunt-bad",
+    "taunt_taking_too_long": "taunt-slow",
+}
 
 
 def decode(path, rate=RATE):

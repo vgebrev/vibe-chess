@@ -7,6 +7,8 @@ import { cell, hotseatAt, play, settings } from './e2e-helpers.ts';
 declare global {
 	interface Window {
 		played: string[];
+		/** When each sound starts (performance.now(), ms) and how long it lasts. */
+		timeline: { name: string; start: number; duration: number }[];
 		stopped: string[];
 		music: string[];
 	}
@@ -16,6 +18,7 @@ test.beforeEach(async ({ page }) => {
 	await page.addInitScript(() => {
 		Math.random = () => 0; // the first variation, the shortest taunt gap and the first taunter
 		window.played = [];
+		window.timeline = [];
 		window.stopped = [];
 		window.music = [];
 		const source = new WeakMap<object, string>();
@@ -41,7 +44,13 @@ test.beforeEach(async ({ page }) => {
 		};
 		const start = AudioBufferSourceNode.prototype.start;
 		AudioBufferSourceNode.prototype.start = function (...args) {
-			if (this.buffer) window.played.push(source.get(this.buffer) ?? '?');
+			if (this.buffer) {
+				const name = source.get(this.buffer) ?? '?';
+				window.played.push(name);
+				const delay = Math.max(0, (args[0] ?? 0) - this.context.currentTime);
+				const at = performance.now() + delay * 1000;
+				window.timeline.push({ name, start: at, duration: this.buffer.duration * 1000 });
+			}
 			return start.apply(this, args);
 		};
 		const stop = AudioBufferSourceNode.prototype.stop;
@@ -85,12 +94,36 @@ test('a capture is voiced by the capturing piece alone', async ({ page }) => {
 		.toEqual(['sfx/select.mp3', 'sfx/capture.mp3', 'voices/w-pawn-capture-1.mp3']);
 });
 
-test('check is answered by the king in check', async ({ page }) => {
-	await page.goto(hotseatAt('4k3/8/8/8/8/8/8/4K2R w K - 0 1'));
-	await play(page, ['h1', 'h8']);
+/** White's queen can give check on a4. */
+const QUEEN_CHECK = '4k3/8/8/8/8/8/8/3QK3 w - - 0 1';
+
+test('check is given by the checking piece', async ({ page }) => {
+	await page.goto(hotseatAt(QUEEN_CHECK));
+	await play(page, ['d1', 'a4']);
 	await expect
 		.poll(() => played(page))
-		.toEqual(['sfx/select.mp3', 'sfx/check.mp3', 'voices/b-king-check-1.mp3']);
+		.toEqual(['sfx/select.mp3', 'sfx/check.mp3', 'voices/w-queen-check-1.mp3']);
+});
+
+test("vs Computer, the computer's king answers a check, and its reply waits for it", async ({
+	page
+}) => {
+	await page.goto(`/?mode=computer&color=w&fen=${encodeURIComponent(QUEEN_CHECK)}`);
+	await play(page, ['d1', 'a4']);
+	await expect
+		.poll(() => played(page))
+		.toEqual([
+			'sfx/select.mp3',
+			'sfx/check.mp3',
+			'voices/w-queen-check-1.mp3',
+			'voices/b-king-checked-1.mp3'
+		]);
+	// The reply's move sound comes only once the king has had its say.
+	await expect(page.locator('[data-status]')).toHaveText(/to move/, { timeout: 10_000 });
+	const timeline = await page.evaluate(() => window.timeline);
+	const king = timeline.find((s) => s.name === 'voices/b-king-checked-1.mp3')!;
+	const reply = timeline.findLast((s) => s.name.startsWith('sfx/'))!;
+	expect(reply.start).toBeGreaterThanOrEqual(king.start + king.duration);
 });
 
 test('the music waits for the first press, then plays', async ({ page }) => {
@@ -164,7 +197,7 @@ test("the computer answers a player's move with a taunt, in a bubble over its pi
 		await expect(status).toHaveText(/to move/, { timeout: 5000 });
 	}
 	const voices = async () => (await played(page)).filter((name) => name.startsWith('voices/'));
-	const pawn = expect.stringMatching(/^voices\/w-pawn-move-\d\.mp3$/);
+	const pawn = expect.stringMatching(/^voices\/w-pawn-move-\d+\.mp3$/);
 	expect(await voices()).toEqual([pawn, pawn]);
 	await play(page, ['b2', 'b3']);
 	const bubble = page.locator('[data-bubble]');
@@ -173,7 +206,7 @@ test("the computer answers a player's move with a taunt, in a bubble over its pi
 	await expect(status).toHaveText(/thinking/);
 	expect((await voices()).slice(2)).toEqual([
 		pawn,
-		expect.stringMatching(/^voices\/b-\w+-taunt-\d\.mp3$/)
+		expect.stringMatching(/^voices\/b-\w+-taunt-(good|neutral|bad)-\d+\.mp3$/)
 	]);
 	// Over one of Black's pieces: read in one go, as the reply, once the taunt ends, may move
 	// the speaker while the bubble lingers, which takes it away.

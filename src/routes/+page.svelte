@@ -3,6 +3,7 @@
 	import { flushSync, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { Sound, type Bubble } from '#lib/audio/sound.ts';
+	import { SLOW_TAUNT_MS } from '#lib/audio/voices.ts';
 	import { bottomSide, flipped, orientationOf, type Orientation } from '#lib/board/geometry.ts';
 	import { AUTO_FLIP_DELAY_MS, GAME_OVER_DELAY_MS } from '#lib/board/motion.ts';
 	import Board from '#lib/components/Board.svelte';
@@ -92,8 +93,9 @@
 		}
 	}
 
-	// A reply waits for the computer's taunt to end, so it doesn't seem to answer itself.
-	const opponent = new Opponent(undefined, () => sound.afterTaunt());
+	// A reply waits for the computer's taunt or its king's answer to a check to end, so it doesn't
+	// seem to answer itself.
+	const opponent: Opponent = new Opponent(undefined, () => sound.afterAnswer());
 	const vsComputer = $derived(setup.mode === 'computer');
 	/** The player's colour vs the computer; null in hot-seat, where both sides are players. */
 	const player = $derived(vsComputer ? human : null);
@@ -145,7 +147,10 @@
 	// or key. Moves (the player's or the computer's), undo, resignation and a new game are
 	// heard from the game's changes; a resumed game starts silently.
 	let bubble = $state<Bubble | null>(null);
-	const sound = new Sound((b) => (bubble = b));
+	const sound: Sound = new Sound(
+		(b) => (bubble = b),
+		(move) => opponent.judge(move)
+	);
 	const soundCategories = $derived(Sound.categories(skin.current?.audio ?? null));
 	$effect(() => sound.attach());
 	$effect(() => {
@@ -173,6 +178,22 @@
 				});
 			else if (current.moves < was.moves) sound.undo();
 		});
+	});
+
+	// vs Computer, a player still thinking SLOW_TAUNT_MS into their turn is taunted for it, once
+	// a turn, the first move of a game too (§4.11).
+	$effect(() => {
+		if (!vsComputer || game.isGameOver || game.turn !== human) return;
+		const current = game;
+		void current.fen;
+		const timer = setTimeout(() => {
+			const computer = other(human);
+			sound.slow(
+				computer,
+				current.pieces.filter((p) => p.color === computer)
+			);
+		}, SLOW_TAUNT_MS);
+		return () => clearTimeout(timer);
 	});
 
 	const labels = $derived(skin.current?.labels ?? {});

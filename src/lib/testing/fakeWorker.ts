@@ -11,6 +11,8 @@ export class FakeWorker implements EngineWorker {
 	bestMoves = ['e7e5', 'g8f6', 'b8c6'];
 	/** Answer each `go` straight away instead of waiting for `finish()`. */
 	instant = false;
+	/** The score and expected line each search reports, in turn, after the default ones. */
+	infos: { score: number; pv: string[] }[] = [];
 
 	postMessage(command: string) {
 		this.sent.push(command);
@@ -26,7 +28,11 @@ export class FakeWorker implements EngineWorker {
 	/** End the current searches, as the engine does on `stop` or when time is up. */
 	finish() {
 		for (const move of this.searching.splice(0)) {
-			this.reply('info depth 9 nodes 5000 nps 250000 time 20', `bestmove ${move}`);
+			const { score, pv } = this.infos.shift() ?? { score: 20, pv: [move] };
+			this.reply(
+				`info depth 9 score cp ${score} nodes 5000 nps 250000 time 20 pv ${pv.join(' ')}`,
+				`bestmove ${move}`
+			);
 		}
 	}
 

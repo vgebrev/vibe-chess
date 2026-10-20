@@ -1,7 +1,11 @@
 {
 	"name": "chess",
 	"private": true,
-	"version": "1.0.1",
+	"version": "1.1.0",
+	"author": {
+		"name": "Veli Gebrev",
+		"email": "vgebrev@gmail.com"
+	},
 	"license": "MIT",
 	"type": "module",
 	"scripts": {

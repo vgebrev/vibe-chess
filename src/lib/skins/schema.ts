@@ -62,8 +62,22 @@ const SFX_NAMES = [
 export type SfxName = (typeof SFX_NAMES)[number];
 
 /** What a piece's voice line is about (§4.11). */
-const VOICE_EVENTS = ['move', 'capture', 'captured', 'check', 'defeat', 'taunt'] as const;
+const VOICE_EVENTS = [
+	'move',
+	'capture',
+	'captured',
+	'check',
+	'checked',
+	'checkmated',
+	'promotion',
+	'taunt-good',
+	'taunt-neutral',
+	'taunt-bad',
+	'taunt-slow'
+] as const;
 export type VoiceEvent = (typeof VOICE_EVENTS)[number];
+/** The computer's taunts: at a good, ordinary or bad move of the player's, or a slow one. */
+export type TauntEvent = Extract<VoiceEvent, `taunt-${string}`>;
 
 /** Pools of variations per side, piece type and event; any level may be missing. */
 export type Voices = Record<

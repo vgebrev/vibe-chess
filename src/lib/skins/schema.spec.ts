@@ -204,12 +204,13 @@ describe('validateSkin: audio (§4.11)', () => {
 		const pools = (['w', 'b'] as const).flatMap((side) =>
 			Object.values(audio.voices[side]).flatMap((byEvent) => Object.values(byEvent))
 		);
-		expect(pools.flat()).toHaveLength(108);
-		expect(audio.voices.w.k?.check).toEqual([
-			url('audio/voices/w-king-check-1.mp3'),
-			url('audio/voices/w-king-check-2.mp3')
-		]);
-		expect(audio.voices.b.n?.taunt).toBeUndefined();
+		// 392 spoken lines and 48 knight and rook sounds, whose captures also give check.
+		expect(pools.flat()).toHaveLength(392 + 48 + 16);
+		expect(new Set(pools.flat()).size).toBe(392 + 48);
+		expect(audio.voices.w.k?.checked).toHaveLength(8);
+		expect(audio.voices.w.k?.checked?.[0]).toBe(url('audio/voices/w-king-checked-1.mp3'));
+		expect(audio.voices.b.n?.check).toEqual(audio.voices.b.n?.capture);
+		expect(audio.voices.b.n?.['taunt-neutral']).toBeUndefined();
 	});
 
 	it('is null for a silent skin, and every part is optional', () => {
@@ -256,7 +257,13 @@ describe('validateSkin emotes (§4.11)', () => {
 			columns: 4,
 			rows: 2,
 			scale: 1.3,
-			events: { taunt: [0, 1, 2, 6] }
+			events: {
+				check: [7],
+				'taunt-good': [3],
+				'taunt-neutral': [1, 5],
+				'taunt-bad': [0, 2, 6],
+				'taunt-slow': [4]
+			}
 		});
 	});
 
@@ -269,14 +276,14 @@ describe('validateSkin emotes (§4.11)', () => {
 					image: 'e.webp',
 					columns: 2,
 					rows: 1,
-					events: { captured: [0], shout: [0], move: [], taunt: [1, 2] }
+					events: { captured: [0], taunt: [0], move: [], 'taunt-bad': [1, 2] }
 				}
 			})
 		).toEqual([
 			'emotes.events.captured: a captured piece has left the board, so has no bubble',
-			'emotes.events.shout: unknown event',
+			'emotes.events.taunt: unknown event',
 			'emotes.events.move: expected a non-empty array of cell numbers',
-			'emotes.events.taunt[1]: expected an integer in [0, 1]'
+			'emotes.events.taunt-bad[1]: expected an integer in [0, 1]'
 		]);
 	});
 });

@@ -13,7 +13,7 @@ const RAMP = 0.015;
 /** Music level while a voice speaks. */
 const DUCK = 0.5;
 /** Pause between a player's line and the taunt answering it, in seconds. */
-const ANSWER_GAP = 0.15;
+export const ANSWER_GAP = 0.15;
 /** A voice cut off (undo, a new game, …) fades over this long, in seconds. */
 const VOICE_FADE = 0.08;
 /** A sound still loading after this long (ms) is dropped rather than played late. */
@@ -143,11 +143,12 @@ export class Mixer {
 	}
 
 	/**
-	 * Say these lines in order, over whatever is already being said (which plays on to its end).
-	 * The music dips while any line plays. Resolves to when each line that plays starts and how
-	 * long it lasts, in seconds from now (fewer than asked, or none, if some can't play).
+	 * Say these lines in order, `delay` seconds from now, over whatever is already being said
+	 * (which plays on to its end). The music dips while any line plays. Resolves to when each line
+	 * that plays starts and how long it lasts, in seconds from now (fewer than asked, or none, if
+	 * some can't play).
 	 */
-	async playVoices(urls: string[]): Promise<Timing[]> {
+	async playVoices(urls: string[], delay = 0): Promise<Timing[]> {
 		const seq = this.#voiceSeq;
 		if (!this.#ctx || this.#volumes.voices === 0 || urls.length === 0) return [];
 		const pending = Promise.all(urls.map((u) => this.#buffer(u)));
@@ -161,7 +162,7 @@ export class Mixer {
 		const sources: AudioBufferSourceNode[] = [];
 		const timings: Timing[] = [];
 		const now = ctx.currentTime;
-		let at = now;
+		let at = now + delay;
 		for (const buffer of buffers) {
 			if (!buffer) break; // an answer without its line makes no sense
 			const source = this.#source(buffer, gain);

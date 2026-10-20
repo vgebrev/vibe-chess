@@ -21,6 +21,7 @@ interface Search {
 	resolve: (result: SearchResult | null) => void;
 	cancelled: boolean;
 	info: SearchInfo | null;
+	oninfo?: (info: SearchInfo) => void;
 }
 
 export class Engine {
@@ -82,19 +83,20 @@ export class Engine {
 	}
 
 	/**
-	 * Search `fen` for `movetime` ms with `options` set first. Resolves null if stopped by
-	 * `stop()` meanwhile.
+	 * Search `fen` for `movetime` ms with `options` set first, telling `oninfo` of each depth
+	 * reached. Resolves null if stopped by `stop()` meanwhile.
 	 */
 	async search(
 		fen: string,
 		movetime: number,
-		options: Record<string, string | number> = {}
+		options: Record<string, string | number> = {},
+		oninfo?: (info: SearchInfo) => void
 	): Promise<SearchResult | null> {
 		const stops = this.#stops;
 		await this.setOptions(options);
 		if (stops !== this.#stops) return null;
 		return new Promise((resolve) => {
-			this.#searches.push({ resolve, cancelled: false, info: null });
+			this.#searches.push({ resolve, cancelled: false, info: null, oninfo });
 			this.#send(`position fen ${fen}`);
 			this.#send(`go movetime ${Math.round(movetime)}`);
 		});
@@ -123,7 +125,9 @@ export class Engine {
 			return;
 		}
 		const info = parseInfo(line);
-		if (info && info.depth >= (search.info?.depth ?? 0)) search.info = info;
+		if (!info || info.depth < (search.info?.depth ?? 0)) return;
+		search.info = info;
+		if (!search.cancelled) search.oninfo?.(info);
 	}
 
 	#send(command: string) {

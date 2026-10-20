@@ -100,6 +100,30 @@ describe('Opponent', () => {
 		]);
 	});
 
+	it("judges the player's move by what it expected and its search for a reply (§4.11)", async () => {
+		const { worker, opponent, game } = setup();
+		const reply = async () => {
+			const playing = opponent.play(game, beginner);
+			await vi.advanceTimersByTimeAsync(5000);
+			await playing;
+		};
+		// It answers 1.e4 with e5 as it found best, expecting Nf3 at +20 for itself.
+		worker.infos.push({ score: 20, pv: ['e7e5', 'g1f3'] });
+		await reply();
+		game.move({ from: 'g1', to: 'f3' });
+		const good = opponent.judge(game.lastMove!);
+		worker.infos.push({ score: 15, pv: ['g8f6', 'b1c3'] }, { score: 400, pv: ['f6e4'] });
+		await reply(); // Nf6, best, expecting Nc3
+		expect(await good).toBe('good');
+		game.move({ from: 'f1', to: 'c4' }); // which hangs e4
+		const bad = opponent.judge(game.lastMove!);
+		await reply();
+		expect(await bad).toBe('bad');
+		// Without a reply of its own just before, it can't tell.
+		game.undo();
+		expect(await opponent.judge(game.lastMove!)).toBe('neutral');
+	});
+
 	it('reports a failure to start', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		const opponent = new Opponent(() => Promise.reject(new Error('no engine')));

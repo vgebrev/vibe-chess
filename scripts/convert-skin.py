@@ -23,7 +23,7 @@ the hand-maintained manifest in static/skins/<id>/:
   audio/sfx/*.mp3        -> audio/sfx/<event>.mp3 (mono, trimmed, levelled)
   audio/voices/          -> audio/voices/<w|b>-<piece>-<event>-<n>.mp3: one-line recordings
                             are cut at the points in voice-cues.json (scripts/cue-voices.py);
-                            files named <colour>-<piece>-<event>[-alt].mp3 are taken as they are
+                            files named <colour>-<piece>-<event>-<n>.mp3 are taken as they are
 
 static/skins/<id>/skin.json is never written; it must reference the names above. For audio,
 the script prints the manifest's "audio" block to paste in.
@@ -81,8 +81,8 @@ SFX_EVENTS = {"game-start": "start", "castling": "castle", "illegal-move": "ille
 SFX_KNOWN = {"start", "select", "move", "capture", "castle", "promotion", "check", "checkmate", "draw", "illegal", "click"}
 SIDES = {"white": "w", "black": "b"}
 PIECES = {"king": "k", "queen": "q", "bishop": "b", "knight": "n", "rook": "r", "pawn": "p"}
-VOICE_EVENTS = ("move", "capture", "captured", "check", "defeat", "taunt")
-VOICE_FILE = re.compile(rf"({'|'.join(SIDES)})-({'|'.join(PIECES)})-({'|'.join(VOICE_EVENTS)})(-alt)?\.mp3")
+VOICE_EVENTS = ("move", "capture", "captured", "check", "checked", "checkmated", "promotion", "taunt-good", "taunt-neutral", "taunt-bad", "taunt-slow")
+VOICE_FILE = re.compile(rf"({'|'.join(SIDES)})-({'|'.join(PIECES)})-({'|'.join(VOICE_EVENTS)})-(\d+)\.mp3")
 PARTS = ("images", "fonts", "audio")
 
 
@@ -403,46 +403,61 @@ def clip(samples, rate):
 
 
 def convert_audio(src, out):
-    """Music, SFX and voices (SPEC §4.11, §5.6). Returns the manifest's "audio" block."""
+    """Music, SFX and voices (SPEC §4.11, §5.6). Returns the manifest's "audio" block.
+
+    Every source name is checked before the output is touched, so a stray file stops the
+    script with the served audio still in place."""
+    music = sorted((src / "music").glob("*.mp3"))
+
+    sfx = []  # (event, path)
+    for path in sorted((src / "sfx").glob("*.mp3")):
+        event = SFX_EVENTS.get(path.stem, path.stem)
+        if event not in SFX_KNOWN:
+            raise SystemExit(f"unknown SFX {path.name}: expected one of {sorted(SFX_KNOWN)} (or {sorted(SFX_EVENTS)})")
+        sfx.append((event, path))
+
+    folder = src / "voices"
+    cues_path = folder / "voice-cues.json"
+    cued = json.loads(cues_path.read_text())["files"] if cues_path.exists() else {}
+    for name, cue in cued.items():
+        if not (folder / name).exists():
+            raise SystemExit(f"{cues_path.name}: {name} is not in {folder}")
+        for line in cue["lines"]:
+            if line["event"] not in VOICE_EVENTS:
+                raise SystemExit(f"{cues_path.name}: unknown event {line['event']!r} in {name}")
+    single = []  # files holding one sound: (side, piece, event, n, path)
+    for path in sorted(folder.glob("*.mp3")):
+        if path.name in cued:
+            continue
+        match = VOICE_FILE.fullmatch(path.name)
+        if not match:
+            raise SystemExit(f"{path.name}: not in {cues_path.name} and not named <colour>-<piece>-<event>-<n>.mp3")
+        colour, piece, event, n = match.groups()
+        single.append((SIDES[colour], piece, event, int(n), path))
+
     audio = out / "audio"
     if audio.exists():
         shutil.rmtree(audio)  # fully generated, so renamed or dropped sounds don't linger
     block = {}
 
-    music = sorted((src / "music").glob("*.mp3"))
     for path in music:
         rate = int(re.search(r"(\d+) Hz", subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-i", str(path)], capture_output=True, text=True).stderr).group(1))
         encode(level(decode(path, channels=2), rate, MUSIC_LOUDNESS), rate, audio / "music" / path.name, MUSIC_BITRATE)
     if music:
         block["music"] = [f"audio/music/{p.name}" for p in music]
 
-    sfx = {}
-    for path in sorted((src / "sfx").glob("*.mp3")):
-        event = SFX_EVENTS.get(path.stem, path.stem)
-        if event not in SFX_KNOWN:
-            raise SystemExit(f"unknown SFX {path.name}: expected one of {sorted(SFX_KNOWN)} (or {sorted(SFX_EVENTS)})")
+    for event, path in sfx:
         encode(clip(decode(path, CLIP_RATE), CLIP_RATE), CLIP_RATE, audio / "sfx" / f"{event}.mp3", CLIP_BITRATE)
-        sfx[event] = f"audio/sfx/{event}.mp3"
-    if sfx:
-        block["sfx"] = sfx
+        block.setdefault("sfx", {})[event] = f"audio/sfx/{event}.mp3"
 
     voices = {}  # (side, piece, event) -> [samples, ...]
-    folder = src / "voices"
-    cues_path = folder / "voice-cues.json"
-    cued = json.loads(cues_path.read_text())["files"] if cues_path.exists() else {}
     for name, cue in cued.items():
         samples = decode(folder / name, CLIP_RATE)
         for line in cue["lines"]:
             part = samples[round(line["start"] * CLIP_RATE) : round(line["end"] * CLIP_RATE)]
             voices.setdefault((cue["side"], cue["piece"], line["event"]), []).append(part)
-    for path in sorted(folder.glob("*.mp3"), key=lambda p: (p.stem.removesuffix("-alt"), p.stem.endswith("-alt"))):
-        if path.name in cued:
-            continue
-        match = VOICE_FILE.fullmatch(path.name)
-        if not match:
-            raise SystemExit(f"{path.name}: not in {cues_path.name} and not named <colour>-<piece>-<event>[-alt].mp3")
-        colour, piece, event, _ = match.groups()
-        voices.setdefault((SIDES[colour], piece, event), []).append(decode(path, CLIP_RATE))
+    for side, piece, event, _, path in sorted(single, key=lambda s: s[:4]):
+        voices.setdefault((side, piece, event), []).append(decode(path, CLIP_RATE))
     for (side, piece, event), parts in sorted(voices.items()):
         pool = block.setdefault("voices", {}).setdefault(side, {}).setdefault(PIECES[piece], {}).setdefault(event, [])
         for i, part in enumerate(parts, 1):

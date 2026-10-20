@@ -72,7 +72,11 @@
     "rows": 2,
     "scale": 1.3,
     "events": {
-      "taunt": [0, 1, 2, 6]
+      "check": [7],
+      "taunt-good": [3],
+      "taunt-neutral": [1, 5],
+      "taunt-bad": [0, 2, 6],
+      "taunt-slow": [4]
     }
   },
   "results": {
@@ -114,76 +118,654 @@
     "voices": {
       "b": {
         "b": {
-          "capture": ["audio/voices/b-bishop-capture-1.mp3", "audio/voices/b-bishop-capture-2.mp3", "audio/voices/b-bishop-capture-3.mp3"],
-          "captured": ["audio/voices/b-bishop-captured-1.mp3", "audio/voices/b-bishop-captured-2.mp3"],
-          "move": ["audio/voices/b-bishop-move-1.mp3", "audio/voices/b-bishop-move-2.mp3", "audio/voices/b-bishop-move-3.mp3"],
-          "taunt": ["audio/voices/b-bishop-taunt-1.mp3", "audio/voices/b-bishop-taunt-2.mp3"]
+          "capture": [
+            "audio/voices/b-bishop-capture-1.mp3",
+            "audio/voices/b-bishop-capture-2.mp3",
+            "audio/voices/b-bishop-capture-3.mp3",
+            "audio/voices/b-bishop-capture-4.mp3",
+            "audio/voices/b-bishop-capture-5.mp3",
+            "audio/voices/b-bishop-capture-6.mp3"
+          ],
+          "captured": [
+            "audio/voices/b-bishop-captured-1.mp3",
+            "audio/voices/b-bishop-captured-2.mp3",
+            "audio/voices/b-bishop-captured-3.mp3",
+            "audio/voices/b-bishop-captured-4.mp3",
+            "audio/voices/b-bishop-captured-5.mp3",
+            "audio/voices/b-bishop-captured-6.mp3"
+          ],
+          "check": [
+            "audio/voices/b-bishop-check-1.mp3",
+            "audio/voices/b-bishop-check-2.mp3",
+            "audio/voices/b-bishop-check-3.mp3",
+            "audio/voices/b-bishop-check-4.mp3",
+            "audio/voices/b-bishop-check-5.mp3",
+            "audio/voices/b-bishop-check-6.mp3",
+            "audio/voices/b-bishop-check-7.mp3",
+            "audio/voices/b-bishop-check-8.mp3"
+          ],
+          "move": [
+            "audio/voices/b-bishop-move-1.mp3",
+            "audio/voices/b-bishop-move-2.mp3",
+            "audio/voices/b-bishop-move-3.mp3",
+            "audio/voices/b-bishop-move-4.mp3",
+            "audio/voices/b-bishop-move-5.mp3",
+            "audio/voices/b-bishop-move-6.mp3",
+            "audio/voices/b-bishop-move-7.mp3",
+            "audio/voices/b-bishop-move-8.mp3",
+            "audio/voices/b-bishop-move-9.mp3",
+            "audio/voices/b-bishop-move-10.mp3",
+            "audio/voices/b-bishop-move-11.mp3",
+            "audio/voices/b-bishop-move-12.mp3"
+          ],
+          "promotion": [
+            "audio/voices/b-bishop-promotion-1.mp3",
+            "audio/voices/b-bishop-promotion-2.mp3"
+          ],
+          "taunt-bad": [
+            "audio/voices/b-bishop-taunt-bad-1.mp3",
+            "audio/voices/b-bishop-taunt-bad-2.mp3",
+            "audio/voices/b-bishop-taunt-bad-3.mp3",
+            "audio/voices/b-bishop-taunt-bad-4.mp3"
+          ],
+          "taunt-good": [
+            "audio/voices/b-bishop-taunt-good-1.mp3",
+            "audio/voices/b-bishop-taunt-good-2.mp3",
+            "audio/voices/b-bishop-taunt-good-3.mp3",
+            "audio/voices/b-bishop-taunt-good-4.mp3"
+          ],
+          "taunt-neutral": [
+            "audio/voices/b-bishop-taunt-neutral-1.mp3",
+            "audio/voices/b-bishop-taunt-neutral-2.mp3",
+            "audio/voices/b-bishop-taunt-neutral-3.mp3",
+            "audio/voices/b-bishop-taunt-neutral-4.mp3"
+          ],
+          "taunt-slow": [
+            "audio/voices/b-bishop-taunt-slow-1.mp3",
+            "audio/voices/b-bishop-taunt-slow-2.mp3",
+            "audio/voices/b-bishop-taunt-slow-3.mp3",
+            "audio/voices/b-bishop-taunt-slow-4.mp3"
+          ]
         },
         "k": {
-          "capture": ["audio/voices/b-king-capture-1.mp3", "audio/voices/b-king-capture-2.mp3", "audio/voices/b-king-capture-3.mp3"],
-          "check": ["audio/voices/b-king-check-1.mp3", "audio/voices/b-king-check-2.mp3"],
-          "defeat": ["audio/voices/b-king-defeat-1.mp3", "audio/voices/b-king-defeat-2.mp3"],
-          "move": ["audio/voices/b-king-move-1.mp3", "audio/voices/b-king-move-2.mp3", "audio/voices/b-king-move-3.mp3"],
-          "taunt": ["audio/voices/b-king-taunt-1.mp3", "audio/voices/b-king-taunt-2.mp3"]
+          "capture": [
+            "audio/voices/b-king-capture-1.mp3",
+            "audio/voices/b-king-capture-2.mp3",
+            "audio/voices/b-king-capture-3.mp3",
+            "audio/voices/b-king-capture-4.mp3",
+            "audio/voices/b-king-capture-5.mp3",
+            "audio/voices/b-king-capture-6.mp3"
+          ],
+          "checked": [
+            "audio/voices/b-king-checked-1.mp3",
+            "audio/voices/b-king-checked-2.mp3",
+            "audio/voices/b-king-checked-3.mp3",
+            "audio/voices/b-king-checked-4.mp3",
+            "audio/voices/b-king-checked-5.mp3",
+            "audio/voices/b-king-checked-6.mp3",
+            "audio/voices/b-king-checked-7.mp3",
+            "audio/voices/b-king-checked-8.mp3"
+          ],
+          "checkmated": [
+            "audio/voices/b-king-checkmated-1.mp3",
+            "audio/voices/b-king-checkmated-2.mp3",
+            "audio/voices/b-king-checkmated-3.mp3",
+            "audio/voices/b-king-checkmated-4.mp3"
+          ],
+          "move": [
+            "audio/voices/b-king-move-1.mp3",
+            "audio/voices/b-king-move-2.mp3",
+            "audio/voices/b-king-move-3.mp3",
+            "audio/voices/b-king-move-4.mp3",
+            "audio/voices/b-king-move-5.mp3",
+            "audio/voices/b-king-move-6.mp3",
+            "audio/voices/b-king-move-7.mp3",
+            "audio/voices/b-king-move-8.mp3"
+          ],
+          "taunt-bad": [
+            "audio/voices/b-king-taunt-bad-1.mp3",
+            "audio/voices/b-king-taunt-bad-2.mp3",
+            "audio/voices/b-king-taunt-bad-3.mp3",
+            "audio/voices/b-king-taunt-bad-4.mp3"
+          ],
+          "taunt-good": [
+            "audio/voices/b-king-taunt-good-1.mp3",
+            "audio/voices/b-king-taunt-good-2.mp3",
+            "audio/voices/b-king-taunt-good-3.mp3",
+            "audio/voices/b-king-taunt-good-4.mp3"
+          ],
+          "taunt-neutral": [
+            "audio/voices/b-king-taunt-neutral-1.mp3",
+            "audio/voices/b-king-taunt-neutral-2.mp3",
+            "audio/voices/b-king-taunt-neutral-3.mp3",
+            "audio/voices/b-king-taunt-neutral-4.mp3"
+          ],
+          "taunt-slow": [
+            "audio/voices/b-king-taunt-slow-1.mp3",
+            "audio/voices/b-king-taunt-slow-2.mp3",
+            "audio/voices/b-king-taunt-slow-3.mp3",
+            "audio/voices/b-king-taunt-slow-4.mp3"
+          ]
         },
         "n": {
-          "capture": ["audio/voices/b-knight-capture-1.mp3", "audio/voices/b-knight-capture-2.mp3"],
-          "captured": ["audio/voices/b-knight-captured-1.mp3", "audio/voices/b-knight-captured-2.mp3"],
-          "move": ["audio/voices/b-knight-move-1.mp3", "audio/voices/b-knight-move-2.mp3"]
+          "capture": [
+            "audio/voices/b-knight-capture-1.mp3",
+            "audio/voices/b-knight-capture-2.mp3",
+            "audio/voices/b-knight-capture-3.mp3",
+            "audio/voices/b-knight-capture-4.mp3"
+          ],
+          "captured": [
+            "audio/voices/b-knight-captured-1.mp3",
+            "audio/voices/b-knight-captured-2.mp3",
+            "audio/voices/b-knight-captured-3.mp3",
+            "audio/voices/b-knight-captured-4.mp3"
+          ],
+          "move": [
+            "audio/voices/b-knight-move-1.mp3",
+            "audio/voices/b-knight-move-2.mp3",
+            "audio/voices/b-knight-move-3.mp3",
+            "audio/voices/b-knight-move-4.mp3"
+          ],
+          "check": [
+            "audio/voices/b-knight-capture-1.mp3",
+            "audio/voices/b-knight-capture-2.mp3",
+            "audio/voices/b-knight-capture-3.mp3",
+            "audio/voices/b-knight-capture-4.mp3"
+          ]
         },
         "p": {
-          "capture": ["audio/voices/b-pawn-capture-1.mp3", "audio/voices/b-pawn-capture-2.mp3", "audio/voices/b-pawn-capture-3.mp3"],
-          "captured": ["audio/voices/b-pawn-captured-1.mp3", "audio/voices/b-pawn-captured-2.mp3"],
-          "move": ["audio/voices/b-pawn-move-1.mp3", "audio/voices/b-pawn-move-2.mp3", "audio/voices/b-pawn-move-3.mp3"],
-          "taunt": ["audio/voices/b-pawn-taunt-1.mp3", "audio/voices/b-pawn-taunt-2.mp3"]
+          "capture": [
+            "audio/voices/b-pawn-capture-1.mp3",
+            "audio/voices/b-pawn-capture-2.mp3",
+            "audio/voices/b-pawn-capture-3.mp3",
+            "audio/voices/b-pawn-capture-4.mp3",
+            "audio/voices/b-pawn-capture-5.mp3",
+            "audio/voices/b-pawn-capture-6.mp3",
+            "audio/voices/b-pawn-capture-7.mp3",
+            "audio/voices/b-pawn-capture-8.mp3"
+          ],
+          "captured": [
+            "audio/voices/b-pawn-captured-1.mp3",
+            "audio/voices/b-pawn-captured-2.mp3",
+            "audio/voices/b-pawn-captured-3.mp3",
+            "audio/voices/b-pawn-captured-4.mp3",
+            "audio/voices/b-pawn-captured-5.mp3",
+            "audio/voices/b-pawn-captured-6.mp3",
+            "audio/voices/b-pawn-captured-7.mp3",
+            "audio/voices/b-pawn-captured-8.mp3"
+          ],
+          "check": [
+            "audio/voices/b-pawn-check-1.mp3",
+            "audio/voices/b-pawn-check-2.mp3",
+            "audio/voices/b-pawn-check-3.mp3",
+            "audio/voices/b-pawn-check-4.mp3",
+            "audio/voices/b-pawn-check-5.mp3",
+            "audio/voices/b-pawn-check-6.mp3"
+          ],
+          "move": [
+            "audio/voices/b-pawn-move-1.mp3",
+            "audio/voices/b-pawn-move-2.mp3",
+            "audio/voices/b-pawn-move-3.mp3",
+            "audio/voices/b-pawn-move-4.mp3",
+            "audio/voices/b-pawn-move-5.mp3",
+            "audio/voices/b-pawn-move-6.mp3",
+            "audio/voices/b-pawn-move-7.mp3",
+            "audio/voices/b-pawn-move-8.mp3",
+            "audio/voices/b-pawn-move-9.mp3",
+            "audio/voices/b-pawn-move-10.mp3",
+            "audio/voices/b-pawn-move-11.mp3",
+            "audio/voices/b-pawn-move-12.mp3",
+            "audio/voices/b-pawn-move-13.mp3",
+            "audio/voices/b-pawn-move-14.mp3",
+            "audio/voices/b-pawn-move-15.mp3",
+            "audio/voices/b-pawn-move-16.mp3",
+            "audio/voices/b-pawn-move-17.mp3",
+            "audio/voices/b-pawn-move-18.mp3"
+          ],
+          "taunt-bad": [
+            "audio/voices/b-pawn-taunt-bad-1.mp3",
+            "audio/voices/b-pawn-taunt-bad-2.mp3",
+            "audio/voices/b-pawn-taunt-bad-3.mp3",
+            "audio/voices/b-pawn-taunt-bad-4.mp3"
+          ],
+          "taunt-good": [
+            "audio/voices/b-pawn-taunt-good-1.mp3",
+            "audio/voices/b-pawn-taunt-good-2.mp3",
+            "audio/voices/b-pawn-taunt-good-3.mp3",
+            "audio/voices/b-pawn-taunt-good-4.mp3"
+          ],
+          "taunt-neutral": [
+            "audio/voices/b-pawn-taunt-neutral-1.mp3",
+            "audio/voices/b-pawn-taunt-neutral-2.mp3",
+            "audio/voices/b-pawn-taunt-neutral-3.mp3",
+            "audio/voices/b-pawn-taunt-neutral-4.mp3"
+          ],
+          "taunt-slow": [
+            "audio/voices/b-pawn-taunt-slow-1.mp3",
+            "audio/voices/b-pawn-taunt-slow-2.mp3",
+            "audio/voices/b-pawn-taunt-slow-3.mp3",
+            "audio/voices/b-pawn-taunt-slow-4.mp3"
+          ]
         },
         "q": {
-          "capture": ["audio/voices/b-queen-capture-1.mp3", "audio/voices/b-queen-capture-2.mp3", "audio/voices/b-queen-capture-3.mp3"],
-          "captured": ["audio/voices/b-queen-captured-1.mp3", "audio/voices/b-queen-captured-2.mp3"],
-          "move": ["audio/voices/b-queen-move-1.mp3", "audio/voices/b-queen-move-2.mp3", "audio/voices/b-queen-move-3.mp3"],
-          "taunt": ["audio/voices/b-queen-taunt-1.mp3", "audio/voices/b-queen-taunt-2.mp3"]
+          "capture": [
+            "audio/voices/b-queen-capture-1.mp3",
+            "audio/voices/b-queen-capture-2.mp3",
+            "audio/voices/b-queen-capture-3.mp3",
+            "audio/voices/b-queen-capture-4.mp3",
+            "audio/voices/b-queen-capture-5.mp3",
+            "audio/voices/b-queen-capture-6.mp3"
+          ],
+          "captured": [
+            "audio/voices/b-queen-captured-1.mp3",
+            "audio/voices/b-queen-captured-2.mp3",
+            "audio/voices/b-queen-captured-3.mp3",
+            "audio/voices/b-queen-captured-4.mp3",
+            "audio/voices/b-queen-captured-5.mp3",
+            "audio/voices/b-queen-captured-6.mp3"
+          ],
+          "check": [
+            "audio/voices/b-queen-check-1.mp3",
+            "audio/voices/b-queen-check-2.mp3",
+            "audio/voices/b-queen-check-3.mp3",
+            "audio/voices/b-queen-check-4.mp3",
+            "audio/voices/b-queen-check-5.mp3",
+            "audio/voices/b-queen-check-6.mp3",
+            "audio/voices/b-queen-check-7.mp3",
+            "audio/voices/b-queen-check-8.mp3"
+          ],
+          "move": [
+            "audio/voices/b-queen-move-1.mp3",
+            "audio/voices/b-queen-move-2.mp3",
+            "audio/voices/b-queen-move-3.mp3",
+            "audio/voices/b-queen-move-4.mp3",
+            "audio/voices/b-queen-move-5.mp3",
+            "audio/voices/b-queen-move-6.mp3",
+            "audio/voices/b-queen-move-7.mp3",
+            "audio/voices/b-queen-move-8.mp3",
+            "audio/voices/b-queen-move-9.mp3",
+            "audio/voices/b-queen-move-10.mp3"
+          ],
+          "promotion": [
+            "audio/voices/b-queen-promotion-1.mp3",
+            "audio/voices/b-queen-promotion-2.mp3"
+          ],
+          "taunt-bad": [
+            "audio/voices/b-queen-taunt-bad-1.mp3",
+            "audio/voices/b-queen-taunt-bad-2.mp3",
+            "audio/voices/b-queen-taunt-bad-3.mp3",
+            "audio/voices/b-queen-taunt-bad-4.mp3"
+          ],
+          "taunt-good": [
+            "audio/voices/b-queen-taunt-good-1.mp3",
+            "audio/voices/b-queen-taunt-good-2.mp3",
+            "audio/voices/b-queen-taunt-good-3.mp3",
+            "audio/voices/b-queen-taunt-good-4.mp3"
+          ],
+          "taunt-neutral": [
+            "audio/voices/b-queen-taunt-neutral-1.mp3",
+            "audio/voices/b-queen-taunt-neutral-2.mp3",
+            "audio/voices/b-queen-taunt-neutral-3.mp3",
+            "audio/voices/b-queen-taunt-neutral-4.mp3"
+          ],
+          "taunt-slow": [
+            "audio/voices/b-queen-taunt-slow-1.mp3",
+            "audio/voices/b-queen-taunt-slow-2.mp3",
+            "audio/voices/b-queen-taunt-slow-3.mp3",
+            "audio/voices/b-queen-taunt-slow-4.mp3"
+          ]
         },
         "r": {
-          "capture": ["audio/voices/b-rook-capture-1.mp3", "audio/voices/b-rook-capture-2.mp3"],
-          "captured": ["audio/voices/b-rook-captured-1.mp3", "audio/voices/b-rook-captured-2.mp3"],
-          "move": ["audio/voices/b-rook-move-1.mp3", "audio/voices/b-rook-move-2.mp3"]
+          "capture": [
+            "audio/voices/b-rook-capture-1.mp3",
+            "audio/voices/b-rook-capture-2.mp3",
+            "audio/voices/b-rook-capture-3.mp3",
+            "audio/voices/b-rook-capture-4.mp3"
+          ],
+          "captured": [
+            "audio/voices/b-rook-captured-1.mp3",
+            "audio/voices/b-rook-captured-2.mp3",
+            "audio/voices/b-rook-captured-3.mp3",
+            "audio/voices/b-rook-captured-4.mp3"
+          ],
+          "move": [
+            "audio/voices/b-rook-move-1.mp3",
+            "audio/voices/b-rook-move-2.mp3",
+            "audio/voices/b-rook-move-3.mp3",
+            "audio/voices/b-rook-move-4.mp3"
+          ],
+          "check": [
+            "audio/voices/b-rook-capture-1.mp3",
+            "audio/voices/b-rook-capture-2.mp3",
+            "audio/voices/b-rook-capture-3.mp3",
+            "audio/voices/b-rook-capture-4.mp3"
+          ]
         }
       },
       "w": {
         "b": {
-          "capture": ["audio/voices/w-bishop-capture-1.mp3", "audio/voices/w-bishop-capture-2.mp3", "audio/voices/w-bishop-capture-3.mp3"],
-          "captured": ["audio/voices/w-bishop-captured-1.mp3", "audio/voices/w-bishop-captured-2.mp3"],
-          "move": ["audio/voices/w-bishop-move-1.mp3", "audio/voices/w-bishop-move-2.mp3", "audio/voices/w-bishop-move-3.mp3"],
-          "taunt": ["audio/voices/w-bishop-taunt-1.mp3", "audio/voices/w-bishop-taunt-2.mp3"]
+          "capture": [
+            "audio/voices/w-bishop-capture-1.mp3",
+            "audio/voices/w-bishop-capture-2.mp3",
+            "audio/voices/w-bishop-capture-3.mp3",
+            "audio/voices/w-bishop-capture-4.mp3",
+            "audio/voices/w-bishop-capture-5.mp3",
+            "audio/voices/w-bishop-capture-6.mp3"
+          ],
+          "captured": [
+            "audio/voices/w-bishop-captured-1.mp3",
+            "audio/voices/w-bishop-captured-2.mp3",
+            "audio/voices/w-bishop-captured-3.mp3",
+            "audio/voices/w-bishop-captured-4.mp3",
+            "audio/voices/w-bishop-captured-5.mp3",
+            "audio/voices/w-bishop-captured-6.mp3"
+          ],
+          "check": [
+            "audio/voices/w-bishop-check-1.mp3",
+            "audio/voices/w-bishop-check-2.mp3",
+            "audio/voices/w-bishop-check-3.mp3",
+            "audio/voices/w-bishop-check-4.mp3",
+            "audio/voices/w-bishop-check-5.mp3",
+            "audio/voices/w-bishop-check-6.mp3",
+            "audio/voices/w-bishop-check-7.mp3",
+            "audio/voices/w-bishop-check-8.mp3"
+          ],
+          "move": [
+            "audio/voices/w-bishop-move-1.mp3",
+            "audio/voices/w-bishop-move-2.mp3",
+            "audio/voices/w-bishop-move-3.mp3",
+            "audio/voices/w-bishop-move-4.mp3",
+            "audio/voices/w-bishop-move-5.mp3",
+            "audio/voices/w-bishop-move-6.mp3",
+            "audio/voices/w-bishop-move-7.mp3",
+            "audio/voices/w-bishop-move-8.mp3",
+            "audio/voices/w-bishop-move-9.mp3",
+            "audio/voices/w-bishop-move-10.mp3",
+            "audio/voices/w-bishop-move-11.mp3",
+            "audio/voices/w-bishop-move-12.mp3"
+          ],
+          "promotion": [
+            "audio/voices/w-bishop-promotion-1.mp3",
+            "audio/voices/w-bishop-promotion-2.mp3"
+          ],
+          "taunt-bad": [
+            "audio/voices/w-bishop-taunt-bad-1.mp3",
+            "audio/voices/w-bishop-taunt-bad-2.mp3",
+            "audio/voices/w-bishop-taunt-bad-3.mp3",
+            "audio/voices/w-bishop-taunt-bad-4.mp3"
+          ],
+          "taunt-good": [
+            "audio/voices/w-bishop-taunt-good-1.mp3",
+            "audio/voices/w-bishop-taunt-good-2.mp3",
+            "audio/voices/w-bishop-taunt-good-3.mp3",
+            "audio/voices/w-bishop-taunt-good-4.mp3"
+          ],
+          "taunt-neutral": [
+            "audio/voices/w-bishop-taunt-neutral-1.mp3",
+            "audio/voices/w-bishop-taunt-neutral-2.mp3",
+            "audio/voices/w-bishop-taunt-neutral-3.mp3",
+            "audio/voices/w-bishop-taunt-neutral-4.mp3"
+          ],
+          "taunt-slow": [
+            "audio/voices/w-bishop-taunt-slow-1.mp3",
+            "audio/voices/w-bishop-taunt-slow-2.mp3",
+            "audio/voices/w-bishop-taunt-slow-3.mp3",
+            "audio/voices/w-bishop-taunt-slow-4.mp3"
+          ]
         },
         "k": {
-          "capture": ["audio/voices/w-king-capture-1.mp3", "audio/voices/w-king-capture-2.mp3", "audio/voices/w-king-capture-3.mp3"],
-          "check": ["audio/voices/w-king-check-1.mp3", "audio/voices/w-king-check-2.mp3"],
-          "defeat": ["audio/voices/w-king-defeat-1.mp3", "audio/voices/w-king-defeat-2.mp3"],
-          "move": ["audio/voices/w-king-move-1.mp3", "audio/voices/w-king-move-2.mp3", "audio/voices/w-king-move-3.mp3"],
-          "taunt": ["audio/voices/w-king-taunt-1.mp3", "audio/voices/w-king-taunt-2.mp3"]
+          "capture": [
+            "audio/voices/w-king-capture-1.mp3",
+            "audio/voices/w-king-capture-2.mp3",
+            "audio/voices/w-king-capture-3.mp3",
+            "audio/voices/w-king-capture-4.mp3",
+            "audio/voices/w-king-capture-5.mp3",
+            "audio/voices/w-king-capture-6.mp3"
+          ],
+          "checked": [
+            "audio/voices/w-king-checked-1.mp3",
+            "audio/voices/w-king-checked-2.mp3",
+            "audio/voices/w-king-checked-3.mp3",
+            "audio/voices/w-king-checked-4.mp3",
+            "audio/voices/w-king-checked-5.mp3",
+            "audio/voices/w-king-checked-6.mp3",
+            "audio/voices/w-king-checked-7.mp3",
+            "audio/voices/w-king-checked-8.mp3"
+          ],
+          "checkmated": [
+            "audio/voices/w-king-checkmated-1.mp3",
+            "audio/voices/w-king-checkmated-2.mp3",
+            "audio/voices/w-king-checkmated-3.mp3",
+            "audio/voices/w-king-checkmated-4.mp3"
+          ],
+          "move": [
+            "audio/voices/w-king-move-1.mp3",
+            "audio/voices/w-king-move-2.mp3",
+            "audio/voices/w-king-move-3.mp3",
+            "audio/voices/w-king-move-4.mp3",
+            "audio/voices/w-king-move-5.mp3",
+            "audio/voices/w-king-move-6.mp3",
+            "audio/voices/w-king-move-7.mp3",
+            "audio/voices/w-king-move-8.mp3"
+          ],
+          "taunt-bad": [
+            "audio/voices/w-king-taunt-bad-1.mp3",
+            "audio/voices/w-king-taunt-bad-2.mp3",
+            "audio/voices/w-king-taunt-bad-3.mp3",
+            "audio/voices/w-king-taunt-bad-4.mp3"
+          ],
+          "taunt-good": [
+            "audio/voices/w-king-taunt-good-1.mp3",
+            "audio/voices/w-king-taunt-good-2.mp3",
+            "audio/voices/w-king-taunt-good-3.mp3",
+            "audio/voices/w-king-taunt-good-4.mp3"
+          ],
+          "taunt-neutral": [
+            "audio/voices/w-king-taunt-neutral-1.mp3",
+            "audio/voices/w-king-taunt-neutral-2.mp3",
+            "audio/voices/w-king-taunt-neutral-3.mp3",
+            "audio/voices/w-king-taunt-neutral-4.mp3"
+          ],
+          "taunt-slow": [
+            "audio/voices/w-king-taunt-slow-1.mp3",
+            "audio/voices/w-king-taunt-slow-2.mp3",
+            "audio/voices/w-king-taunt-slow-3.mp3",
+            "audio/voices/w-king-taunt-slow-4.mp3"
+          ]
         },
         "n": {
-          "capture": ["audio/voices/w-knight-capture-1.mp3", "audio/voices/w-knight-capture-2.mp3"],
-          "captured": ["audio/voices/w-knight-captured-1.mp3", "audio/voices/w-knight-captured-2.mp3"],
-          "move": ["audio/voices/w-knight-move-1.mp3", "audio/voices/w-knight-move-2.mp3"]
+          "capture": [
+            "audio/voices/w-knight-capture-1.mp3",
+            "audio/voices/w-knight-capture-2.mp3",
+            "audio/voices/w-knight-capture-3.mp3",
+            "audio/voices/w-knight-capture-4.mp3"
+          ],
+          "captured": [
+            "audio/voices/w-knight-captured-1.mp3",
+            "audio/voices/w-knight-captured-2.mp3",
+            "audio/voices/w-knight-captured-3.mp3",
+            "audio/voices/w-knight-captured-4.mp3"
+          ],
+          "move": [
+            "audio/voices/w-knight-move-1.mp3",
+            "audio/voices/w-knight-move-2.mp3",
+            "audio/voices/w-knight-move-3.mp3",
+            "audio/voices/w-knight-move-4.mp3"
+          ],
+          "check": [
+            "audio/voices/w-knight-capture-1.mp3",
+            "audio/voices/w-knight-capture-2.mp3",
+            "audio/voices/w-knight-capture-3.mp3",
+            "audio/voices/w-knight-capture-4.mp3"
+          ]
         },
         "p": {
-          "capture": ["audio/voices/w-pawn-capture-1.mp3", "audio/voices/w-pawn-capture-2.mp3", "audio/voices/w-pawn-capture-3.mp3"],
-          "captured": ["audio/voices/w-pawn-captured-1.mp3", "audio/voices/w-pawn-captured-2.mp3"],
-          "move": ["audio/voices/w-pawn-move-1.mp3", "audio/voices/w-pawn-move-2.mp3", "audio/voices/w-pawn-move-3.mp3"],
-          "taunt": ["audio/voices/w-pawn-taunt-1.mp3", "audio/voices/w-pawn-taunt-2.mp3"]
+          "capture": [
+            "audio/voices/w-pawn-capture-1.mp3",
+            "audio/voices/w-pawn-capture-2.mp3",
+            "audio/voices/w-pawn-capture-3.mp3",
+            "audio/voices/w-pawn-capture-4.mp3",
+            "audio/voices/w-pawn-capture-5.mp3",
+            "audio/voices/w-pawn-capture-6.mp3",
+            "audio/voices/w-pawn-capture-7.mp3",
+            "audio/voices/w-pawn-capture-8.mp3"
+          ],
+          "captured": [
+            "audio/voices/w-pawn-captured-1.mp3",
+            "audio/voices/w-pawn-captured-2.mp3",
+            "audio/voices/w-pawn-captured-3.mp3",
+            "audio/voices/w-pawn-captured-4.mp3",
+            "audio/voices/w-pawn-captured-5.mp3",
+            "audio/voices/w-pawn-captured-6.mp3",
+            "audio/voices/w-pawn-captured-7.mp3",
+            "audio/voices/w-pawn-captured-8.mp3"
+          ],
+          "check": [
+            "audio/voices/w-pawn-check-1.mp3",
+            "audio/voices/w-pawn-check-2.mp3",
+            "audio/voices/w-pawn-check-3.mp3",
+            "audio/voices/w-pawn-check-4.mp3",
+            "audio/voices/w-pawn-check-5.mp3",
+            "audio/voices/w-pawn-check-6.mp3"
+          ],
+          "move": [
+            "audio/voices/w-pawn-move-1.mp3",
+            "audio/voices/w-pawn-move-2.mp3",
+            "audio/voices/w-pawn-move-3.mp3",
+            "audio/voices/w-pawn-move-4.mp3",
+            "audio/voices/w-pawn-move-5.mp3",
+            "audio/voices/w-pawn-move-6.mp3",
+            "audio/voices/w-pawn-move-7.mp3",
+            "audio/voices/w-pawn-move-8.mp3",
+            "audio/voices/w-pawn-move-9.mp3",
+            "audio/voices/w-pawn-move-10.mp3",
+            "audio/voices/w-pawn-move-11.mp3",
+            "audio/voices/w-pawn-move-12.mp3",
+            "audio/voices/w-pawn-move-13.mp3",
+            "audio/voices/w-pawn-move-14.mp3",
+            "audio/voices/w-pawn-move-15.mp3",
+            "audio/voices/w-pawn-move-16.mp3",
+            "audio/voices/w-pawn-move-17.mp3",
+            "audio/voices/w-pawn-move-18.mp3"
+          ],
+          "taunt-bad": [
+            "audio/voices/w-pawn-taunt-bad-1.mp3",
+            "audio/voices/w-pawn-taunt-bad-2.mp3",
+            "audio/voices/w-pawn-taunt-bad-3.mp3",
+            "audio/voices/w-pawn-taunt-bad-4.mp3"
+          ],
+          "taunt-good": [
+            "audio/voices/w-pawn-taunt-good-1.mp3",
+            "audio/voices/w-pawn-taunt-good-2.mp3",
+            "audio/voices/w-pawn-taunt-good-3.mp3",
+            "audio/voices/w-pawn-taunt-good-4.mp3"
+          ],
+          "taunt-neutral": [
+            "audio/voices/w-pawn-taunt-neutral-1.mp3",
+            "audio/voices/w-pawn-taunt-neutral-2.mp3",
+            "audio/voices/w-pawn-taunt-neutral-3.mp3",
+            "audio/voices/w-pawn-taunt-neutral-4.mp3"
+          ],
+          "taunt-slow": [
+            "audio/voices/w-pawn-taunt-slow-1.mp3",
+            "audio/voices/w-pawn-taunt-slow-2.mp3",
+            "audio/voices/w-pawn-taunt-slow-3.mp3",
+            "audio/voices/w-pawn-taunt-slow-4.mp3"
+          ]
         },
         "q": {
-          "capture": ["audio/voices/w-queen-capture-1.mp3", "audio/voices/w-queen-capture-2.mp3", "audio/voices/w-queen-capture-3.mp3"],
-          "captured": ["audio/voices/w-queen-captured-1.mp3", "audio/voices/w-queen-captured-2.mp3"],
-          "move": ["audio/voices/w-queen-move-1.mp3", "audio/voices/w-queen-move-2.mp3", "audio/voices/w-queen-move-3.mp3"],
-          "taunt": ["audio/voices/w-queen-taunt-1.mp3", "audio/voices/w-queen-taunt-2.mp3"]
+          "capture": [
+            "audio/voices/w-queen-capture-1.mp3",
+            "audio/voices/w-queen-capture-2.mp3",
+            "audio/voices/w-queen-capture-3.mp3",
+            "audio/voices/w-queen-capture-4.mp3",
+            "audio/voices/w-queen-capture-5.mp3",
+            "audio/voices/w-queen-capture-6.mp3"
+          ],
+          "captured": [
+            "audio/voices/w-queen-captured-1.mp3",
+            "audio/voices/w-queen-captured-2.mp3",
+            "audio/voices/w-queen-captured-3.mp3",
+            "audio/voices/w-queen-captured-4.mp3",
+            "audio/voices/w-queen-captured-5.mp3",
+            "audio/voices/w-queen-captured-6.mp3"
+          ],
+          "check": [
+            "audio/voices/w-queen-check-1.mp3",
+            "audio/voices/w-queen-check-2.mp3",
+            "audio/voices/w-queen-check-3.mp3",
+            "audio/voices/w-queen-check-4.mp3",
+            "audio/voices/w-queen-check-5.mp3",
+            "audio/voices/w-queen-check-6.mp3",
+            "audio/voices/w-queen-check-7.mp3",
+            "audio/voices/w-queen-check-8.mp3"
+          ],
+          "move": [
+            "audio/voices/w-queen-move-1.mp3",
+            "audio/voices/w-queen-move-2.mp3",
+            "audio/voices/w-queen-move-3.mp3",
+            "audio/voices/w-queen-move-4.mp3",
+            "audio/voices/w-queen-move-5.mp3",
+            "audio/voices/w-queen-move-6.mp3",
+            "audio/voices/w-queen-move-7.mp3",
+            "audio/voices/w-queen-move-8.mp3",
+            "audio/voices/w-queen-move-9.mp3",
+            "audio/voices/w-queen-move-10.mp3"
+          ],
+          "promotion": [
+            "audio/voices/w-queen-promotion-1.mp3",
+            "audio/voices/w-queen-promotion-2.mp3"
+          ],
+          "taunt-bad": [
+            "audio/voices/w-queen-taunt-bad-1.mp3",
+            "audio/voices/w-queen-taunt-bad-2.mp3",
+            "audio/voices/w-queen-taunt-bad-3.mp3",
+            "audio/voices/w-queen-taunt-bad-4.mp3"
+          ],
+          "taunt-good": [
+            "audio/voices/w-queen-taunt-good-1.mp3",
+            "audio/voices/w-queen-taunt-good-2.mp3",
+            "audio/voices/w-queen-taunt-good-3.mp3",
+            "audio/voices/w-queen-taunt-good-4.mp3"
+          ],
+          "taunt-neutral": [
+            "audio/voices/w-queen-taunt-neutral-1.mp3",
+            "audio/voices/w-queen-taunt-neutral-2.mp3",
+            "audio/voices/w-queen-taunt-neutral-3.mp3",
+            "audio/voices/w-queen-taunt-neutral-4.mp3"
+          ],
+          "taunt-slow": [
+            "audio/voices/w-queen-taunt-slow-1.mp3",
+            "audio/voices/w-queen-taunt-slow-2.mp3",
+            "audio/voices/w-queen-taunt-slow-3.mp3",
+            "audio/voices/w-queen-taunt-slow-4.mp3"
+          ]
         },
         "r": {
-          "capture": ["audio/voices/w-rook-capture-1.mp3", "audio/voices/w-rook-capture-2.mp3"],
-          "captured": ["audio/voices/w-rook-captured-1.mp3", "audio/voices/w-rook-captured-2.mp3"],
-          "move": ["audio/voices/w-rook-move-1.mp3", "audio/voices/w-rook-move-2.mp3"]
+          "capture": [
+            "audio/voices/w-rook-capture-1.mp3",
+            "audio/voices/w-rook-capture-2.mp3",
+            "audio/voices/w-rook-capture-3.mp3",
+            "audio/voices/w-rook-capture-4.mp3"
+          ],
+          "captured": [
+            "audio/voices/w-rook-captured-1.mp3",
+            "audio/voices/w-rook-captured-2.mp3",
+            "audio/voices/w-rook-captured-3.mp3",
+            "audio/voices/w-rook-captured-4.mp3"
+          ],
+          "move": [
+            "audio/voices/w-rook-move-1.mp3",
+            "audio/voices/w-rook-move-2.mp3",
+            "audio/voices/w-rook-move-3.mp3",
+            "audio/voices/w-rook-move-4.mp3"
+          ],
+          "check": [
+            "audio/voices/w-rook-capture-1.mp3",
+            "audio/voices/w-rook-capture-2.mp3",
+            "audio/voices/w-rook-capture-3.mp3",
+            "audio/voices/w-rook-capture-4.mp3"
+          ]
         }
       }
     }
