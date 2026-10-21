@@ -1,28 +1,36 @@
-# Code review, round 8: plan and progress
+# Code review, round 9: plan and progress
 
-Branch `refactor/code-review-8`. An eighth pass after rounds 1–7 (decision log #54–#59) looked
-mainly at the taunt changes (#60, #61), the only code since round 7. It found three small
-things left over from them. Behaviour is unchanged.
+Branch `refactor/code-review-9`. A ninth pass after rounds 1–8 (decision log #54–#61) looked
+mainly at the voice-line rework (#63, #64), the only code since round 8 apart from the security
+headers. It found three small things left over from it, plus two consistency tidy-ups. Behaviour is
+unchanged, except that the music's shuffled order differs for the same random rolls.
 
 ## Done
 
-- [x] mixer: `ANSWER_GAP`'s comment still described a capture line and its answer, which went
-      in #35; the gap is now between a player's line and the taunt answering it
-- [x] `VoiceDirector.move` was a bare pass-through to `#pick` once the taunt bookkeeping moved
-      into `#taunt`; `#pick`'s body is now `move`
-- [x] voices tests: the quiet moves before a taunt is due were written out seven times, with two
-      local helpers doing the same thing; now one `quiet()` and one `beforeTaunt()`
+- [x] Two Fisher–Yates shuffles: `playlist.ts`'s `shuffle` for the music and `Shuffler`'s own in
+      `voices.ts`. Now one `shuffle`, running forwards (in order with every roll 0, which the sound
+      e2e tests rely on), and `Shuffler` lives beside `Playlist` in `playlist.ts`
+- [x] The opponent formatted its move in UCI notation with a helper of its own, while `judge()`
+      compares the player's move by chess.js's `lan`, the same notation; it now uses the played
+      move's `lan` too, so the two can't disagree
+- [x] `Sound.#vary` was a bare pass-through to `Shuffler.next`
+- [x] `MoveContext['computerPieces']` was written out in five signatures; now the `Pieces` type
+- [x] The page chose the computer's pieces as `p.color !== human` for a move and
+      `p.color === other(human)` for the slow-move timer; now both `p.color === computer`
 
 ## Looked at and kept
 
 - Previous rounds' "kept" items still hold.
-- `Sound.#hideBubble` beside `#dropBubble`: rewriting one through the other saves nothing.
-- `VoiceDirector`'s start state in both the field initialisers and `reset()`: calling `reset()`
-  from the constructor needs a placeholder initialiser for TypeScript.
-- `kingSquare(fen, side)` in `voices.ts` beside `Game.kingSquare`: the director has only the
-  move's FEN, not a `Game`.
+- `VoiceDirector.#own` builds a `Chess` for the position after a check, and `kingSquare` another
+  from the same FEN: fine at two; worth a shared board if more appear.
+- The Settings voice preview picks its line with `Math.random`, not the shuffled rounds: it's a
+  one-off sample.
+- `scripts/convert-skin.py` keeps its own list of voice events beside `schema.ts`'s: two
+  languages, and the manifest validation catches a mismatch.
+- `Opponent.cancel()` sits below a private helper.
 
 ## Progress log
 
-- `npm run check`, `npm run lint`, 263 unit/component tests and `sound.e2e.ts` (20 passed, both
-  viewports) pass. Nothing is committed yet.
+- `npm run check`, `npm run lint`, 279 unit/component tests and the e2e suite pass (one flaky
+  desktop flip test failed once and passed 10 of 10 on rerun; it touches nothing changed here).
+  Nothing is committed yet.

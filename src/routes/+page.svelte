@@ -99,6 +99,8 @@
 	const vsComputer = $derived(setup.mode === 'computer');
 	/** The player's colour vs the computer; null in hot-seat, where both sides are players. */
 	const player = $derived(vsComputer ? human : null);
+	/** The computer's colour, vs Computer. */
+	const computer = $derived(other(human));
 	/** The computer is to move. */
 	const engineTurn = $derived(vsComputer && !game.isGameOver && game.turn !== human);
 
@@ -174,7 +176,7 @@
 				sound.move(g.lastMove, {
 					result: g.result,
 					human: player,
-					computerPieces: g.pieces.filter((p) => p.color !== human)
+					computerPieces: g.pieces.filter((p) => p.color === computer)
 				});
 			else if (current.moves < was.moves) sound.undo();
 		});
@@ -187,7 +189,6 @@
 		const current = game;
 		void current.fen;
 		const timer = setTimeout(() => {
-			const computer = other(human);
 			sound.slow(
 				computer,
 				current.pieces.filter((p) => p.color === computer)

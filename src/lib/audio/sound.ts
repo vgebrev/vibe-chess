@@ -14,13 +14,14 @@ import {
 	type Volumes
 } from './mixer.ts';
 import { moveSfx } from './sfx.ts';
+import { Shuffler } from './playlist.ts';
 import {
 	pieceOn,
-	Shuffler,
 	VoiceDirector,
 	type Judgement,
 	type Line,
-	type MoveContext
+	type MoveContext,
+	type Pieces
 } from './voices.ts';
 
 /** A speech bubble over the piece that is speaking: a cell of the skin's emote sheet. */
@@ -169,7 +170,7 @@ export class Sound {
 	 * The player is taking their time over a move vs Computer: one of the computer's `pieces`
 	 * may say so, unless the page is hidden.
 	 */
-	slow(computer: Color, pieces: MoveContext['computerPieces']) {
+	slow(computer: Color, pieces: Pieces) {
 		if (this.#mixer.volume('voices') === 0 || document.hidden) return;
 		const line = this.#director.slow(computer, pieces);
 		if (line) this.#holdReply(this.#say([line]).then(([timing]) => timing));
@@ -240,7 +241,7 @@ export class Sound {
 	async #say(lines: Line[], delay = 0): Promise<Timing[]> {
 		const urls = lines.map((line) => {
 			const pool = this.#pool(line);
-			return pool[this.#vary(`${line.side}${line.piece}-${line.event}`, pool.length)];
+			return pool[this.#variations.next(`${line.side}${line.piece}-${line.event}`, pool.length)];
 		});
 		const timings = await this.#mixer.playVoices(urls, delay);
 		timings.forEach((timing, i) => this.#bubble(lines[i], timing));
@@ -297,16 +298,14 @@ export class Sound {
 		});
 	}
 
-	/** The next variation of a pool of `size`. */
-	#vary(key: string, size: number): number {
-		return this.#variations.next(key, size);
-	}
-
 	/** Show a bubble over a line's speaker while it is said, if the skin has one for it. */
 	#bubble({ square, event }: Line, { start, duration }: Timing) {
 		const cells = this.#emotes?.events[event as BubbleEvent];
 		if (!square || !cells) return;
-		const bubble: Bubble = { square, emote: cells[this.#vary(`emote-${event}`, cells.length)] };
+		const bubble: Bubble = {
+			square,
+			emote: cells[this.#variations.next(`emote-${event}`, cells.length)]
+		};
 		const at = (seconds: number, then: () => void) => setTimeout(then, seconds * 1000);
 		this.#bubbles.set(bubble, [
 			at(start, () => this.#onbubble((this.#shown = bubble))),

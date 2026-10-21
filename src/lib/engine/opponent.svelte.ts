@@ -2,7 +2,7 @@
 // model, searches at the chosen difficulty and plays the reply into the game (§4.6).
 import type { Move } from 'chess.js';
 import type { Judgement } from '#lib/audio/voices.ts';
-import type { Game, MoveInput } from '#lib/game/game.svelte.ts';
+import type { Game } from '#lib/game/game.svelte.ts';
 import { uciOptions, type Difficulty } from './difficulty.ts';
 import { Engine } from './engine.ts';
 import { judge, type Expectation } from './judge.ts';
@@ -13,8 +13,6 @@ export type OpponentStatus = 'idle' | 'thinking' | 'failed';
 
 /** How deep the search for a reply looks before the player's move is judged by it (§4.11). */
 export const JUDGE_DEPTH = 8;
-
-const uci = ({ from, to, promotion }: MoveInput) => `${from}${to}${promotion ?? ''}`;
 
 /** A score still to come. */
 interface Pending {
@@ -84,10 +82,11 @@ export class Opponent {
 					JSON.stringify(uciOptions(difficulty))
 			);
 		}
-		if (!result.move) return;
-		game.move(result.move);
+		const played = result.move && game.move(result.move);
+		if (!played) return;
 		const { info } = result;
-		const best = info?.pv[0] === uci(result.move);
+		// UCI notation is chess.js's long algebraic (`lan`).
+		const best = info?.pv[0] === played.lan;
 		this.#expected = info && {
 			fen: game.fen,
 			expectation: { score: info.score, reply: best ? info.pv[1] : undefined }
