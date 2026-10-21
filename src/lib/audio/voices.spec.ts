@@ -4,7 +4,6 @@ import type { Result } from '#lib/game/game.svelte.ts';
 import {
 	kingSquare,
 	pieceOn,
-	Shuffler,
 	TAUNT_FLOOR_MS,
 	TAUNT_GAP,
 	VoiceDirector,
@@ -330,33 +329,5 @@ describe('kingSquare', () => {
 		expect(pieceOn(DEFAULT_POSITION, 'd8')).toBe('bq');
 		expect(pieceOn(DEFAULT_POSITION, 'g1')).toBe('wn');
 		expect(pieceOn(DEFAULT_POSITION, 'e4')).toBe('');
-	});
-});
-
-describe('Shuffler (§4.11)', () => {
-	it("plays all of a pool's variations before any repeats, then reshuffles", () => {
-		const shuffler = new Shuffler();
-		for (let round = 0; round < 5; round++) {
-			const seen = Array.from({ length: 6 }, () => shuffler.next('pool', 6));
-			expect(seen.toSorted()).toEqual([0, 1, 2, 3, 4, 5]);
-		}
-	});
-
-	it('never starts a new round with the one played last', () => {
-		// Unshuffled (rolls 0) at first: 0, 1, 2. Then 2, 1, 0, which would repeat the 2, so the
-		// 2 goes to the back.
-		const shuffler = new Shuffler(rolls(0, 0, 0.99, 0));
-		const seen = Array.from({ length: 6 }, () => shuffler.next('pool', 3));
-		expect(seen).toEqual([0, 1, 2, 1, 0, 2]);
-		expect(Array.from({ length: 3 }, () => shuffler.next('one', 1))).toEqual([0, 0, 0]);
-	});
-
-	it('keeps pools apart, and starts them afresh on reset', () => {
-		const shuffler = new Shuffler(() => 0);
-		expect([shuffler.next('a', 3), shuffler.next('b', 3), shuffler.next('a', 3)]).toEqual([
-			0, 0, 1
-		]);
-		shuffler.reset();
-		expect(shuffler.next('a', 3)).toBe(0);
 	});
 });

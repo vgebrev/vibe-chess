@@ -29,13 +29,16 @@ export interface Line {
 	square?: Square;
 }
 
+/** Pieces on the board, by square and type. */
+export type Pieces = Pick<BoardPiece, 'square' | 'type'>[];
+
 export interface MoveContext {
 	/** The result after the move, if it ended the game. */
 	result: Result | null;
 	/** vs Computer, the player's colour; null in hot-seat, where both sides are players. */
 	human: Color | null;
 	/** The computer's pieces still on the board, for a taunt. */
-	computerPieces: Pick<BoardPiece, 'square' | 'type'>[];
+	computerPieces: Pieces;
 }
 
 /** A move's lines, in the order said, and whether the computer is to taunt it after them. */
@@ -112,7 +115,7 @@ export class VoiceDirector {
 	 * the judgement (an ordinary one if none has), each kind of piece as likely, then one of that
 	 * kind. It starts the count to the next. Null if no piece can say one.
 	 */
-	taunt(judgement: Judgement, computer: Color, pieces: MoveContext['computerPieces']): Line | null {
+	taunt(judgement: Judgement, computer: Color, pieces: Pieces): Line | null {
 		const line =
 			this.#taunter(`taunt-${judgement}`, computer, pieces) ??
 			this.#taunter('taunt-neutral', computer, pieces);
@@ -127,7 +130,7 @@ export class VoiceDirector {
 	 * The computer's taunt at a player still thinking after SLOW_TAUNT_MS, if the last taunt was
 	 * long enough ago. It leaves the count to the next taunt as it is.
 	 */
-	slow(computer: Color, pieces: MoveContext['computerPieces']): Line | null {
+	slow(computer: Color, pieces: Pieces): Line | null {
 		if (this.#now() - this.#lastTaunt < TAUNT_FLOOR_MS) return null;
 		const line = this.#taunter('taunt-slow', computer, pieces);
 		if (line) this.#lastTaunt = this.#now();
@@ -178,7 +181,7 @@ export class VoiceDirector {
 	 * Every few quiet moves a taunt is due, if a computer piece can say one. One that is due but
 	 * can't be said yet (too soon, or no piece to say it) waits for a later move.
 	 */
-	#due(computer: Color, pieces: MoveContext['computerPieces']): boolean {
+	#due(computer: Color, pieces: Pieces): boolean {
 		this.#untilTaunt--;
 		if (this.#untilTaunt > 0 || this.#now() - this.#lastTaunt < TAUNT_FLOOR_MS) return false;
 		return pieces.some(({ type: piece }) =>
@@ -187,7 +190,7 @@ export class VoiceDirector {
 	}
 
 	/** A computer piece with a line for `event`: each kind of piece as likely, then one of them. */
-	#taunter(event: TauntEvent, computer: Color, pieces: MoveContext['computerPieces']): Line | null {
+	#taunter(event: TauntEvent, computer: Color, pieces: Pieces): Line | null {
 		const kinds = [...new Set(pieces.map((p) => p.type))].filter((piece) =>
 			this.#has({ side: computer, piece, event })
 		);
@@ -202,46 +205,5 @@ export class VoiceDirector {
 	#gap(): number {
 		const { min, max } = TAUNT_GAP;
 		return min + Math.floor(this.#random() * (max - min + 1));
-	}
-}
-
-/**
- * Which variation of a pool plays next (§4.11): each pool's are said in a shuffled order, all of
- * them before any comes again; then they are reshuffled, never starting with the one said last.
- * Pools are told apart by a key.
- */
-export class Shuffler {
-	#decks = new Map<string, { order: number[]; last?: number }>();
-	#random: () => number;
-
-	constructor(random: () => number = Math.random) {
-		this.#random = random;
-	}
-
-	/** The next variation of the pool `key`, of `size`. */
-	next(key: string, size: number): number {
-		let deck = this.#decks.get(key);
-		if (!deck) this.#decks.set(key, (deck = { order: [] }));
-		if (deck.order.length === 0) {
-			deck.order = this.#shuffled(size);
-			if (size > 1 && deck.order[0] === deck.last) deck.order.push(deck.order.shift()!);
-		}
-		deck.last = deck.order.shift()!;
-		return deck.last;
-	}
-
-	/** Start every pool afresh, as for a new game or skin. */
-	reset() {
-		this.#decks.clear();
-	}
-
-	/** 0 to size - 1 in a random order (Fisher–Yates; with every roll 0, in order). */
-	#shuffled(size: number): number[] {
-		const order = Array.from({ length: size }, (_, i) => i);
-		for (let i = 0; i < size - 1; i++) {
-			const j = i + Math.floor(this.#random() * (size - i));
-			[order[i], order[j]] = [order[j], order[i]];
-		}
-		return order;
 	}
 }

@@ -280,7 +280,7 @@ Sound comes from the skin (`audio` in the manifest, §5.1), in three categories,
 
 **SFX.** Each move plays one SFX, the first that applies: checkmate, draw (any draw), check, promotion, castle, capture, move. An undo plays `move`. Selecting or picking up a piece plays `select`, a drag dropped where the piece can't go (it slides back) `illegal`, and a new game (not a resumed one) `start`. Resignation plays `checkmate`. Any other control (a button, link, option chip or toggle, by pointer or keyboard) plays `click`, once for a label and its input; the board and sliders don't. Pirate's castle and click are the move sound: the voice lines carry the flair.
 
-**Voices.** Each piece type has pools of lines per side and **event**. Each pool plays in a **shuffled order**: all its lines are said before any comes again, then it is reshuffled, never starting with the line said last. A new game reshuffles every pool. Pirate's pools are sized to roughly how often each event comes up in a game, so a line seldom repeats within one (`Shuffler` in `audio/voices.ts`).
+**Voices.** Each piece type has pools of lines per side and **event**. Each pool plays in a **shuffled order**: all its lines are said before any comes again, then it is reshuffled, never starting with the line said last. A new game reshuffles every pool. Pirate's pools are sized to roughly how often each event comes up in a game, so a line seldom repeats within one (`Shuffler` in `audio/playlist.ts`).
 
 | Event           | Who speaks                                                   | Pirate lines per side                                            |
 | --------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
@@ -321,7 +321,7 @@ A move is **voiced from the side of the player who made it**. The rules, in orde
 
 **Playback.** SFX and voices are short, so they are fetched in the background, at most 4 at a time: the SFX when the skin is applied, the voice lines once the first press unlocks audio (nothing can play before, and a sound needed at once jumps the queue). They are decoded into Web Audio buffers and played through one gain node per category; a slider's position is squared into the gain, so it feels even to the ear. A sound still loading when it is due is dropped if it would be late: after 250 ms for SFX, 1 s for a voice line, counted from when the audio context is running, since a new one can take a few hundred ms to open the device (about 270 ms in WebKit, which dropped the first tap's `select`). A sound waits at most 1 s for the context to start, then is dropped. Music streams through an `<audio>` element routed into the music gain, so only the playing track is downloaded. A missing or undecodable file is logged and skipped. Changing skin stops everything and loads the new skin's sounds.
 
-- **Implementation (M10):** `audio/sfx.ts` and `audio/voices.ts` are the rules, pure apart from an injected clock and random source; `audio/playlist.ts` the shuffle; `audio/mixer.ts` the Web Audio graph and music element; `audio/sound.ts` turns game events into sounds. Speech bubbles come back from `Sound` through a callback, as timed by the mixer from when each line actually starts, and `Board` draws them (`SpeechBubble.svelte`). The page hears moves from the game's changes (a move more, fewer moves, a resignation, a new game object), so the player's and the computer's moves take the same path and a resumed game starts silently. It also runs the slow-move timer, and hands `Sound` the opponent's `judge()` for taunts; the opponent judges from the scores in Stockfish's `info` lines (`engine/uci.ts`). `Board` reports selections and illegal drops through `onselect` and `onillegal`.
+- **Implementation (M10):** `audio/sfx.ts` and `audio/voices.ts` are the rules, pure apart from an injected clock and random source; `audio/playlist.ts` the shuffled orders of music and voice lines; `audio/mixer.ts` the Web Audio graph and music element; `audio/sound.ts` turns game events into sounds. Speech bubbles come back from `Sound` through a callback, as timed by the mixer from when each line actually starts, and `Board` draws them (`SpeechBubble.svelte`). The page hears moves from the game's changes (a move more, fewer moves, a resignation, a new game object), so the player's and the computer's moves take the same path and a resumed game starts silently. It also runs the slow-move timer, and hands `Sound` the opponent's `judge()` for taunts; the opponent judges from the scores in Stockfish's `info` lines (`engine/uci.ts`). `Board` reports selections and illegal drops through `onselect` and `onillegal`.
 
 ### 4.12 Haptics (M11)
 
@@ -847,7 +847,7 @@ src/
     audio/
       voices.ts             # which lines (if any) a move gets: rules, taunt gap (§4.11)
       sfx.ts                # which SFX a move gets
-      playlist.ts           # session shuffle + looping order
+      playlist.ts           # play orders: music and voice-line shuffles
       mixer.ts              # Web Audio: unlock on first input, buffers, category gains, ducking, music element
       sound.ts              # turns game events into sounds from the active skin, at the set volumes, and haptics
     haptics.ts              # vibration patterns; Vibration API or the iOS switch tick (§4.12)
